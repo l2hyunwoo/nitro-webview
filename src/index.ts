@@ -1,4 +1,36 @@
-export type { HtmlSource } from './specs/WebViewSource'
+import { getHostComponent } from 'react-native-nitro-modules'
+import type {
+  NitroWebViewMethods,
+  NitroWebViewProps,
+} from './specs/NitroWebView.nitro'
+import NitroWebViewConfig from '../nitrogen/generated/shared/json/NitroWebViewConfig.json'
+
+/** React component for the Nitro-backed WebView. */
+export const NitroWebView = getHostComponent<
+  NitroWebViewProps,
+  NitroWebViewMethods
+>('NitroWebView', () => NitroWebViewConfig)
+
+export { callback } from 'react-native-nitro-modules'
+
+export type {
+  HtmlSource,
+  UriSource,
+  WebViewSource,
+} from './specs/WebViewSource'
+
+export type {
+  NitroWebView as NitroWebViewType,
+  NitroWebViewMethods,
+  NitroWebViewProps,
+  WebViewLoadEvent,
+  WebViewMessageEvent,
+  WebViewMessageNativeEvent,
+  WebViewNavigationState,
+  NitroWebViewErrorEvent,
+  NitroWebViewErrorNativeEvent,
+  WebViewErrorEvent,
+} from './specs/NitroWebView.nitro'
 
 export {
   isHtmlSource,
@@ -34,11 +66,6 @@ export type {
   NativeLoadEndPayload,
   OnLoadEnd,
 } from './events'
-
-export type {
-  NitroWebViewErrorEvent,
-  WebViewErrorEvent,
-} from './specs/NitroWebView.nitro'
 
 export {
   ANDROID_NATIVE_BRIDGE_NAME,
