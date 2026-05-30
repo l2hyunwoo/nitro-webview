@@ -12,7 +12,12 @@
     ],
     "androidCxxLibName": "NitroWebview"
   },
-  "autolinking": {},
+  "autolinking": {
+    "NitroWebView": {
+      "swift": "HybridNitroWebView",
+      "kotlin": "HybridNitroWebView"
+    }
+  },
   "ignorePaths": [
     "**/node_modules"
   ]
