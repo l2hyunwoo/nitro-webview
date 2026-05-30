@@ -6,20 +6,20 @@ import Foundation
 
 /// The (data, url) pair forwarded to the native event dispatcher. Mirrors
 /// the JS-side `onMessage({ nativeEvent: { data, url } })` payload.
-public struct NitroWebViewMessageEvent: Equatable {
-  public let data: String
-  public let url: String
+struct NitroWebViewMessageEvent: Equatable {
+  let data: String
+  let url: String
 
-  public init(data: String, url: String) {
+  init(data: String, url: String) {
     self.data = data
     self.url = url
   }
 }
 
 /// Abstraction over the subset of `WKScriptMessage` this handler reads.
-/// `WKScriptMessage` has no public initializer, so the production
+/// `WKScriptMessage` has no initializer, so the production
 /// conformance lives in the extension below.
-public protocol PostMessageScriptMessage {
+protocol PostMessageScriptMessage {
   /// The body the web page passed to
   /// `window.webkit.messageHandlers.ReactNativeWebView.postMessage(body)`.
   /// May be `String`, `NSNumber`, `Bool`, `NSDictionary`, `NSArray`, or `NSNull`.
@@ -31,7 +31,7 @@ public protocol PostMessageScriptMessage {
 }
 
 /// Abstraction over the subset of `WKWebView` this handler reads.
-public protocol PostMessageWebView: AnyObject {
+protocol PostMessageWebView: AnyObject {
   /// The URL of the currently loaded page. Mirrors `WKWebView.url`.
   /// When `nil`, the handler forwards an empty string `""`.
   var currentURL: URL? { get }
@@ -39,33 +39,33 @@ public protocol PostMessageWebView: AnyObject {
 
 #if canImport(WebKit)
   extension WKWebView: PostMessageWebView {
-    public var currentURL: URL? { self.url }
+    var currentURL: URL? { self.url }
   }
 
   extension WKScriptMessage: PostMessageScriptMessage {
-    public var postMessageWebView: PostMessageWebView? { self.webView }
+    var postMessageWebView: PostMessageWebView? { self.webView }
   }
 #endif
 
 /// Sink the handler forwards each event to. Reference-typed so the handler
 /// can hold a weak reference and avoid retain cycles.
-public protocol NitroWebViewMessageDispatcher: AnyObject {
+protocol NitroWebViewMessageDispatcher: AnyObject {
   func dispatchMessage(_ event: NitroWebViewMessageEvent)
 }
 
 /// iOS WKScriptMessageHandler module that receives `postMessage` from the
 /// injected `window.ReactNativeWebView` bridge and forwards the payload
 /// (data string + current URL string) to a native event dispatcher.
-public final class NitroWebViewMessageHandler: NSObject {
+final class NitroWebViewMessageHandler: NSObject {
   /// Identifier used to register this handler with
   /// `WKUserContentController.add(_:name:)`. Must match the property the
   /// injected JS bridge targets on `window.webkit.messageHandlers`.
-  public static let scriptMessageHandlerName: String = "ReactNativeWebView"
+  static let scriptMessageHandlerName: String = "ReactNativeWebView"
 
   /// Weak to avoid retain cycles with the HybridView that owns the handler.
-  public weak var dispatcher: NitroWebViewMessageDispatcher?
+  weak var dispatcher: NitroWebViewMessageDispatcher?
 
-  public init(dispatcher: NitroWebViewMessageDispatcher? = nil) {
+  init(dispatcher: NitroWebViewMessageDispatcher? = nil) {
     self.dispatcher = dispatcher
     super.init()
   }
@@ -76,7 +76,7 @@ public final class NitroWebViewMessageHandler: NSObject {
   /// If no dispatcher is wired, the call is a no-op — the JS page can post
   /// messages before/after the dispatcher is wired and we should not crash
   /// the app over a benign race.
-  public func handle(message: PostMessageScriptMessage) {
+  func handle(message: PostMessageScriptMessage) {
     let data = Self.stringifyBody(message.body)
     let url = message.postMessageWebView?.currentURL?.absoluteString ?? ""
     let event = NitroWebViewMessageEvent(data: data, url: url)
@@ -99,7 +99,7 @@ public final class NitroWebViewMessageHandler: NSObject {
 
 #if canImport(WebKit)
   extension NitroWebViewMessageHandler: WKScriptMessageHandler {
-    public func userContentController(
+    func userContentController(
       _ userContentController: WKUserContentController,
       didReceive message: WKScriptMessage
     ) {
