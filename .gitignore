@@ -86,3 +86,6 @@ lib/
 .omc/
 .claude/
 CLUADE.md
+
+# SwiftPM
+.build/
