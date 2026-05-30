@@ -11,12 +11,36 @@ import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
   NitroWebViewMethods,
+  WebViewMessageEvent,
   WebViewNavigationState,
   WebViewSource,
 } from 'nitro-webview'
 
 const INITIAL_SOURCE: WebViewSource = { uri: 'https://example.com' }
 const ERROR_SOURCE: WebViewSource = { uri: 'https://nonexistent.invalid' }
+const BRIDGE_SOURCE: WebViewSource = {
+  html: `<!doctype html>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>body{font-family:-apple-system,sans-serif;padding:24px;}
+button{font-size:18px;padding:12px 20px;margin-top:12px;}</style>
+</head><body>
+<h2>postMessage bridge</h2>
+<p>Tap the button to call <code>window.ReactNativeWebView.postMessage</code>.</p>
+<button id="b" onclick="window.ReactNativeWebView.postMessage('hello at ' + new Date().toISOString())">Send message</button>
+<p id="status"></p>
+</body></html>`,
+}
+const INJECTED_JS = `
+  document.body.style.background = '#fff8e1';
+  var s = document.getElementById('status');
+  if (s) s.textContent = 'injectedJavaScript ran';
+  setTimeout(function () {
+    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+      window.ReactNativeWebView.postMessage('auto-message from injectedJavaScript');
+    }
+  }, 250);
+  true;
+`
 
 export default function App() {
   const ref = useRef<NitroWebViewMethods | null>(null)
@@ -29,6 +53,7 @@ export default function App() {
     canGoForward: false,
   })
   const [lastError, setLastError] = useState<NitroWebViewErrorEvent['nativeEvent'] | null>(null)
+  const [lastMessage, setLastMessage] = useState<WebViewMessageEvent['nativeEvent'] | null>(null)
 
   return (
     <SafeAreaView style={styles.root}>
@@ -68,6 +93,7 @@ export default function App() {
           label="🌐 example.com"
           onPress={() => {
             setLastError(null)
+            setLastMessage(null)
             setSource(INITIAL_SOURCE)
           }}
         />
@@ -75,7 +101,16 @@ export default function App() {
           label="💥 Trigger error"
           onPress={() => {
             setLastError(null)
+            setLastMessage(null)
             setSource(ERROR_SOURCE)
+          }}
+        />
+        <ToolbarButton
+          label="📨 Bridge"
+          onPress={() => {
+            setLastError(null)
+            setLastMessage(null)
+            setSource(BRIDGE_SOURCE)
           }}
         />
       </View>
@@ -94,9 +129,24 @@ export default function App() {
         </View>
       ) : null}
 
+      {lastMessage ? (
+        <View style={styles.messageBanner}>
+          <Text style={styles.messageTitle} numberOfLines={1}>
+            onMessage fired
+          </Text>
+          <Text style={styles.messageBody} numberOfLines={2}>
+            {lastMessage.data}
+          </Text>
+          <Text style={styles.messageUrl} numberOfLines={1}>
+            from {lastMessage.url || '(no url)'}
+          </Text>
+        </View>
+      ) : null}
+
       <NitroWebView
         style={styles.webview}
         source={source}
+        injectedJavaScript={INJECTED_JS}
         hybridRef={callback((r: NitroWebViewMethods) => {
           ref.current = r
         })}
@@ -105,6 +155,9 @@ export default function App() {
         })}
         onError={callback((event: NitroWebViewErrorEvent) => {
           setLastError(event.nativeEvent)
+        })}
+        onMessage={callback((event: WebViewMessageEvent) => {
+          setLastMessage(event.nativeEvent)
         })}
       />
     </SafeAreaView>
@@ -167,5 +220,17 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 12, fontWeight: '600', color: '#b1241a' },
   errorBody: { fontSize: 12, color: '#7c1d12', marginTop: 2 },
   errorUrl: { fontSize: 11, color: '#7c1d12', marginTop: 2, fontStyle: 'italic' },
+  messageBanner: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 10,
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+    borderWidth: 1,
+    borderRadius: 6,
+  },
+  messageTitle: { fontSize: 12, fontWeight: '600', color: '#047857' },
+  messageBody: { fontSize: 12, color: '#065f46', marginTop: 2 },
+  messageUrl: { fontSize: 11, color: '#065f46', marginTop: 2, fontStyle: 'italic' },
   webview: { flex: 1 },
 })
