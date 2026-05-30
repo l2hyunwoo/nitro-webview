@@ -29,11 +29,39 @@ final class HybridNitroWebView:
     navigationDelegate.owner = self
     view.navigationDelegate = navigationDelegate
     messageHandler.dispatcher = self
-    configuration.userContentController.add(
+    let controller = configuration.userContentController
+    controller.add(
       messageHandler,
       name: NitroWebViewMessageHandler.scriptMessageHandlerName
     )
+    // Defines window.ReactNativeWebView.postMessage so web pages can call
+    // it without knowing about WKWebView's webkit.messageHandlers bridge.
+    controller.addUserScript(WKUserScript(
+      source: Self.bridgeBootstrapScript,
+      injectionTime: .atDocumentStart,
+      forMainFrameOnly: false
+    ))
   }
+
+  private static let bridgeBootstrapScript: String = """
+  ;(function () {
+    var __bridge = window.ReactNativeWebView;
+    if (__bridge && typeof __bridge.postMessage === 'function') {
+      return;
+    }
+    if (!__bridge) {
+      __bridge = {};
+      window.ReactNativeWebView = __bridge;
+    }
+    __bridge.postMessage = function (data) {
+      var __payload = (typeof data === 'string') ? data : String(data);
+      var __wk = window.webkit;
+      if (__wk && __wk.messageHandlers && __wk.messageHandlers.ReactNativeWebView) {
+        __wk.messageHandlers.ReactNativeWebView.postMessage(__payload);
+      }
+    };
+  })();
+  """
 
   func onDropView() {
     let controller = view.configuration.userContentController
@@ -87,6 +115,12 @@ final class HybridNitroWebView:
   private func applyInjectedJavaScript(_ script: String?) {
     let controller = view.configuration.userContentController
     controller.removeAllUserScripts()
+    // Re-install the bridge bootstrap that lives on every page.
+    controller.addUserScript(WKUserScript(
+      source: Self.bridgeBootstrapScript,
+      injectionTime: .atDocumentStart,
+      forMainFrameOnly: false
+    ))
     currentInjectedUserScript = nil
     guard let script, !script.isEmpty else { return }
     let userScript = WKUserScript(
