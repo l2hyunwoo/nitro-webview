@@ -17,15 +17,23 @@ export interface WebViewNavigationState {
   canGoForward: boolean
 }
 
+/** Payload of load lifecycle events (onLoadStart / onLoadEnd). */
+export interface WebViewLoadEvent {
+  nativeEvent: WebViewNavigationState
+}
+
+/** Inner payload of `WebViewMessageEvent.nativeEvent`. */
+export interface WebViewMessageNativeEvent {
+  data: string
+  url: string
+}
+
 /**
  * Payload of an `onMessage` event. `nativeEvent.data` is the literal string
  * passed to `window.ReactNativeWebView.postMessage(...)` inside the page.
  */
 export interface WebViewMessageEvent {
-  nativeEvent: {
-    data: string
-    url: string
-  }
+  nativeEvent: WebViewMessageNativeEvent
 }
 
 /**
@@ -41,13 +49,16 @@ export interface WebViewMessageEvent {
  *                     delegate had one in hand.
  *   - `domain`      — `NSError.domain` (iOS) / a stable string mirror (Android).
  */
+/** Inner payload of `NitroWebViewErrorEvent.nativeEvent`. */
+export interface NitroWebViewErrorNativeEvent {
+  code: number
+  description: string
+  url: string
+  domain: string
+}
+
 export interface NitroWebViewErrorEvent {
-  nativeEvent: {
-    code: number
-    description: string
-    url: string
-    domain: string
-  }
+  nativeEvent: NitroWebViewErrorNativeEvent
 }
 
 /** Alias for {@linkcode NitroWebViewErrorEvent}. */
@@ -64,10 +75,10 @@ export interface NitroWebViewProps extends HybridViewProps {
   injectedJavaScript?: string
 
   /** Fired when the WebView begins loading content. */
-  onLoadStart?: (event: { nativeEvent: WebViewNavigationState }) => void
+  onLoadStart?: (event: WebViewLoadEvent) => void
 
   /** Fired when the WebView finishes loading content. */
-  onLoadEnd?: (event: { nativeEvent: WebViewNavigationState }) => void
+  onLoadEnd?: (event: WebViewLoadEvent) => void
 
   /** Fired when navigation state changes (URL, title, back/forward, loading). */
   onNavigationStateChange?: (state: WebViewNavigationState) => void
