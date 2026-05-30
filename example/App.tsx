@@ -9,12 +9,18 @@ import {
 } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
+  NitroWebViewErrorEvent,
   NitroWebViewMethods,
   WebViewNavigationState,
+  WebViewSource,
 } from 'nitro-webview'
+
+const INITIAL_SOURCE: WebViewSource = { uri: 'https://example.com' }
+const ERROR_SOURCE: WebViewSource = { uri: 'https://nonexistent.invalid' }
 
 export default function App() {
   const ref = useRef<NitroWebViewMethods | null>(null)
+  const [source, setSource] = useState<WebViewSource>(INITIAL_SOURCE)
   const [navState, setNavState] = useState<WebViewNavigationState>({
     url: '',
     title: '',
@@ -22,6 +28,7 @@ export default function App() {
     canGoBack: false,
     canGoForward: false,
   })
+  const [lastError, setLastError] = useState<NitroWebViewErrorEvent['nativeEvent'] | null>(null)
 
   return (
     <SafeAreaView style={styles.root}>
@@ -56,14 +63,48 @@ export default function App() {
         />
       </View>
 
+      <View style={styles.toolbar}>
+        <ToolbarButton
+          label="🌐 example.com"
+          onPress={() => {
+            setLastError(null)
+            setSource(INITIAL_SOURCE)
+          }}
+        />
+        <ToolbarButton
+          label="💥 Trigger error"
+          onPress={() => {
+            setLastError(null)
+            setSource(ERROR_SOURCE)
+          }}
+        />
+      </View>
+
+      {lastError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorTitle} numberOfLines={1}>
+            onError fired ({lastError.domain} {lastError.code})
+          </Text>
+          <Text style={styles.errorBody} numberOfLines={2}>
+            {lastError.description}
+          </Text>
+          <Text style={styles.errorUrl} numberOfLines={1}>
+            {lastError.url || '(no url)'}
+          </Text>
+        </View>
+      ) : null}
+
       <NitroWebView
         style={styles.webview}
-        source={{ uri: 'https://example.com' }}
+        source={source}
         hybridRef={callback((r: NitroWebViewMethods) => {
           ref.current = r
         })}
         onNavigationStateChange={callback((state: WebViewNavigationState) => {
           setNavState(state)
+        })}
+        onError={callback((event: NitroWebViewErrorEvent) => {
+          setLastError(event.nativeEvent)
         })}
       />
     </SafeAreaView>
@@ -114,5 +155,17 @@ const styles = StyleSheet.create({
   buttonDisabled: { backgroundColor: '#f5f5f5' },
   buttonLabel: { fontSize: 13, color: '#1d4ed8', fontWeight: '500' },
   buttonLabelDisabled: { color: '#aaa' },
+  errorBanner: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 10,
+    backgroundColor: '#fff1f0',
+    borderColor: '#f5c2c0',
+    borderWidth: 1,
+    borderRadius: 6,
+  },
+  errorTitle: { fontSize: 12, fontWeight: '600', color: '#b1241a' },
+  errorBody: { fontSize: 12, color: '#7c1d12', marginTop: 2 },
+  errorUrl: { fontSize: 11, color: '#7c1d12', marginTop: 2, fontStyle: 'italic' },
   webview: { flex: 1 },
 })
