@@ -19,7 +19,7 @@ final class NitroWebViewErrorMapperTests: XCTestCase {
 
     XCTAssertEqual(
       event,
-      NitroWebViewErrorEvent(
+      MappedNitroWebViewError(
         code: -1003,
         description: "A server with the specified hostname could not be found.",
         url: "https://nonexistent.example/",

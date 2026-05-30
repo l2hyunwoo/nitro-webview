@@ -5,7 +5,7 @@ import Foundation
 ///     { code: number, description: string, url: string, domain: string }
 ///
 /// Equatable so tests can compare expected vs actual with a per-field diff.
-public struct NitroWebViewErrorEvent: Equatable {
+public struct MappedNitroWebViewError: Equatable {
   public let code: Int
   public let description: String
   public let url: String
@@ -21,11 +21,11 @@ public struct NitroWebViewErrorEvent: Equatable {
 
 /// Pure-function mapper from `NSError` (as delivered by WKNavigationDelegate's
 /// `didFailNavigation` / `didFailProvisionalNavigation`) into the structured
-/// `NitroWebViewErrorEvent` that the JS-side `onError` callback expects.
+/// `MappedNitroWebViewError` that the JS-side `onError` callback expects.
 public enum NitroWebViewErrorMapper {
 
   /// Map an `NSError` from a WKNavigationDelegate failure callback into a
-  /// `NitroWebViewErrorEvent`.
+  /// `MappedNitroWebViewError`.
   ///
   /// - Parameters:
   ///   - error: The `NSError` WebKit handed the delegate.
@@ -35,7 +35,7 @@ public enum NitroWebViewErrorMapper {
   public static func event(
     from error: NSError,
     fallbackUrl: String? = nil
-  ) -> NitroWebViewErrorEvent {
+  ) -> MappedNitroWebViewError {
     let code = error.code
     let domain = error.domain
 
@@ -46,7 +46,7 @@ public enum NitroWebViewErrorMapper {
 
     let url = extractFailingURL(from: error, fallbackUrl: fallbackUrl)
 
-    return NitroWebViewErrorEvent(
+    return MappedNitroWebViewError(
       code: code,
       description: description,
       url: url,
