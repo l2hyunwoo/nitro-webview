@@ -170,13 +170,17 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   private inner class BridgeInterface {
     @JavascriptInterface
     fun postMessage(data: String) {
-      val payload = WebViewMessageEvent(
-        WebViewMessageNativeEvent(
-          data = data,
-          url = view.url ?: "",
-        ),
-      )
-      onMessage?.invoke(payload)
+      // @JavascriptInterface runs on a dedicated `JavaBridge` thread.
+      // WebView.url / onMessage delivery must hop back to the UI thread.
+      view.post {
+        val payload = WebViewMessageEvent(
+          WebViewMessageNativeEvent(
+            data = data,
+            url = view.url ?: "",
+          ),
+        )
+        onMessage?.invoke(payload)
+      }
     }
   }
 
