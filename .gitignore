@@ -86,6 +86,8 @@ lib/
 .omc/
 .claude/
 CLUADE.md
+.ouroboros/
+.ouroboros_eval_artifact.md
 
 # SwiftPM
 .build/
