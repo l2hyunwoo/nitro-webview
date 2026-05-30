@@ -54,6 +54,7 @@ export default function App() {
   })
   const [lastError, setLastError] = useState<NitroWebViewErrorEvent['nativeEvent'] | null>(null)
   const [lastMessage, setLastMessage] = useState<WebViewMessageEvent['nativeEvent'] | null>(null)
+  const [evalResult, setEvalResult] = useState<{ ok: boolean; value: string } | null>(null)
 
   return (
     <SafeAreaView style={styles.root}>
@@ -115,6 +116,25 @@ export default function App() {
         />
       </View>
 
+      <View style={styles.toolbar}>
+        <ToolbarButton
+          label="🧪 Evaluate JS"
+          onPress={async () => {
+            const r = ref.current
+            if (!r) return
+            setEvalResult(null)
+            try {
+              const value = await r.evaluateJavaScript(
+                "JSON.stringify({ title: document.title, w: window.innerWidth })"
+              )
+              setEvalResult({ ok: true, value })
+            } catch (e) {
+              setEvalResult({ ok: false, value: String(e) })
+            }
+          }}
+        />
+      </View>
+
       {lastError ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorTitle} numberOfLines={1}>
@@ -139,6 +159,17 @@ export default function App() {
           </Text>
           <Text style={styles.messageUrl} numberOfLines={1}>
             from {lastMessage.url || '(no url)'}
+          </Text>
+        </View>
+      ) : null}
+
+      {evalResult ? (
+        <View style={evalResult.ok ? styles.evalBanner : styles.errorBanner}>
+          <Text style={evalResult.ok ? styles.evalTitle : styles.errorTitle} numberOfLines={1}>
+            evaluateJavaScript {evalResult.ok ? 'resolved' : 'rejected'}
+          </Text>
+          <Text style={evalResult.ok ? styles.evalBody : styles.errorBody} numberOfLines={3}>
+            {evalResult.value}
           </Text>
         </View>
       ) : null}
@@ -232,5 +263,16 @@ const styles = StyleSheet.create({
   messageTitle: { fontSize: 12, fontWeight: '600', color: '#047857' },
   messageBody: { fontSize: 12, color: '#065f46', marginTop: 2 },
   messageUrl: { fontSize: 11, color: '#065f46', marginTop: 2, fontStyle: 'italic' },
+  evalBanner: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 10,
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+    borderWidth: 1,
+    borderRadius: 6,
+  },
+  evalTitle: { fontSize: 12, fontWeight: '600', color: '#1d4ed8' },
+  evalBody: { fontSize: 12, color: '#1e3a8a', marginTop: 2, fontFamily: 'Menlo' },
   webview: { flex: 1 },
 })
