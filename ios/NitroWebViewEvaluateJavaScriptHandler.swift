@@ -89,9 +89,11 @@ public final class NitroWebViewEvaluateJavaScriptHandler {
         // Doubles that are exact integers stringify without `.0`
         // (mirrors JavaScript's `String(2.0) === "2"`).
         let d = n.doubleValue
+        let int64MaxAsDouble: Double = Double(Int64.max)
+        let absD: Double = d.magnitude
         if d.truncatingRemainder(dividingBy: 1) == 0,
            d.isFinite,
-           abs(d) < Double(Int64.max) {
+           absD < int64MaxAsDouble {
           return String(Int64(d))
         }
         return String(d)
