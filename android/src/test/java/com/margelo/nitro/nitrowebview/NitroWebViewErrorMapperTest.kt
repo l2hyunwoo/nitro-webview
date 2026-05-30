@@ -28,7 +28,7 @@ class NitroWebViewErrorMapperTest {
 
     assertEquals(
       "every field of the structured error event must mirror the source WebResourceError + WebResourceRequest",
-      NitroWebViewErrorEvent(
+      MappedNitroWebViewError(
         code = -2,
         description = "net::ERR_NAME_NOT_RESOLVED",
         url = "https://nonexistent.example/",

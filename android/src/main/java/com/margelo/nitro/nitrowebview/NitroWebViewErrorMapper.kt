@@ -5,7 +5,7 @@ package com.margelo.nitro.nitrowebview
  *
  *     { code: number, description: string, url: string, domain: string }
  */
-data class NitroWebViewErrorEvent(
+data class MappedNitroWebViewError(
   val code: Int,
   val description: String,
   val url: String,
@@ -29,7 +29,7 @@ interface WebResourceRequestSource {
 
 /**
  * Pure-function mapper from a [WebResourceErrorSource] (as delivered by
- * `WebViewClient.onReceivedError`) into the structured [NitroWebViewErrorEvent]
+ * `WebViewClient.onReceivedError`) into the structured [MappedNitroWebViewError]
  * that the JS-side `onError` callback expects.
  */
 object NitroWebViewErrorMapper {
@@ -48,8 +48,8 @@ object NitroWebViewErrorMapper {
     error: WebResourceErrorSource,
     request: WebResourceRequestSource? = null,
     fallbackUrl: String? = null,
-  ): NitroWebViewErrorEvent {
-    return NitroWebViewErrorEvent(
+  ): MappedNitroWebViewError {
+    return MappedNitroWebViewError(
       code = error.errorCode,
       description = error.errorDescription,
       url = extractFailingURL(request = request, fallbackUrl = fallbackUrl),
