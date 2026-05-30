@@ -4,7 +4,6 @@ import WebKit
 
 final class HybridNitroWebView:
   HybridNitroWebViewSpec,
-  WKNavigationDelegate,
   NitroWebViewMessageDispatcher
 {
   let view: WKWebView
@@ -12,6 +11,7 @@ final class HybridNitroWebView:
   private let sourceHandler = NitroWebViewSourceHandler()
   private let evaluator = NitroWebViewEvaluateJavaScriptHandler()
   private let messageHandler = NitroWebViewMessageHandler()
+  private let navigationDelegate: NavigationDelegate
   private var currentInjectedUserScript: WKUserScript?
 
   var onLoadStart: ((WebViewLoadEvent) -> Void)?
@@ -23,9 +23,11 @@ final class HybridNitroWebView:
   override init() {
     let configuration = WKWebViewConfiguration()
     self.view = WKWebView(frame: .zero, configuration: configuration)
+    self.navigationDelegate = NavigationDelegate()
     super.init()
 
-    view.navigationDelegate = self
+    navigationDelegate.owner = self
+    view.navigationDelegate = navigationDelegate
     messageHandler.dispatcher = self
     configuration.userContentController.add(
       messageHandler,
@@ -40,6 +42,7 @@ final class HybridNitroWebView:
     )
     controller.removeAllUserScripts()
     view.navigationDelegate = nil
+    navigationDelegate.owner = nil
     messageHandler.dispatcher = nil
   }
 
@@ -105,45 +108,49 @@ final class HybridNitroWebView:
     onMessage?(payload)
   }
 
-  func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-    emitLoadStart()
-    emitNavigationState()
+  fileprivate final class NavigationDelegate: NSObject, WKNavigationDelegate {
+    weak var owner: HybridNitroWebView?
+
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+      owner?.emitLoadStart()
+      owner?.emitNavigationState()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+      owner?.emitLoadEnd()
+      owner?.emitNavigationState()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+      owner?.emitError(error as NSError, fallbackUrl: webView.url?.absoluteString)
+      owner?.emitLoadEnd()
+      owner?.emitNavigationState()
+    }
+
+    func webView(
+      _ webView: WKWebView,
+      didFailProvisionalNavigation navigation: WKNavigation!,
+      withError error: Error
+    ) {
+      owner?.emitError(error as NSError, fallbackUrl: webView.url?.absoluteString)
+      owner?.emitLoadEnd()
+      owner?.emitNavigationState()
+    }
   }
 
-  func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-    emitLoadEnd()
-    emitNavigationState()
-  }
-
-  func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-    emitError(error as NSError, fallbackUrl: webView.url?.absoluteString)
-    emitLoadEnd()
-    emitNavigationState()
-  }
-
-  func webView(
-    _ webView: WKWebView,
-    didFailProvisionalNavigation navigation: WKNavigation!,
-    withError error: Error
-  ) {
-    emitError(error as NSError, fallbackUrl: webView.url?.absoluteString)
-    emitLoadEnd()
-    emitNavigationState()
-  }
-
-  private func emitLoadStart() {
+  fileprivate func emitLoadStart() {
     onLoadStart?(WebViewLoadEvent(nativeEvent: snapshotNavigationState()))
   }
 
-  private func emitLoadEnd() {
+  fileprivate func emitLoadEnd() {
     onLoadEnd?(WebViewLoadEvent(nativeEvent: snapshotNavigationState()))
   }
 
-  private func emitNavigationState() {
+  fileprivate func emitNavigationState() {
     onNavigationStateChange?(snapshotNavigationState())
   }
 
-  private func emitError(_ error: NSError, fallbackUrl: String?) {
+  fileprivate func emitError(_ error: NSError, fallbackUrl: String?) {
     let mapped = NitroWebViewErrorMapper.event(from: error, fallbackUrl: fallbackUrl)
     let payload = NitroWebViewErrorEvent(
       nativeEvent: NitroWebViewErrorNativeEvent(
