@@ -47,29 +47,31 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   override fun goBack() {
-    view.goBack()
+    view.post { view.goBack() }
   }
 
   override fun goForward() {
-    view.goForward()
+    view.post { view.goForward() }
   }
 
   override fun reload() {
-    view.reload()
+    view.post { view.reload() }
   }
 
   override fun stopLoading() {
-    view.stopLoading()
+    view.post { view.stopLoading() }
   }
 
   override fun evaluateJavaScript(code: String): Promise<String> {
     val promise = Promise<String>()
-    evaluator.evaluate(
-      code = code,
-      evaluator = jsEvaluatorAdapter,
-      resolve = { promise.resolve(it) },
-      reject = { promise.reject(it) },
-    )
+    view.post {
+      evaluator.evaluate(
+        code = code,
+        evaluator = jsEvaluatorAdapter,
+        resolve = { promise.resolve(it) },
+        reject = { promise.reject(it) },
+      )
+    }
     return promise
   }
 
@@ -80,16 +82,18 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   private fun applySource(source: WebViewSource) {
-    source.match(
-      first = { uri -> view.loadUrl(uri.uri) },
-      second = { html ->
-        val payload = NitroLoadHtmlPayload(
-          html = html.html,
-          baseUrlString = html.baseUrl,
-        )
-        sourceHandler.applyHtmlPayload(payload, htmlLoaderAdapter)
-      },
-    )
+    view.post {
+      source.match(
+        first = { uri -> view.loadUrl(uri.uri) },
+        second = { html ->
+          val payload = NitroLoadHtmlPayload(
+            html = html.html,
+            baseUrlString = html.baseUrl,
+          )
+          sourceHandler.applyHtmlPayload(payload, htmlLoaderAdapter)
+        },
+      )
+    }
   }
 
   private fun emitLoadStart() {
