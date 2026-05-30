@@ -105,7 +105,7 @@ export function evaluateBridgeScript<
   S extends IosBridgeSandbox | AndroidBridgeSandbox,
 >(platform: BridgePlatform, sandbox: S): void {
   const source = buildBridgeScript(platform)
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+  // eslint-disable-next-line no-new-func
   const evaluate = new Function('window', source) as (window: S) => void
   evaluate(sandbox)
 }

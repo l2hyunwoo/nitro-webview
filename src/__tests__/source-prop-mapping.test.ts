@@ -124,16 +124,12 @@ test('source matching neither UriSource nor HtmlSource throws TypeError', () => 
     TypeError
   )
   assert.throws(
-    () =>
-      sourceToCommand({ random: 'value' } as unknown as WebViewSource),
+    () => sourceToCommand({ random: 'value' } as unknown as WebViewSource),
     TypeError
   )
 })
 
 test('empty uri string is treated as invalid (falls through to type error)', () => {
   // An empty string isn't a meaningful URL to hand to the native loader.
-  assert.throws(
-    () => sourceToCommand({ uri: '' } as UriSource),
-    TypeError
-  )
+  assert.throws(() => sourceToCommand({ uri: '' } as UriSource), TypeError)
 })

@@ -1,10 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import {
-  createLoadDispatcher,
-  type NativeLoadPayload,
-} from '../events.ts'
+import { createLoadDispatcher, type NativeLoadPayload } from '../events.ts'
 import type { WebViewNavigationState } from '../specs/NitroWebView.nitro.ts'
 
 function makePayload(
@@ -210,10 +207,7 @@ test('null/undefined native payload throws TypeError', () => {
   const spy = createSpy()
   const dispatch = createLoadDispatcher(spy.handler)
 
-  assert.throws(
-    () => dispatch(null as unknown as NativeLoadPayload),
-    TypeError
-  )
+  assert.throws(() => dispatch(null as unknown as NativeLoadPayload), TypeError)
   assert.throws(
     () => dispatch(undefined as unknown as NativeLoadPayload),
     TypeError

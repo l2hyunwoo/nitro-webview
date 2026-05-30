@@ -14,7 +14,10 @@ type Equals<A, B> =
 type Assert<T extends true> = T
 
 type _EvalJs_IsMember = Assert<
-  Equals<'evaluateJavaScript' extends keyof NitroWebViewMethods ? true : false, true>
+  Equals<
+    'evaluateJavaScript' extends keyof NitroWebViewMethods ? true : false,
+    true
+  >
 >
 
 type EvalJsParams = Parameters<NitroWebViewMethods['evaluateJavaScript']>
@@ -24,7 +27,9 @@ type _EvalJs_ParamIsString = Assert<Equals<EvalJsParams[0], string>>
 
 type EvalJsReturn = ReturnType<NitroWebViewMethods['evaluateJavaScript']>
 
-type _EvalJs_ReturnIsPromiseString = Assert<Equals<EvalJsReturn, Promise<string>>>
+type _EvalJs_ReturnIsPromiseString = Assert<
+  Equals<EvalJsReturn, Promise<string>>
+>
 
 type _EvalJs_ReturnIsNotPromiseUnknown = Assert<
   Equals<Equals<EvalJsReturn, Promise<unknown>>, false>

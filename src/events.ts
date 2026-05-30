@@ -104,9 +104,7 @@ export function createLoadDispatcher(
 
   return function dispatchLoad(payload: NativeLoadPayload): void {
     if (payload == null) {
-      throw new TypeError(
-        'NitroWebView: onLoad native payload is required'
-      )
+      throw new TypeError('NitroWebView: onLoad native payload is required')
     }
     if (typeof payload.navigationId !== 'number') {
       throw new TypeError(
@@ -188,9 +186,7 @@ export function createLoadEndDispatcher(
 
   return function dispatchLoadEnd(payload: NativeLoadEndPayload): void {
     if (payload == null) {
-      throw new TypeError(
-        'NitroWebView: onLoadEnd native payload is required'
-      )
+      throw new TypeError('NitroWebView: onLoadEnd native payload is required')
     }
     if (typeof payload.navigationId !== 'number') {
       throw new TypeError(
@@ -268,9 +264,7 @@ export function createErrorDispatcher(
 
   return function dispatchError(payload: NativeErrorPayload): void {
     if (payload == null) {
-      throw new TypeError(
-        'NitroWebView: onError native payload is required'
-      )
+      throw new TypeError('NitroWebView: onError native payload is required')
     }
     if (typeof payload.navigationId !== 'number') {
       throw new TypeError(

@@ -126,10 +126,7 @@ test('discriminator returns null for objects with neither html nor uri', () => {
 
 test('discriminator returns null for nullish input (does not throw)', () => {
   assert.equal(normalizeHtmlSource(null as unknown as WebViewSource), null)
-  assert.equal(
-    normalizeHtmlSource(undefined as unknown as WebViewSource),
-    null
-  )
+  assert.equal(normalizeHtmlSource(undefined as unknown as WebViewSource), null)
 })
 
 test('discriminator rejects {html} where html is not a string', () => {

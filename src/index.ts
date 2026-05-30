@@ -53,11 +53,7 @@ export type {
 } from './events'
 
 export { createLoadDispatcher } from './events'
-export type {
-  LoadDispatcher,
-  NativeLoadPayload,
-  OnLoad,
-} from './events'
+export type { LoadDispatcher, NativeLoadPayload, OnLoad } from './events'
 
 export { createLoadEndDispatcher } from './events'
 export type {

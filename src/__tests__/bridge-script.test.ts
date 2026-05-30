@@ -305,7 +305,6 @@ test('pre-existing window.ReactNativeWebView object (page-author config) is pres
     'function',
     'the missing postMessage must be installed alongside the preserved config'
   )
-
   ;(sandbox[BRIDGE_NAME] as { postMessage: (d: string) => void }).postMessage(
     'cfg'
   )

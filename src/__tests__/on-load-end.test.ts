@@ -384,11 +384,17 @@ test('dispatcher is a safe no-op when no onLoadEnd handler is subscribed', () =>
 
   assert.doesNotThrow(() =>
     dispatch(
-      makePayload({ navigationId: 1, outcome: 'success', url: 'https://example.com' })
+      makePayload({
+        navigationId: 1,
+        outcome: 'success',
+        url: 'https://example.com',
+      })
     )
   )
   assert.doesNotThrow(() =>
-    dispatch(makeFailurePayload({ navigationId: 2, url: 'https://example.com' }))
+    dispatch(
+      makeFailurePayload({ navigationId: 2, url: 'https://example.com' })
+    )
   )
 })
 
