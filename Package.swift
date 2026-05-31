@@ -173,5 +173,20 @@ let package = Package(
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewAttachmentDetectionTests"
     ),
+    .testTarget(
+      // Exercises the navigation-interception plumbing introduced for
+      // `onShouldStartLoadWithRequest`:
+      //   1. `navigationType(from:)` raw -> spec-token mapping.
+      //   2. `shouldStartPayload(for:)` URL + mainDocumentURL + target
+      //      frame construction.
+      //   3. The in-memory pending-decisions stash that survives until
+      //      the JS Promise resolves (NO timeout — iOS parity with RNW).
+      // Uses local probe types that mirror the production helpers
+      // byte-for-byte because `HybridNitroWebView` cannot be linked into
+      // this SwiftPM harness.
+      name: "HybridNitroWebViewShouldStartTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/HybridNitroWebViewShouldStartTests"
+    ),
   ]
 )
