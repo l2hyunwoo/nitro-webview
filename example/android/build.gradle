@@ -19,3 +19,11 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    repositories {
+        // Mozilla Android Components (org.mozilla.components:support-utils) are
+        // hosted on Mozilla's Maven repository rather than Maven Central.
+        maven { url "https://maven.mozilla.org/maven2" }
+    }
+}
