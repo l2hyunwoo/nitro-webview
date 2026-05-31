@@ -90,6 +90,20 @@ export interface NitroWebViewProps extends HybridViewProps {
    */
   defaultHeaders?: Record<string, string>
 
+  /**
+   * Overrides the User-Agent header for every request issued by the
+   * WebView, including main-frame navigation, sub-frames, and
+   * sub-resource fetches. Leaving this unset (or setting it to
+   * `undefined` / empty string) keeps the platform default WebKit /
+   * Chromium UA string.
+   *
+   * Forwarded to `WKWebView.customUserAgent` on iOS and
+   * `WebSettings.userAgentString` on Android. Both platforms apply the
+   * value immediately — subsequent navigations use it without
+   * requiring a `source` update.
+   */
+  userAgent?: string
+
   /** JavaScript auto-injected on every page load (fire-and-forget). */
   injectedJavaScript?: string
 
