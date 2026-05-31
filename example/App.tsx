@@ -44,8 +44,23 @@ button{font-size:18px;padding:12px 20px;margin-top:12px;}</style>
 
 const HTTPBIN_SOURCE: WebViewSource = { uri: 'https://httpbin.org' }
 
-const NAV_DEMO_SOURCE: WebViewSource = { uri: 'https://example.com' }
-const NAV_BLOCKED_SOURCE: WebViewSource = { uri: 'https://example.org' }
+/**
+ * Navigation-interception demo page. Hosts two real `<a href>` links so
+ * the user-initiated navigation flows through Android's
+ * `WebViewClient.shouldOverrideUrlLoading` — a programmatic
+ * `view.loadUrl(...)` (the path `setSource(...)` takes) bypasses that hook
+ * on Android, while iOS WKWebView fires `decidePolicyFor` for every
+ * navigation including programmatic ones.
+ */
+const NAV_DEMO_SOURCE: WebViewSource = {
+  baseUrl: 'https://nitro-webview.local/',
+  html: `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,sans-serif;padding:24px;line-height:1.5;}a{display:inline-block;padding:12px 18px;margin:8px 8px 0 0;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-size:16px;}a.block{background:#dc2626;}p{color:#475569;}</style></head><body>
+<h2>Navigation interception demo</h2>
+<p>Tap a link. The native hook decides whether the navigation is allowed.</p>
+<a href="https://example.com/">Allow (example.com)</a>
+<a class="block" href="https://example.org/">Block (example.org)</a>
+</body></html>`,
+}
 
 const HEADERS_SOURCE: WebViewSource = {
   uri: 'https://httpbin.org/headers',
@@ -365,16 +380,12 @@ export default function App() {
         </View>
         <View style={styles.toolbar}>
           <ToolbarButton
-            label="Visit example.com (allow)"
+            label="Open nav demo page"
             onPress={() => setSource(NAV_DEMO_SOURCE)}
-          />
-          <ToolbarButton
-            label="Visit example.org (block)"
-            onPress={() => setSource(NAV_BLOCKED_SOURCE)}
           />
         </View>
         <Text style={styles.hint}>
-          Expected: example.com navigation succeeds; example.org navigation is blocked by the hook and the WebView stays on the previous page.
+          Tap "Open nav demo page", then in the WebView tap the green or red link. example.com is allowed; example.org is blocked silently (the WebView stays on the demo page). Android requires user-initiated taps — programmatic loads bypass `shouldOverrideUrlLoading`.
         </Text>
 
         <SectionLabel text="User-Agent demo" />
