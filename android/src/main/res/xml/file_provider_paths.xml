@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Path mapping for the FileProvider authority
+  `${applicationId}.nitrowebview.fileprovider`.
+
+  `nitro-webview-capture` is the cache subdirectory that NitroWebChromeClient
+  uses to hold temporary camera capture output before forwarding the
+  resulting content URI back to the WebView via the file chooser callback.
+  Keeping the path scoped to the app cache avoids granting the camera
+  process any broader file system access.
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+  <cache-path
+    name="nitro-webview-capture"
+    path="nitro-webview-capture/" />
+</paths>

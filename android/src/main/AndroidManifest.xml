@@ -1,2 +1,26 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+
+  <application>
+    <!--
+      FileProvider for `<input type="file" capture>` camera/recorder
+      capture flows. Authority is namespaced under the host application's
+      package to avoid collisions with other libraries' FileProviders.
+
+      Declared in the library manifest so consumers get the entry merged
+      automatically without copying boilerplate. `tools:replace` is not
+      used; consumers that need to override the authority must remove this
+      entry via manifest merger rules.
+    -->
+    <provider
+      android:name="androidx.core.content.FileProvider"
+      android:authorities="${applicationId}.nitrowebview.fileprovider"
+      android:exported="false"
+      android:grantUriPermissions="true"
+      tools:ignore="ExportedContentProvider">
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_provider_paths" />
+    </provider>
+  </application>
 </manifest>

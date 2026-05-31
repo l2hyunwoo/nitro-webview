@@ -112,6 +112,14 @@ android {
     targetCompatibility JavaVersion.VERSION_1_8
   }
 
+  testOptions {
+    unitTests {
+      // Return default values (0 / false / null) instead of throwing
+      // RuntimeException for Android SDK stubs in plain JVM unit tests.
+      returnDefaultValues = true
+    }
+  }
+
   sourceSets {
     main {
       if (isNewArchitectureEnabled()) {
@@ -127,6 +135,9 @@ android {
 repositories {
   mavenCentral()
   google()
+  // Mozilla Android Components (support-utils) are hosted on Mozilla's
+  // own Maven repository — not Maven Central or Google.
+  maven { url "https://maven.mozilla.org/maven2" }
 }
 
 
@@ -139,6 +150,15 @@ dependencies {
   // Add a dependency on NitroModules
   implementation project(":react-native-nitro-modules")
 
+  // File-upload pathway: AndroidX FileProvider for camera capture URIs.
+  implementation "androidx.core:core-ktx:1.13.1"
+
+  // File-download pathway: Mozilla Android Components' DownloadUtils
+  // provides `guessFileName(url, contentDisposition, mimeType)`.
+  implementation "org.mozilla.components:support-utils:127.0.2"
+
   testImplementation "junit:junit:4.13.2"
+  testImplementation "org.jetbrains.kotlin:kotlin-reflect"
+  testImplementation "org.robolectric:robolectric:4.16.1"
 }
 
