@@ -116,6 +116,21 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    */
   override var defaultHeaders: Map<String, String>? = null
 
+  /**
+   * Forwards to `WebSettings.userAgentString`. A `null` or empty value
+   * restores the platform default Chromium UA by writing `""`, which
+   * Android treats as "use the system default" per
+   * `WebSettings.setUserAgentString` docs. The mutation hops to the UI
+   * thread because `WebSettings` is not thread-safe.
+   */
+  override var userAgent: String? = null
+    set(value) {
+      field = value
+      view.post {
+        view.settings.userAgentString = value ?: ""
+      }
+    }
+
   override var injectedJavaScript: String? = null
     set(value) {
       field = value
