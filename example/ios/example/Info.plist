@@ -33,6 +33,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to pick photos for file upload in the WebView demo.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used to record audio for file upload in the WebView demo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to select photos for file upload in the WebView demo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>RCTNewArchEnabled</key>
