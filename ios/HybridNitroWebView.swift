@@ -98,6 +98,15 @@ final class HybridNitroWebView:
   /// `source` update is when the merged headers are applied.
   var defaultHeaders: [String: String]?
 
+  /// Forwards to `WKWebView.customUserAgent`. Setting it to `nil` or the
+  /// empty string restores the platform default WebKit UA.
+  var userAgent: String? {
+    didSet {
+      let value = userAgent
+      view.customUserAgent = (value?.isEmpty ?? true) ? nil : value
+    }
+  }
+
   var injectedJavaScript: String? {
     didSet { applyInjectedJavaScript(injectedJavaScript) }
   }
