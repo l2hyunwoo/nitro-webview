@@ -144,6 +144,25 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var onError: ((event: NitroWebViewErrorEvent) -> Unit)? = null
   override var onFileDownload: ((event: FileDownloadEvent) -> Unit)? = null
 
+  /**
+   * JS-side navigation-interception hook. When non-null, every
+   * `WebViewClient.shouldOverrideUrlLoading` invocation hands the URL to
+   * JS through this callback. The Promise's boolean result decides
+   * whether the platform blocks the navigation
+   * (`true` → allow / `false` → block).
+   *
+   * Because Android's `shouldOverrideUrlLoading` is a synchronous WebView
+   * callback (return `true` to block / `false` to allow), the
+   * implementation blocks the WebView thread on a lock for at most
+   * [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS] milliseconds waiting for the
+   * JS Promise to resolve. When the timeout elapses with no resolution
+   * the navigation is allowed (mirrors react-native-webview's
+   * `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
+   */
+  override var onShouldStartLoadWithRequest: (
+    (event: ShouldStartLoadRequest) -> Promise<Boolean>
+  )? = null
+
   init {
     // Android WebView defaults are extremely conservative — JavaScript is
     // disabled and DOM storage is off. Without JS, `<input type="file">`
@@ -376,6 +395,45 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       emitNavigationState()
     }
 
+    /**
+     * Navigation-interception entry point. Returning `true` tells the
+     * platform to BLOCK the navigation; returning `false` lets the
+     * WebView proceed.
+     *
+     * When no JS-side `onShouldStartLoadWithRequest` callback is wired we
+     * short-circuit to `false` (allow-all default). Otherwise the URL is
+     * dispatched to JS via [dispatchShouldStart] which:
+     *   1. Wraps the navigation in a [ShouldStartLoadRequest] payload —
+     *      `navigationType` is always `'other'` on Android because
+     *      `WebViewClient.shouldOverrideUrlLoading` does not expose a
+     *      navigation-type discriminator, and the iOS-only optional
+     *      fields stay null.
+     *   2. Calls the JS hook, then blocks the current (WebView) thread on
+     *      a `synchronized.wait` for at most
+     *      [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS] milliseconds, mirroring
+     *      `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS` in
+     *      react-native-webview.
+     *   3. Returns the boolean the Promise resolved with — or the
+     *      default-allow value when the wait window elapses.
+     */
+    override fun shouldOverrideUrlLoading(
+      view: WebView,
+      request: WebResourceRequest,
+    ): Boolean {
+      val hook = onShouldStartLoadWithRequest ?: return false
+      val url = request.url?.toString() ?: return false
+      val payload = ShouldStartLoadRequest(
+        url = url,
+        navigationType = WebViewNavigationType.OTHER,
+        mainDocumentURL = null,
+        isTopFrame = null,
+        hasTargetFrame = null,
+      )
+      val allow = dispatchShouldStart(hook, payload)
+      // Convention: shouldOverrideUrlLoading returns `true` to BLOCK.
+      return !allow
+    }
+
     override fun onReceivedError(
       view: WebView,
       request: WebResourceRequest,
@@ -392,6 +450,33 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         emitNavigationState()
       }
     }
+  }
+
+  /**
+   * Bridge between [ClientImpl.shouldOverrideUrlLoading] and the JS hook.
+   *
+   * Implementation contract:
+   *   1. Invoke `hook(payload)` to obtain the JS-side Promise.
+   *   2. Block the current (WebView) thread for at most
+   *      [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS] milliseconds via a
+   *      `synchronized(lock).wait(timeoutMs)` loop while the Promise's
+   *      `then`/`catch` callbacks notify the lock.
+   *   3. When the Promise resolves inside the window the resolved boolean
+   *      decides. When it rejects, default to allow. When the window
+   *      elapses without notification, default to allow (mirrors
+   *      `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
+   *
+   * The block-then-wait pattern is the same one react-native-webview uses
+   * on Android — Promise.await() is unavailable here because the
+   * shouldOverrideUrlLoading callback is synchronous and must return a
+   * Boolean before the WebView can decide whether to commit.
+   */
+  internal fun dispatchShouldStart(
+    hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
+    payload: ShouldStartLoadRequest,
+    timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
+  ): Boolean {
+    return Companion.awaitShouldStart(hook, payload, timeoutMs)
   }
 
   private inner class BridgeInterface {
@@ -518,6 +603,110 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
 
   companion object {
     private const val BRIDGE_NAME = "ReactNativeWebView"
+
+    /**
+     * Maximum number of milliseconds [ClientImpl.shouldOverrideUrlLoading]
+     * blocks on the JS-side Promise before defaulting to allow. Mirrors
+     * react-native-webview's `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`
+     * value verbatim so existing RNW guidance about the cap continues to
+     * apply.
+     */
+    internal const val SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS: Long = 250L
+
+    /**
+     * Block the current thread for at most [timeoutMs] ms while [hook] is
+     * resolving, and return the resolved boolean. Defaults to allow when
+     * the Promise rejects or the wait window elapses.
+     *
+     * Extracted into the companion (no `WebView` dependency) so JVM unit
+     * tests can drive the helper with a real `Promise<Boolean>` instance
+     * without spinning up a `WebView`. The contract is verified by
+     * `HybridNitroWebViewShouldStartLoadTest` (allow path, block path,
+     * timeout default, rejection default).
+     */
+    @JvmStatic
+    internal fun awaitShouldStart(
+      hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
+      payload: ShouldStartLoadRequest,
+      timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
+    ): Boolean {
+      val promise = hook(payload)
+      return awaitBooleanWithTimeout(
+        timeoutMs = timeoutMs,
+        subscribe = { onResolve, onReject ->
+          promise.then { value -> onResolve(value) }
+          promise.catch { error -> onReject(error) }
+        },
+      )
+    }
+
+    /**
+     * Pure-Kotlin wait-loop driver extracted from [awaitShouldStart]. The
+     * Nitro `Promise<T>` cannot be instantiated in plain JVM unit tests
+     * (its `then` / `catch` paths cross a JNI boundary), so the loop is
+     * exposed against a generic [subscribe] lambda that publishes
+     * `onResolve(boolean)` / `onReject(throwable)` callbacks. Production
+     * code wires `subscribe` to `Promise.then` / `Promise.catch`; tests
+     * wire it to a synchronous spy.
+     *
+     * Contract:
+     *   1. The current thread waits up to [timeoutMs] ms on a private
+     *      lock for `onResolve` or `onReject` to fire.
+     *   2. `onResolve(true)` returns `true` (allow).
+     *   3. `onResolve(false)` returns `false` (block).
+     *   4. `onReject(_)` returns `true` (allow — RNW parity: rejection
+     *      treats the navigation as allowed so a buggy JS handler can't
+     *      strand the WebView).
+     *   5. Elapsed-window without notification returns `true` (allow —
+     *      mirrors `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
+     */
+    @JvmStatic
+    internal fun awaitBooleanWithTimeout(
+      timeoutMs: Long,
+      subscribe: (
+        onResolve: (Boolean) -> Unit,
+        onReject: (Throwable) -> Unit,
+      ) -> Unit,
+    ): Boolean {
+      val lock = Object()
+      // Single-element array doubles as a mutable holder so the resolve /
+      // reject callbacks (captured by reference) can publish a result back
+      // to the waiter without resorting to atomics.
+      val result = arrayOfNulls<Boolean>(1)
+      subscribe(
+        { value ->
+          synchronized(lock) {
+            result[0] = value
+            @Suppress("PlatformExtensionReceiverOfInline")
+            (lock as Object).notifyAll()
+          }
+        },
+        { _ ->
+          synchronized(lock) {
+            // Mirror RNW: rejected Promises default to allow.
+            result[0] = true
+            @Suppress("PlatformExtensionReceiverOfInline")
+            (lock as Object).notifyAll()
+          }
+        },
+      )
+      synchronized(lock) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (result[0] == null) {
+          val remaining = deadline - System.currentTimeMillis()
+          if (remaining <= 0L) break
+          try {
+            @Suppress("PlatformExtensionReceiverOfInline")
+            (lock as Object).wait(remaining)
+          } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            break
+          }
+        }
+        // Default to allow when the wait window elapsed without resolution.
+        return result[0] ?: true
+      }
+    }
 
     /**
      * URI-source apply pipeline. Merges [defaultHeaders] and
