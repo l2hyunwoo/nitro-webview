@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@dr.pogodin/react-native-fs": "^2.38.2",
     "nitro-webview": "link:..",
     "react": "19.2.3",
     "react-native": "0.85.3",
