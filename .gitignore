@@ -84,7 +84,8 @@ lib/
 
 # AI
 .omc/
-.claude/
+.claude/*
+!.claude/settings.json
 CLAUDE.md
 .ouroboros/
 .ouroboros_eval_artifact.md
