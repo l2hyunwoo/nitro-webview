@@ -31,6 +31,8 @@ module.exports = [
       'nitrogen/',
       'example/',
       '.yarn/',
+      // Gradle test reports drop HTML+JS artifacts under android/build/.
+      'android/build/',
       'babel.config.js',
       'react-native.config.js',
       'eslint.config.js',
