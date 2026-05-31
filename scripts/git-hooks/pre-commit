@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# pre-commit — runs the CLAUDE.md guardrail script against every file that is
+# about to be committed.
+#
+# Catches violations that PostToolUse can't see — files introduced via
+# `git apply`, `tar -x`, manual edits in another editor, rebases, worktree
+# merges, etc. Commits that introduce a violation are blocked with exit 1
+# and the same diagnostic the PostToolUse hook prints.
+#
+# Activate once per clone with:
+#     git config core.hooksPath scripts/git-hooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+GUARD="$REPO_ROOT/scripts/claude-md-guardrails.sh"
+
+if [[ ! -x "$GUARD" ]]; then
+  echo "pre-commit: $GUARD not found or not executable — skipping guardrail check." >&2
+  exit 0
+fi
+
+# Staged files only (Added / Copied / Modified). Renames are detected via
+# the destination path; deletions are excluded. Use a `while read` loop
+# instead of `mapfile` so the hook works on macOS's bundled bash 3.2.
+violations=0
+while IFS= read -r rel; do
+  [[ -z "$rel" ]] && continue
+  abs="$REPO_ROOT/$rel"
+  [[ -f "$abs" ]] || continue
+  if ! "$GUARD" "$abs"; then
+    violations=$((violations + 1))
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if [[ "$violations" -gt 0 ]]; then
+  {
+    echo
+    echo "pre-commit: $violations file(s) violate CLAUDE.md style rules."
+    echo "Fix the issues above (or run scripts/claude-md-guardrails.sh <file> to re-check)."
+    echo "Bypass for emergencies only:  git commit --no-verify"
+  } >&2
+  exit 1
+fi
+
+exit 0
