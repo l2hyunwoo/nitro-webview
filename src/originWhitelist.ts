@@ -175,7 +175,7 @@ export function createOriginWhitelistGuard(
  * Wrap a user-supplied [handler] with a fast-path short-circuit for the
  * default origin allowlist.
  *
- * Semantics (Sub-AC 3 of the L5 onShouldStartLoadWithRequest Seed):
+ * Semantics:
  *
  *   1. When [patterns] is the exact
  *      {@linkcode DEFAULT_ORIGIN_WHITELIST} reference, the returned guard

@@ -20,7 +20,7 @@ import type { ShouldStartLoadRequest } from '../specs/NitroWebView.nitro.ts'
  *   4. An empty pattern list never matches.
  *   5. Non-URL inputs always return `false`.
  *
- * This file satisfies Sub-AC 1 of the L5 onShouldStartLoadWithRequest
+ * this file covers
  * Seed — exact match, wildcard scheme/host, and non-match cases are
  * each represented below.
  */
@@ -132,7 +132,7 @@ describe('originMatches — non-match cases', () => {
 })
 
 /**
- * Sub-AC 2: the exported `DEFAULT_ORIGIN_WHITELIST` constant must equal
+ * the exported `DEFAULT_ORIGIN_WHITELIST` constant must equal
  * exactly `['http://*', 'https://*']` and must let `originMatches` admit
  * representative http and https origins. This mirrors RNW's documented
  * default `originWhitelist` value.
@@ -173,7 +173,7 @@ describe('DEFAULT_ORIGIN_WHITELIST — exact value and behaviour', () => {
 })
 
 /**
- * Sub-AC 3: `wrapWithOriginWhitelist(handler, patterns)` returns a
+ * `wrapWithOriginWhitelist(handler, patterns)` returns a
  * Promise<boolean> guard that:
  *
  *   1. Resolves `true` (allow) WITHOUT invoking `handler` when `patterns`
@@ -274,7 +274,7 @@ describe('wrapWithOriginWhitelist — non-default patterns delegate to handler',
 })
 
 /**
- * Sub-AC 1 (L5 onShouldStartLoadWithRequest — governed dispatch): exact
+ * exact
  * host match cases against `DEFAULT_ORIGIN_WHITELIST` and a single-origin
  * allowlist.
  *
@@ -287,7 +287,7 @@ describe('wrapWithOriginWhitelist — non-default patterns delegate to handler',
  *   B. Against an explicit single-origin allowlist (e.g. `['https://example.com']`):
  *      the matching host returns true and any mismatched host (even with
  *      the same scheme) returns false. This is the strict exact-host
- *      contract referenced by the Sub-AC.
+ *      contract referenced by the .
  */
 describe('DEFAULT_ORIGIN_WHITELIST — exact host match cases', () => {
   it("matches 'https://example.com' against the default allowlist", () => {
@@ -325,7 +325,7 @@ describe('DEFAULT_ORIGIN_WHITELIST — exact host match cases', () => {
 })
 
 describe('originMatches — exact host allowlist', () => {
-  // A strict single-origin allowlist captures Sub-AC 1's "exact host match"
+  // A strict single-origin allowlist captures 's "exact host match"
   // semantics: only the exact `scheme://host[:port]` is admitted; any
   // mismatched host returns false even when the scheme is identical.
   const ALLOWLIST: readonly string[] = ['https://example.com']
@@ -360,7 +360,7 @@ describe('originMatches — exact host allowlist', () => {
 })
 
 /**
- * Sub-AC 2 (L5 onShouldStartLoadWithRequest — governed dispatch): wildcard
+ * wildcard
  * host match cases.
  *
  * Contract under test for the wildcard subdomain pattern
@@ -382,10 +382,10 @@ describe('originMatches — exact host allowlist', () => {
  * This block is dedicated to wildcard-host semantics — broader exact-host
  * and wildcard-scheme cases are covered elsewhere in this file.
  */
-describe('originMatches — wildcard host match cases (Sub-AC 2)', () => {
+describe('originMatches — wildcard host match cases ()', () => {
   const SUBDOMAIN_WILDCARD: readonly string[] = ['https://*.example.com']
 
-  // ─── A. Positive: subdomains match ──────────────────────────────────────
+  // A. Positive: subdomains match
   it("matches a single-label subdomain ('api.example.com')", () => {
     assert.equal(
       originMatches('https://api.example.com', SUBDOMAIN_WILDCARD),
@@ -428,7 +428,7 @@ describe('originMatches — wildcard host match cases (Sub-AC 2)', () => {
     )
   })
 
-  // ─── B. Negative: non-matching hosts rejected ────────────────────────────
+  // B. Negative: non-matching hosts rejected
   it("rejects the apex host 'example.com' (wildcard requires a subdomain)", () => {
     // `https://*.example.com` requires at least one subdomain label — the
     // bare apex must NOT match.
@@ -493,7 +493,7 @@ describe('originMatches — wildcard host match cases (Sub-AC 2)', () => {
     )
   })
 
-  // ─── C. Case-insensitivity ───────────────────────────────────────────────
+  // C. Case-insensitivity
   it('matches a subdomain case-insensitively in scheme and host', () => {
     assert.equal(
       originMatches('HTTPS://API.EXAMPLE.COM/path', SUBDOMAIN_WILDCARD),
@@ -508,7 +508,7 @@ describe('originMatches — wildcard host match cases (Sub-AC 2)', () => {
     )
   })
 
-  // ─── D. Wildcard host with a port-bearing pattern ────────────────────────
+  // D. Wildcard host with a port-bearing pattern
   it('admits a subdomain on a wildcard pattern that bounds the port', () => {
     // A wildcard against `scheme://*.host:port` should still match a
     // subdomain that uses exactly that port.
@@ -529,7 +529,7 @@ describe('originMatches — wildcard host match cases (Sub-AC 2)', () => {
     )
   })
 
-  // ─── E. Wildcard host integrates with a multi-pattern allowlist ─────────
+  // E. Wildcard host integrates with a multi-pattern allowlist
   it('matches when the wildcard host is one of many patterns in the list', () => {
     // Confirm the OR-of-patterns semantics: a single matching wildcard
     // entry is enough.
@@ -556,7 +556,7 @@ describe('originMatches — wildcard host match cases (Sub-AC 2)', () => {
 })
 
 /**
- * Sub-AC 3 (L5 onShouldStartLoadWithRequest — governed dispatch): scheme-only
+ * scheme-only
  * match cases, including the `'file*'` pattern, and `data:` URL short-circuit
  * behavior.
  *
@@ -650,7 +650,7 @@ describe("originMatches — scheme-only 'file*' pattern", () => {
 
 describe("originMatches — 'data:' URL short-circuit behavior", () => {
   it("does NOT admit 'data:text/html,...' against the default http(s) allowlist", () => {
-    // Sub-AC 3 anchor: `data:` URLs must be short-circuited to `false` by
+    // anchor: `data:` URLs must be short-circuited to `false` by
     // the documented default allowlist — the http/https globs do not cover
     // the `data:` scheme, and JS-land integrators rely on this to keep
     // arbitrary inline payloads out of their WebView.
@@ -755,8 +755,7 @@ describe("wrapWithOriginWhitelist — 'data:' event short-circuit on the default
 })
 
 /**
- * Sub-AC 4 (L5 onShouldStartLoadWithRequest — governed dispatch):
- * `wrapWithOriginWhitelist` forwarding behavior.
+ * * `wrapWithOriginWhitelist` forwarding behavior.
  *
  * Contract under test:
  *
@@ -783,8 +782,8 @@ describe("wrapWithOriginWhitelist — 'data:' event short-circuit on the default
  * this file; the assertions below pin the AC-level behavior end-to-end with
  * a single spy handler that records every event it observes.
  */
-describe('wrapWithOriginWhitelist — forwarding behavior (Sub-AC 4)', () => {
-  // ─── A. Matching (default fast-path): handler is BYPASSED ───────────────
+describe('wrapWithOriginWhitelist — forwarding behavior ()', () => {
+  // A. Matching (default fast-path): handler is BYPASSED
   it('bypasses the handler for every event when patterns === DEFAULT_ORIGIN_WHITELIST', async () => {
     const seenEvents: ShouldStartLoadRequest[] = []
     const handler: OnShouldStartLoadWithRequestUnderTest = async (event) => {
@@ -834,7 +833,7 @@ describe('wrapWithOriginWhitelist — forwarding behavior (Sub-AC 4)', () => {
     assert.equal(invocationCount, 0)
   })
 
-  // ─── B. Non-matching (custom patterns): handler is FORWARDED to ─────────
+  // B. Non-matching (custom patterns): handler is FORWARDED to
   it('forwards every event to the user handler verbatim when patterns is a non-default array', async () => {
     const seenEvents: ShouldStartLoadRequest[] = []
     const handler: OnShouldStartLoadWithRequestUnderTest = async (event) => {
@@ -917,7 +916,7 @@ describe('wrapWithOriginWhitelist — forwarding behavior (Sub-AC 4)', () => {
   })
 
   it('treats a structurally equal but non-identical default-shape array as the forwarding branch', async () => {
-    // Mirrors Sub-AC 3 reference-identity contract, restated here from the
+    // Mirrors reference-identity contract, restated here from the
     // forwarding side: even an array with the same shape as the default
     // (`['http://*', 'https://*']`) is forwarded if it is not the exported
     // constant.
@@ -961,7 +960,7 @@ describe('wrapWithOriginWhitelist — forwarding behavior (Sub-AC 4)', () => {
   })
 })
 
-// Locally-narrowed alias of the public type so the Sub-AC 4 spy handlers can
+// Locally-narrowed alias of the public type so the spy handlers can
 // be annotated without re-importing the public `OnShouldStartLoadWithRequest`
 // at the top of the file (keeps the imports diff minimal).
 type OnShouldStartLoadWithRequestUnderTest = (
