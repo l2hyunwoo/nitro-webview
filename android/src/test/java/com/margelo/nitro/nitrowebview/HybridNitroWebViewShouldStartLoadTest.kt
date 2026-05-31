@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * [HybridNitroWebView.awaitBooleanWithTimeout] seam — a pure-Kotlin
  * driver extracted from [HybridNitroWebView.awaitShouldStart].
  *
- * Coverage (one JUnit per AC bullet plus an extra timeout-elapsed pin):
+ * Coverage (one JUnit per behavior plus an extra timeout-elapsed pin):
  *   1. JS allow  -> awaitBooleanWithTimeout returns `true`.
  *   2. JS block  -> awaitBooleanWithTimeout returns `false`.
  *   3. Timeout   -> awaitBooleanWithTimeout returns `true` (default-allow).
@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
  */
 class HybridNitroWebViewShouldStartLoadTest {
 
-  // region: AC pin — 250 ms constant
+  // region: timeout constant pin
 
   @Test
   fun `timeoutConstant_is250ms_mirroringRNW`() {
@@ -37,7 +37,7 @@ class HybridNitroWebViewShouldStartLoadTest {
     )
   }
 
-  // region: AC 1 — JS allow → return true
+  // region: synchronous allow
 
   /**
    * `subscribe` resolves synchronously with `true`. The wait-loop sees
@@ -59,7 +59,7 @@ class HybridNitroWebViewShouldStartLoadTest {
     )
   }
 
-  // region: AC 2 — JS block → return false
+  // region: synchronous block
 
   /**
    * `subscribe` resolves synchronously with `false`. The wait-loop
@@ -81,7 +81,7 @@ class HybridNitroWebViewShouldStartLoadTest {
     )
   }
 
-  // region: AC 3 — timeout → default allow
+  // region: timeout default-allow
 
   /**
    * `subscribe` never invokes the resolve/reject callbacks — the wait
@@ -109,7 +109,7 @@ class HybridNitroWebViewShouldStartLoadTest {
     )
   }
 
-  // region: AC 4 — reject → default allow
+  // region: rejection default-allow
 
   /**
    * `subscribe` invokes the reject callback. A rejected Promise must
@@ -135,7 +135,7 @@ class HybridNitroWebViewShouldStartLoadTest {
     )
   }
 
-  // region: AC 5 — asynchronous resolution from a background thread
+  // region: async resolution from background thread
 
   /**
    * `subscribe` schedules the resolution on a background executor that
@@ -167,7 +167,7 @@ class HybridNitroWebViewShouldStartLoadTest {
     }
   }
 
-  // region: AC 6 — late resolution does not corrupt the verdict
+  // region: late resolution must not corrupt verdict
 
   /**
    * A resolution that arrives AFTER the wait window already elapsed
