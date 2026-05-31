@@ -85,7 +85,7 @@ lib/
 # AI
 .omc/
 .claude/
-CLUADE.md
+CLAUDE.md
 .ouroboros/
 .ouroboros_eval_artifact.md
 
