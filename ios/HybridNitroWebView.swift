@@ -21,6 +21,14 @@ final class HybridNitroWebView:
   var onMessage: ((WebViewMessageEvent) -> Void)?
   var onError: ((NitroWebViewErrorEvent) -> Void)?
   var onFileDownload: ((FileDownloadEvent) -> Void)?
+  /// JS-side navigation-interception hook. When non-nil, every main-frame
+  /// navigation surfaces a `ShouldStartLoadRequest` payload to JS via
+  /// `dispatchShouldStart`; the Promise's boolean result decides whether
+  /// the platform commits to the navigation (`true` → `.allow`, `false` →
+  /// `.cancel`). No timeout is applied — the stashed `decisionHandler`
+  /// stays parked in `pendingDecisions` until the Promise resolves
+  /// (mirroring react-native-webview's iOS behavior).
+  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest) -> Promise<Bool>)?
 
   override init() {
     let configuration = WKWebViewConfiguration()
@@ -291,9 +299,44 @@ final class HybridNitroWebView:
   fileprivate final class NavigationDelegate: NSObject, WKNavigationDelegate {
     weak var owner: HybridNitroWebView?
 
+    /// In-memory map of WKNavigationAction → its WebKit-supplied
+    /// `decisionHandler` closure, parked while the JS-side Promise from
+    /// `onShouldStartLoadWithRequest` resolves. There is NO timeout — the
+    /// closure stays here indefinitely until JS calls back, mirroring
+    /// react-native-webview's iOS lockIdentifier round-trip semantics.
+    private var pendingDecisions: [ObjectIdentifier: (WKNavigationActionPolicy) -> Void] = [:]
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
       owner?.emitLoadStart()
       owner?.emitNavigationState()
+    }
+
+    /// Navigation-interception entry point. When the host has no
+    /// `onShouldStartLoadWithRequest` callback installed, every navigation
+    /// is allowed without JS round-trip. When the callback is installed:
+    ///   1. Park `decisionHandler` keyed by the navigation action's
+    ///      identity so it survives across the async hop.
+    ///   2. Build the cross-platform `ShouldStartLoadRequest` payload
+    ///      (URL, navigation-type mapping, iOS-only fields).
+    ///   3. Hand the payload to the host's `dispatchShouldStart` helper
+    ///      which resolves the Promise and dequeues the handler.
+    func webView(
+      _ webView: WKWebView,
+      decidePolicyFor navigationAction: WKNavigationAction,
+      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+      guard let owner = owner, owner.onShouldStartLoadWithRequest != nil else {
+        decisionHandler(.allow)
+        return
+      }
+      let key = ObjectIdentifier(navigationAction)
+      pendingDecisions[key] = decisionHandler
+      let payload = HybridNitroWebView.shouldStartPayload(for: navigationAction)
+      owner.dispatchShouldStart(payload) { [weak self] allow in
+        guard let self = self else { return }
+        let handler = self.pendingDecisions.removeValue(forKey: key)
+        handler?(allow ? .allow : .cancel)
+      }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -438,6 +481,71 @@ final class HybridNitroWebView:
   fileprivate func emitFileDownload(for response: URLResponse) {
     let download = Self.fileDownload(from: response)
     onFileDownload?(FileDownloadEvent(nativeEvent: download))
+  }
+
+  /// Invoke the JS-side `onShouldStartLoadWithRequest` hook (if installed),
+  /// then forward the resolved boolean back to the WebKit decision handler
+  /// via the supplied `complete` closure. When the hook is not installed
+  /// this short-circuits to `complete(true)` so the navigation proceeds —
+  /// matching the "allow-all" default documented on the prop.
+  fileprivate func dispatchShouldStart(
+    _ payload: ShouldStartLoadRequest,
+    complete: @escaping (Bool) -> Void
+  ) {
+    guard let hook = onShouldStartLoadWithRequest else {
+      complete(true)
+      return
+    }
+    let promise = hook(payload)
+    promise
+      .then { allow in complete(allow) }
+      .catch { _ in complete(true) }
+  }
+
+  /// Build the cross-platform navigation payload from a WKNavigationAction.
+  ///
+  ///   * `url` — `navigationAction.request.url?.absoluteString` (empty when
+  ///     the request has no URL, defensive — WebKit always sets one in
+  ///     practice).
+  ///   * `navigationType` — mapped from `WKNavigationType` via
+  ///     `Self.navigationType(from:)`.
+  ///   * `mainDocumentURL` — `request.mainDocumentURL?.absoluteString`.
+  ///   * `isTopFrame` — `targetFrame?.isMainFrame` (the navigation targets
+  ///     the WebView's main frame).
+  ///   * `hasTargetFrame` — `targetFrame != nil` (false for `target=_blank`
+  ///     and other new-window navigations).
+  static func shouldStartPayload(
+    for navigationAction: WKNavigationAction
+  ) -> ShouldStartLoadRequest {
+    let request = navigationAction.request
+    let url = request.url?.absoluteString ?? ""
+    let mainDoc = request.mainDocumentURL?.absoluteString
+    let target = navigationAction.targetFrame
+    return ShouldStartLoadRequest(
+      url: url,
+      navigationType: navigationType(from: navigationAction.navigationType),
+      mainDocumentURL: mainDoc,
+      isTopFrame: target?.isMainFrame,
+      hasTargetFrame: target != nil
+    )
+  }
+
+  /// Map a `WKNavigationType` value to the cross-platform
+  /// `WebViewNavigationType` string. Mirrors react-native-webview so RNW
+  /// call-sites continue to compile unchanged. Unknown / future cases
+  /// fall through to `.other` — RNW does the same.
+  static func navigationType(
+    from raw: WKNavigationType
+  ) -> WebViewNavigationType {
+    switch raw {
+    case .linkActivated: return .click
+    case .formSubmitted: return .formsubmit
+    case .backForward: return .backforward
+    case .reload: return .reload
+    case .formResubmitted: return .formresubmit
+    case .other: return .other
+    @unknown default: return .other
+    }
   }
 
   /// Translate a URLResponse into the cross-platform `FileDownload`
