@@ -36,3 +36,43 @@ Contribute a change to this template to update it for newer React Native version
   2. Adds all of your `.swift` or `.cpp` files (implementations).
   3. Adds all Nitrogen files (`add_nitrogen_files(s)`)
 - [`package.json`](package.json): The npm package.json file. `react-native-nitro-modules` should be a `peerDependency`.
+
+## iOS File Upload Setup
+
+`nitro-webview` supports HTML `<input type="file">` on iOS through the system's
+default file picker (delegated via `WKUIDelegate`). Because the picker can read
+from the camera, the photo library, and (when video capture is requested) the
+microphone, **the consuming app's `Info.plist` MUST declare the following three
+usage-description keys**. iOS will crash the app the first time the picker tries
+to access one of these subsystems without an explanatory string.
+
+Add these keys to your app's `Info.plist`:
+
+| Key | Required by | Example usage-description string |
+| --- | --- | --- |
+| `NSCameraUsageDescription` | Camera capture (`capture="camera"`, photos & videos) | `This app uses the camera to let you upload photos and videos from web pages.` |
+| `NSPhotoLibraryUsageDescription` | Photo library picker (default file chooser source) | `This app needs photo library access to let you upload images from web pages.` |
+| `NSMicrophoneUsageDescription` | Audio track when capturing video from the camera | `This app uses the microphone to record audio when you upload a video from a web page.` |
+
+Example `Info.plist` snippet:
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>This app uses the camera to let you upload photos and videos from web pages.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app needs photo library access to let you upload images from web pages.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>This app uses the microphone to record audio when you upload a video from a web page.</string>
+```
+
+Notes:
+
+- All three keys are required even if your web content only triggers one source —
+  iOS may still surface the unified picker, which can route the user to any of
+  the three subsystems.
+- These strings are shown verbatim to the user in the iOS permission prompt;
+  rewrite them in your app's voice and your supported locales.
+- On Android, the equivalent permissions for camera capture are declared by the
+  library's `AndroidManifest.xml` and the FileProvider authority
+  `${applicationId}.nitrowebview.fileprovider` — no app-level Info.plist
+  equivalent is needed there.
