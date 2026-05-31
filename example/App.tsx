@@ -17,6 +17,7 @@ import type {
   FileDownloadEvent,
   NitroWebViewErrorEvent,
   NitroWebViewMethods,
+  ShouldStartLoadRequest,
   WebViewMessageEvent,
   WebViewNavigationState,
   WebViewSource,
@@ -42,6 +43,9 @@ button{font-size:18px;padding:12px 20px;margin-top:12px;}</style>
 }
 
 const HTTPBIN_SOURCE: WebViewSource = { uri: 'https://httpbin.org' }
+
+const NAV_DEMO_SOURCE: WebViewSource = { uri: 'https://example.com' }
+const NAV_BLOCKED_SOURCE: WebViewSource = { uri: 'https://example.org' }
 
 const HEADERS_SOURCE: WebViewSource = {
   uri: 'https://httpbin.org/headers',
@@ -133,6 +137,14 @@ export default function App() {
   // userAgent demo state. `undefined` keeps the platform default.
   const [userAgent, setUserAgent] = useState<string | undefined>(undefined)
 
+  // Navigation interception demo state
+  const [blockedHosts] = useState<string[]>(['example.org'])
+  const [lastDecision, setLastDecision] = useState<{
+    url: string
+    allowed: boolean
+    at: number
+  } | null>(null)
+
   // Track which demo panel is active to show the right message banner
   const handleMessage = callback((event: WebViewMessageEvent) => {
     setLastMessage(event.nativeEvent)
@@ -140,6 +152,15 @@ export default function App() {
     if (data.startsWith('single') || data.startsWith('multi')) {
       setUploadStatus('upload event: ' + data)
     }
+  })
+
+  const handleShouldStartLoad = callback((event: ShouldStartLoadRequest) => {
+    const u = new URL(event.url)
+    const blocked = blockedHosts.some(
+      h => u.hostname === h || u.hostname.endsWith('.' + h)
+    )
+    setLastDecision({ url: event.url, allowed: !blocked, at: Date.now() })
+    return !blocked
   })
 
   const handleFileDownload = callback(async (event: FileDownloadEvent) => {
@@ -306,6 +327,7 @@ export default function App() {
           setLastError(event.nativeEvent)
         })}
         onMessage={handleMessage}
+        onShouldStartLoadWithRequest={handleShouldStartLoad}
         onFileDownload={handleFileDownload}
       />
 
@@ -330,6 +352,29 @@ export default function App() {
         </View>
         <Text style={styles.hint}>
           Expected: X-Nitro-Default: global • X-Nitro-Test: per-request (not "default-loses")
+        </Text>
+
+        <SectionLabel text="Navigation interception demo" />
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>last decision:</Text>
+          <Text style={styles.statusValue} numberOfLines={2}>
+            {lastDecision
+              ? `${lastDecision.url} — ${lastDecision.allowed ? 'ALLOWED' : 'BLOCKED'} (${new Date(lastDecision.at).toLocaleTimeString()})`
+              : 'no decisions yet'}
+          </Text>
+        </View>
+        <View style={styles.toolbar}>
+          <ToolbarButton
+            label="Visit example.com (allow)"
+            onPress={() => setSource(NAV_DEMO_SOURCE)}
+          />
+          <ToolbarButton
+            label="Visit example.org (block)"
+            onPress={() => setSource(NAV_BLOCKED_SOURCE)}
+          />
+        </View>
+        <Text style={styles.hint}>
+          Expected: example.com navigation succeeds; example.org navigation is blocked by the hook and the WebView stays on the previous page.
         </Text>
 
         <SectionLabel text="User-Agent demo" />
