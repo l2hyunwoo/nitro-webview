@@ -48,6 +48,8 @@ const HEADERS_SOURCE: WebViewSource = {
   headers: { 'X-Nitro-Test': 'per-request' },
 }
 
+const USER_AGENT_SOURCE: WebViewSource = { uri: 'https://httpbin.org/user-agent' }
+
 const UPLOAD_SOURCE: WebViewSource = {
   // Android WebView blocks `<input type="file">` on null-origin pages (the
   // default for HTML loaded without a base URL). Pin a real https origin so
@@ -127,6 +129,9 @@ export default function App() {
 
   // Download demo state
   const [lastDownload, setLastDownload] = useState<FileDownload | null>(null)
+
+  // userAgent demo state. `undefined` keeps the platform default.
+  const [userAgent, setUserAgent] = useState<string | undefined>(undefined)
 
   // Track which demo panel is active to show the right message banner
   const handleMessage = callback((event: WebViewMessageEvent) => {
@@ -289,6 +294,7 @@ export default function App() {
         style={styles.webview}
         source={source}
         defaultHeaders={{ 'X-Nitro-Default': 'global', 'X-Nitro-Test': 'default-loses' }}
+        userAgent={userAgent}
         injectedJavaScript={INJECTED_JS}
         hybridRef={callback((r: NitroWebViewMethods) => {
           ref.current = r
@@ -324,6 +330,33 @@ export default function App() {
         </View>
         <Text style={styles.hint}>
           Expected: X-Nitro-Default: global • X-Nitro-Test: per-request (not "default-loses")
+        </Text>
+
+        <SectionLabel text="User-Agent demo" />
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>userAgent:</Text>
+          <Text style={styles.statusValue} numberOfLines={1}>
+            {userAgent ?? 'platform default'}
+          </Text>
+        </View>
+        <View style={styles.toolbar}>
+          <ToolbarButton
+            label="Use custom UA"
+            onPress={() => {
+              setUserAgent('NitroWebView/0.1 (demo)')
+              setSource(USER_AGENT_SOURCE)
+            }}
+          />
+          <ToolbarButton
+            label="Reset UA"
+            onPress={() => {
+              setUserAgent(undefined)
+              setSource(USER_AGENT_SOURCE)
+            }}
+          />
+        </View>
+        <Text style={styles.hint}>
+          Hits httpbin.org/user-agent — the rendered JSON should mirror the value above.
         </Text>
 
         <SectionLabel text="Cookies demo" />
