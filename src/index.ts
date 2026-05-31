@@ -30,6 +30,9 @@ export type {
   NitroWebViewErrorEvent,
   NitroWebViewErrorNativeEvent,
   WebViewErrorEvent,
+  Cookie,
+  FileDownload,
+  FileDownloadEvent,
 } from './specs/NitroWebView.nitro'
 
 export {
