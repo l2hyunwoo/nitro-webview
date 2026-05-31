@@ -20,12 +20,14 @@
 #include "HtmlSource.hpp"
 #include <variant>
 #include <string>
+#include <unordered_map>
 #include <optional>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
+#include "FileDownloadEvent.hpp"
 #include <memory>
 #include "HybridNitroWebViewSpec.hpp"
 
@@ -50,12 +52,14 @@ namespace margelo::nitro::nitrowebview::views {
 
   public:
     CachedProp<std::variant<UriSource, HtmlSource>> source;
+    CachedProp<std::optional<std::unordered_map<std::string, std::string>>> defaultHeaders;
     CachedProp<std::optional<std::string>> injectedJavaScript;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;
     CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;
     CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
     CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
+    CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> hybridRef;
 
   private:

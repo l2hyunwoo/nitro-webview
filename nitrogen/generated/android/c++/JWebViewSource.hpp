@@ -15,8 +15,9 @@
 #include <variant>
 #include "JUriSource.hpp"
 #include <string>
-#include "JHtmlSource.hpp"
+#include <unordered_map>
 #include <optional>
+#include "JHtmlSource.hpp"
 
 namespace margelo::nitro::nitrowebview {
 

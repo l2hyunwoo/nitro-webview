@@ -23,6 +23,12 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
+// Forward declaration of `FileDownloadEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
+// Forward declaration of `FileDownload` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownload; }
+// Forward declaration of `Cookie` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct Cookie; }
 
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
@@ -30,8 +36,9 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
 #include "JWebViewSource.hpp"
 #include "JUriSource.hpp"
 #include <string>
-#include "JHtmlSource.hpp"
+#include <unordered_map>
 #include <optional>
+#include "JHtmlSource.hpp"
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "JFunc_void_WebViewLoadEvent.hpp"
@@ -50,8 +57,17 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
 #include "JNitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
 #include "JNitroWebViewErrorNativeEvent.hpp"
+#include "FileDownloadEvent.hpp"
+#include "JFunc_void_FileDownloadEvent.hpp"
+#include "JFileDownloadEvent.hpp"
+#include "FileDownload.hpp"
+#include "JFileDownload.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/JPromise.hpp>
+#include "Cookie.hpp"
+#include <vector>
+#include "JCookie.hpp"
+#include <NitroModules/JUnit.hpp>
 
 namespace margelo::nitro::nitrowebview {
 
@@ -91,6 +107,28 @@ namespace margelo::nitro::nitrowebview {
   void JHybridNitroWebViewSpec::setSource(const std::variant<UriSource, HtmlSource>& source) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JWebViewSource> /* source */)>("setSource");
     method(_javaPart, JWebViewSource::fromCpp(source));
+  }
+  std::optional<std::unordered_map<std::string, std::string>> JHybridNitroWebViewSpec::getDefaultHeaders() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JMap<jni::JString, jni::JString>>()>("getDefaultHeaders");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() {
+      std::unordered_map<std::string, std::string> __map;
+      __map.reserve(__result->size());
+      for (const auto& __entry : *__result) {
+        __map.emplace(__entry.first->toStdString(), __entry.second->toStdString());
+      }
+      return __map;
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setDefaultHeaders(const std::optional<std::unordered_map<std::string, std::string>>& defaultHeaders) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JMap<jni::JString, jni::JString>> /* defaultHeaders */)>("setDefaultHeaders");
+    method(_javaPart, defaultHeaders.has_value() ? [&]() -> jni::local_ref<jni::JMap<jni::JString, jni::JString>> {
+      auto __map = jni::JHashMap<jni::JString, jni::JString>::create(defaultHeaders.value().size());
+      for (const auto& __entry : defaultHeaders.value()) {
+        __map->put(jni::make_jstring(__entry.first), jni::make_jstring(__entry.second));
+      }
+      return __map;
+    }() : nullptr);
   }
   std::optional<std::string> JHybridNitroWebViewSpec::getInjectedJavaScript() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getInjectedJavaScript");
@@ -186,6 +224,23 @@ namespace margelo::nitro::nitrowebview {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_NitroWebViewErrorEvent::javaobject> /* onError */)>("setOnError_cxx");
     method(_javaPart, onError.has_value() ? JFunc_void_NitroWebViewErrorEvent_cxx::fromCpp(onError.value()) : nullptr);
   }
+  std::optional<std::function<void(const FileDownloadEvent& /* event */)>> JHybridNitroWebViewSpec::getOnFileDownload() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_FileDownloadEvent::javaobject>()>("getOnFileDownload_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const FileDownloadEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_FileDownloadEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_FileDownloadEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_FileDownloadEvent, void(FileDownloadEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_FileDownloadEvent::javaobject> /* onFileDownload */)>("setOnFileDownload_cxx");
+    method(_javaPart, onFileDownload.has_value() ? JFunc_void_FileDownloadEvent_cxx::fromCpp(onFileDownload.value()) : nullptr);
+  }
 
   // Methods
   void JHybridNitroWebViewSpec::goBack() {
@@ -212,6 +267,61 @@ namespace margelo::nitro::nitrowebview {
       __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& __boxedResult) {
         auto __result = jni::static_ref_cast<jni::JString>(__boxedResult);
         __promise->resolve(__result->toStdString());
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
+  }
+  std::shared_ptr<Promise<std::vector<Cookie>>> JHybridNitroWebViewSpec::getCookies(const std::string& url) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* url */)>("getCookies");
+    auto __result = method(_javaPart, jni::make_jstring(url));
+    return [&]() {
+      auto __promise = Promise<std::vector<Cookie>>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& __boxedResult) {
+        auto __result = jni::static_ref_cast<jni::JArrayClass<JCookie>>(__boxedResult);
+        __promise->resolve([&](auto&& __input) {
+          size_t __size = __input->size();
+          std::vector<Cookie> __vector;
+          __vector.reserve(__size);
+          for (size_t __i = 0; __i < __size; __i++) {
+            auto __element = __input->getElement(__i);
+            __vector.push_back(__element->toCpp());
+          }
+          return __vector;
+        }(__result));
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
+  }
+  std::shared_ptr<Promise<void>> JHybridNitroWebViewSpec::setCookie(const std::string& url, const Cookie& cookie) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* url */, jni::alias_ref<JCookie> /* cookie */)>("setCookie");
+    auto __result = method(_javaPart, jni::make_jstring(url), JCookie::fromCpp(cookie));
+    return [&]() {
+      auto __promise = Promise<void>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& /* unit */) {
+        __promise->resolve();
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
+  }
+  std::shared_ptr<Promise<void>> JHybridNitroWebViewSpec::clearCookies() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>()>("clearCookies");
+    auto __result = method(_javaPart);
+    return [&]() {
+      auto __promise = Promise<void>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& /* unit */) {
+        __promise->resolve();
       });
       __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
         jni::JniException __jniError(__throwable);

@@ -5,12 +5,14 @@
   "directEventTypes": {},
   "validAttributes": {
     "source": true,
+    "defaultHeaders": true,
     "injectedJavaScript": true,
     "onLoadStart": true,
     "onLoadEnd": true,
     "onNavigationStateChange": true,
     "onMessage": true,
     "onError": true,
+    "onFileDownload": true,
     "hybridRef": true
   }
 }

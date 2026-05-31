@@ -37,6 +37,12 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @get:Keep
   @set:DoNotStrip
   @set:Keep
+  abstract var defaultHeaders: Map<String, String>?
+  
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
   abstract var injectedJavaScript: String?
   
   abstract var onLoadStart: ((event: WebViewLoadEvent) -> Unit)?
@@ -108,6 +114,20 @@ abstract class HybridNitroWebViewSpec: HybridView() {
     set(value) {
       onError = value?.let { it }
     }
+  
+  abstract var onFileDownload: ((event: FileDownloadEvent) -> Unit)?
+  
+  private var onFileDownload_cxx: Func_void_FileDownloadEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onFileDownload?.let { Func_void_FileDownloadEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onFileDownload = value?.let { it }
+    }
 
   // Methods
   @DoNotStrip
@@ -129,6 +149,18 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @DoNotStrip
   @Keep
   abstract fun evaluateJavaScript(code: String): Promise<String>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun getCookies(url: String): Promise<Array<Cookie>>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun setCookie(url: String, cookie: Cookie): Promise<Unit>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun clearCookies(): Promise<Unit>
 
   // Default implementation of `HybridObject.toString()`
   override fun toString(): String {

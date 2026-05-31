@@ -84,6 +84,11 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setSource(newViewProps.source.value);
     newViewProps.source.isDirty = false;
   }
+  // defaultHeaders: optional
+  if (newViewProps.defaultHeaders.isDirty) {
+    swiftPart.setDefaultHeaders(newViewProps.defaultHeaders.value);
+    newViewProps.defaultHeaders.isDirty = false;
+  }
   // injectedJavaScript: optional
   if (newViewProps.injectedJavaScript.isDirty) {
     swiftPart.setInjectedJavaScript(newViewProps.injectedJavaScript.value);
@@ -113,6 +118,11 @@ using namespace margelo::nitro::nitrowebview::views;
   if (newViewProps.onError.isDirty) {
     swiftPart.setOnError(newViewProps.onError.value);
     newViewProps.onError.isDirty = false;
+  }
+  // onFileDownload: optional
+  if (newViewProps.onFileDownload.isDirty) {
+    swiftPart.setOnFileDownload(newViewProps.onFileDownload.value);
+    newViewProps.onFileDownload.isDirty = false;
   }
 
   swiftPart.afterUpdate();

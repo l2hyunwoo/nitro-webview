@@ -52,6 +52,8 @@ namespace margelo::nitro::nitrowebview {
     // Properties
     std::variant<UriSource, HtmlSource> getSource() override;
     void setSource(const std::variant<UriSource, HtmlSource>& source) override;
+    std::optional<std::unordered_map<std::string, std::string>> getDefaultHeaders() override;
+    void setDefaultHeaders(const std::optional<std::unordered_map<std::string, std::string>>& defaultHeaders) override;
     std::optional<std::string> getInjectedJavaScript() override;
     void setInjectedJavaScript(const std::optional<std::string>& injectedJavaScript) override;
     std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() override;
@@ -64,6 +66,8 @@ namespace margelo::nitro::nitrowebview {
     void setOnMessage(const std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>& onMessage) override;
     std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>> getOnError() override;
     void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) override;
+    std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() override;
+    void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) override;
 
   public:
     // Methods
@@ -72,6 +76,9 @@ namespace margelo::nitro::nitrowebview {
     void reload() override;
     void stopLoading() override;
     std::shared_ptr<Promise<std::string>> evaluateJavaScript(const std::string& code) override;
+    std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) override;
+    std::shared_ptr<Promise<void>> setCookie(const std::string& url, const Cookie& cookie) override;
+    std::shared_ptr<Promise<void>> clearCookies() override;
 
   private:
     jni::global_ref<JHybridNitroWebViewSpec::JavaPart> _javaPart;

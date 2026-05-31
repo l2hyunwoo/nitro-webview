@@ -10,7 +10,9 @@
 #include <fbjni/fbjni.h>
 #include "UriSource.hpp"
 
+#include <optional>
 #include <string>
+#include <unordered_map>
 
 namespace margelo::nitro::nitrowebview {
 
@@ -33,8 +35,18 @@ namespace margelo::nitro::nitrowebview {
       static const auto clazz = javaClassStatic();
       static const auto fieldUri = clazz->getField<jni::JString>("uri");
       jni::local_ref<jni::JString> uri = this->getFieldValue(fieldUri);
+      static const auto fieldHeaders = clazz->getField<jni::JMap<jni::JString, jni::JString>>("headers");
+      jni::local_ref<jni::JMap<jni::JString, jni::JString>> headers = this->getFieldValue(fieldHeaders);
       return UriSource(
-        uri->toStdString()
+        uri->toStdString(),
+        headers != nullptr ? std::make_optional([&]() {
+          std::unordered_map<std::string, std::string> __map;
+          __map.reserve(headers->size());
+          for (const auto& __entry : *headers) {
+            __map.emplace(__entry.first->toStdString(), __entry.second->toStdString());
+          }
+          return __map;
+        }()) : std::nullopt
       );
     }
 
@@ -44,12 +56,19 @@ namespace margelo::nitro::nitrowebview {
      */
     [[maybe_unused]]
     static jni::local_ref<JUriSource::javaobject> fromCpp(const UriSource& value) {
-      using JSignature = JUriSource(jni::alias_ref<jni::JString>);
+      using JSignature = JUriSource(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JMap<jni::JString, jni::JString>>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
         clazz,
-        jni::make_jstring(value.uri)
+        jni::make_jstring(value.uri),
+        value.headers.has_value() ? [&]() -> jni::local_ref<jni::JMap<jni::JString, jni::JString>> {
+          auto __map = jni::JHashMap<jni::JString, jni::JString>::create(value.headers.value().size());
+          for (const auto& __entry : value.headers.value()) {
+            __map->put(jni::make_jstring(__entry.first), jni::make_jstring(__entry.second));
+          }
+          return __map;
+        }() : nullptr
       );
     }
   };

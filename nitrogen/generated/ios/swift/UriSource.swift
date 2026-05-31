@@ -18,12 +18,44 @@ public extension UriSource {
   /**
    * Create a new instance of `UriSource`.
    */
-  init(uri: String) {
-    self.init(std.string(uri))
+  init(uri: String, headers: Dictionary<String, String>?) {
+    self.init(std.string(uri), { () -> bridge.std__optional_std__unordered_map_std__string__std__string__ in
+      if let __unwrappedValue = headers {
+        return bridge.create_std__optional_std__unordered_map_std__string__std__string__({ () -> bridge.std__unordered_map_std__string__std__string_ in
+          var __map = bridge.create_std__unordered_map_std__string__std__string_(__unwrappedValue.count)
+          for (__k, __v) in __unwrappedValue {
+            bridge.emplace_std__unordered_map_std__string__std__string_(&__map, std.string(__k), std.string(__v))
+          }
+          return __map
+        }())
+      } else {
+        return .init()
+      }
+    }())
   }
 
   @inline(__always)
   var uri: String {
     return String(self.__uri)
+  }
+  
+  @inline(__always)
+  var headers: Dictionary<String, String>? {
+    return { () -> Dictionary<String, String>? in
+      if bridge.has_value_std__optional_std__unordered_map_std__string__std__string__(self.__headers) {
+        let __unwrapped = bridge.get_std__optional_std__unordered_map_std__string__std__string__(self.__headers)
+        return { () -> Dictionary<String, String> in
+          var __dictionary = Dictionary<String, String>(minimumCapacity: __unwrapped.size())
+          let __keys = bridge.get_std__unordered_map_std__string__std__string__keys(__unwrapped)
+          for __key in __keys {
+            let __value = bridge.get_std__unordered_map_std__string__std__string__value(__unwrapped, __key)
+            __dictionary[String(__key)] = String(__value)
+          }
+          return __dictionary
+        }()
+      } else {
+        return nil
+      }
+    }()
   }
 }

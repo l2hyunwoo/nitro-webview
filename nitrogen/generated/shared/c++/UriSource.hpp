@@ -31,6 +31,8 @@
 
 
 #include <string>
+#include <unordered_map>
+#include <optional>
 
 namespace margelo::nitro::nitrowebview {
 
@@ -40,10 +42,11 @@ namespace margelo::nitro::nitrowebview {
   struct UriSource final {
   public:
     std::string uri     SWIFT_PRIVATE;
+    std::optional<std::unordered_map<std::string, std::string>> headers     SWIFT_PRIVATE;
 
   public:
     UriSource() = default;
-    explicit UriSource(std::string uri): uri(uri) {}
+    explicit UriSource(std::string uri, std::optional<std::unordered_map<std::string, std::string>> headers): uri(uri), headers(headers) {}
 
   public:
     friend bool operator==(const UriSource& lhs, const UriSource& rhs) = default;
@@ -59,12 +62,14 @@ namespace margelo::nitro {
     static inline margelo::nitro::nitrowebview::UriSource fromJSI(jsi::Runtime& runtime, const jsi::Value& arg) {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::nitrowebview::UriSource(
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "uri")))
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "uri"))),
+        JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headers")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::nitrowebview::UriSource& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "uri"), JSIConverter<std::string>::toJSI(runtime, arg.uri));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "headers"), JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::toJSI(runtime, arg.headers));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -76,6 +81,7 @@ namespace margelo::nitro {
         return false;
       }
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "uri")))) return false;
+      if (!JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headers")))) return false;
       return true;
     }
   };

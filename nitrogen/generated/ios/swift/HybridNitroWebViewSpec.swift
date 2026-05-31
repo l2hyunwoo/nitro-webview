@@ -11,12 +11,14 @@ import NitroModules
 public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   // Properties
   var source: WebViewSource { get set }
+  var defaultHeaders: Dictionary<String, String>? { get set }
   var injectedJavaScript: String? { get set }
   var onLoadStart: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onLoadEnd: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onNavigationStateChange: ((_ state: WebViewNavigationState) -> Void)? { get set }
   var onMessage: ((_ event: WebViewMessageEvent) -> Void)? { get set }
   var onError: ((_ event: NitroWebViewErrorEvent) -> Void)? { get set }
+  var onFileDownload: ((_ event: FileDownloadEvent) -> Void)? { get set }
 
   // Methods
   func goBack() throws -> Void
@@ -24,6 +26,9 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   func reload() throws -> Void
   func stopLoading() throws -> Void
   func evaluateJavaScript(code: String) throws -> Promise<String>
+  func getCookies(url: String) throws -> Promise<[Cookie]>
+  func setCookie(url: String, cookie: Cookie) throws -> Promise<Void>
+  func clearCookies() throws -> Promise<Void>
 }
 
 public extension HybridNitroWebViewSpec_protocol {

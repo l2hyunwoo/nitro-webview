@@ -20,6 +20,7 @@
 #include "JFunc_void_WebViewNavigationState.hpp"
 #include "JFunc_void_WebViewMessageEvent.hpp"
 #include "JFunc_void_NitroWebViewErrorEvent.hpp"
+#include "JFunc_void_FileDownloadEvent.hpp"
 #include "views/JHybridNitroWebViewStateUpdater.hpp"
 #include <NitroModules/DefaultConstructableObject.hpp>
 
@@ -50,6 +51,7 @@ void registerAllNatives() {
   margelo::nitro::nitrowebview::JFunc_void_WebViewNavigationState_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_WebViewMessageEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_NitroWebViewErrorEvent_cxx::registerNatives();
+  margelo::nitro::nitrowebview::JFunc_void_FileDownloadEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::views::JHybridNitroWebViewStateUpdater::registerNatives();
 
   // Register Nitro Hybrid Objects

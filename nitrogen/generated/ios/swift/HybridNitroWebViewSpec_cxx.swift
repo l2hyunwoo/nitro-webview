@@ -151,6 +151,44 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
+  public final var defaultHeaders: bridge.std__optional_std__unordered_map_std__string__std__string__ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__unordered_map_std__string__std__string__ in
+        if let __unwrappedValue = self.__implementation.defaultHeaders {
+          return bridge.create_std__optional_std__unordered_map_std__string__std__string__({ () -> bridge.std__unordered_map_std__string__std__string_ in
+            var __map = bridge.create_std__unordered_map_std__string__std__string_(__unwrappedValue.count)
+            for (__k, __v) in __unwrappedValue {
+              bridge.emplace_std__unordered_map_std__string__std__string_(&__map, std.string(__k), std.string(__v))
+            }
+            return __map
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.defaultHeaders = { () -> Dictionary<String, String>? in
+        if bridge.has_value_std__optional_std__unordered_map_std__string__std__string__(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__unordered_map_std__string__std__string__(newValue)
+          return { () -> Dictionary<String, String> in
+            var __dictionary = Dictionary<String, String>(minimumCapacity: __unwrapped.size())
+            let __keys = bridge.get_std__unordered_map_std__string__std__string__keys(__unwrapped)
+            for __key in __keys {
+              let __value = bridge.get_std__unordered_map_std__string__std__string__value(__unwrapped, __key)
+              __dictionary[String(__key)] = String(__value)
+            }
+            return __dictionary
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
   public final var injectedJavaScript: bridge.std__optional_std__string_ {
     @inline(__always)
     get {
@@ -334,6 +372,38 @@ open class HybridNitroWebViewSpec_cxx {
       }()
     }
   }
+  
+  public final var onFileDownload: bridge.std__optional_std__function_void_const_FileDownloadEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_FileDownloadEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onFileDownload {
+          return bridge.create_std__optional_std__function_void_const_FileDownloadEvent_____event______({ () -> bridge.Func_void_FileDownloadEvent in
+            let __closureWrapper = Func_void_FileDownloadEvent(__unwrappedValue)
+            return bridge.create_Func_void_FileDownloadEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onFileDownload = { () -> ((_ event: FileDownloadEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_FileDownloadEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_FileDownloadEvent_____event______(newValue)
+          return { () -> (FileDownloadEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_FileDownloadEvent(__unwrapped)
+            return { (__event: FileDownloadEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
 
   // Methods
   @inline(__always)
@@ -396,6 +466,69 @@ open class HybridNitroWebViewSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func getCookies(url: std.string) -> bridge.Result_std__shared_ptr_Promise_std__vector_Cookie____ {
+    do {
+      let __result = try self.__implementation.getCookies(url: String(url))
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_std__vector_Cookie___ in
+        let __promise = bridge.create_std__shared_ptr_Promise_std__vector_Cookie___()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__vector_Cookie___(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve({ () -> bridge.std__vector_Cookie_ in
+              var __vector = bridge.create_std__vector_Cookie_(__result.count)
+              for __item in __result {
+                __vector.push_back(__item)
+              }
+              return __vector
+            }()) })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_Cookie____(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_std__vector_Cookie____(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setCookie(url: std.string, cookie: Cookie) -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.setCookie(url: String(url), cookie: cookie)
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func clearCookies() -> bridge.Result_std__shared_ptr_Promise_void___ {
+    do {
+      let __result = try self.__implementation.clearCookies()
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
     }
   }
   

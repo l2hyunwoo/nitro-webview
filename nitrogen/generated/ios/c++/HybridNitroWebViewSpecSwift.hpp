@@ -28,11 +28,18 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
+// Forward declaration of `FileDownloadEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
+// Forward declaration of `FileDownload` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownload; }
+// Forward declaration of `Cookie` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct Cookie; }
 
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
 #include <variant>
 #include <string>
+#include <unordered_map>
 #include <optional>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
@@ -41,7 +48,11 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
 #include "WebViewMessageNativeEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
+#include "FileDownloadEvent.hpp"
+#include "FileDownload.hpp"
 #include <NitroModules/Promise.hpp>
+#include "Cookie.hpp"
+#include <vector>
 
 #include "NitroWebview-Swift-Cxx-Umbrella.hpp"
 
@@ -96,6 +107,13 @@ namespace margelo::nitro::nitrowebview {
     inline void setSource(const std::variant<UriSource, HtmlSource>& source) noexcept override {
       _swiftPart.setSource(source);
     }
+    inline std::optional<std::unordered_map<std::string, std::string>> getDefaultHeaders() noexcept override {
+      auto __result = _swiftPart.getDefaultHeaders();
+      return __result;
+    }
+    inline void setDefaultHeaders(const std::optional<std::unordered_map<std::string, std::string>>& defaultHeaders) noexcept override {
+      _swiftPart.setDefaultHeaders(defaultHeaders);
+    }
     inline std::optional<std::string> getInjectedJavaScript() noexcept override {
       auto __result = _swiftPart.getInjectedJavaScript();
       return __result;
@@ -138,6 +156,13 @@ namespace margelo::nitro::nitrowebview {
     inline void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) noexcept override {
       _swiftPart.setOnError(onError);
     }
+    inline std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() noexcept override {
+      auto __result = _swiftPart.getOnFileDownload();
+      return __result;
+    }
+    inline void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) noexcept override {
+      _swiftPart.setOnFileDownload(onFileDownload);
+    }
 
   public:
     // Methods
@@ -167,6 +192,30 @@ namespace margelo::nitro::nitrowebview {
     }
     inline std::shared_ptr<Promise<std::string>> evaluateJavaScript(const std::string& code) override {
       auto __result = _swiftPart.evaluateJavaScript(code);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) override {
+      auto __result = _swiftPart.getCookies(url);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<void>> setCookie(const std::string& url, const Cookie& cookie) override {
+      auto __result = _swiftPart.setCookie(url, std::forward<decltype(cookie)>(cookie));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<void>> clearCookies() override {
+      auto __result = _swiftPart.clearCookies();
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

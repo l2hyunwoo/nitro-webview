@@ -25,18 +25,26 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 // Forward declaration of `NitroWebViewErrorEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
+// Forward declaration of `FileDownloadEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
+// Forward declaration of `Cookie` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct Cookie; }
 
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
 #include <variant>
 #include <string>
+#include <unordered_map>
 #include <optional>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
+#include "FileDownloadEvent.hpp"
 #include <NitroModules/Promise.hpp>
+#include "Cookie.hpp"
+#include <vector>
 
 namespace margelo::nitro::nitrowebview {
 
@@ -67,6 +75,8 @@ namespace margelo::nitro::nitrowebview {
       // Properties
       virtual std::variant<UriSource, HtmlSource> getSource() = 0;
       virtual void setSource(const std::variant<UriSource, HtmlSource>& source) = 0;
+      virtual std::optional<std::unordered_map<std::string, std::string>> getDefaultHeaders() = 0;
+      virtual void setDefaultHeaders(const std::optional<std::unordered_map<std::string, std::string>>& defaultHeaders) = 0;
       virtual std::optional<std::string> getInjectedJavaScript() = 0;
       virtual void setInjectedJavaScript(const std::optional<std::string>& injectedJavaScript) = 0;
       virtual std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() = 0;
@@ -79,6 +89,8 @@ namespace margelo::nitro::nitrowebview {
       virtual void setOnMessage(const std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>& onMessage) = 0;
       virtual std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>> getOnError() = 0;
       virtual void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) = 0;
+      virtual std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() = 0;
+      virtual void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) = 0;
 
     public:
       // Methods
@@ -87,6 +99,9 @@ namespace margelo::nitro::nitrowebview {
       virtual void reload() = 0;
       virtual void stopLoading() = 0;
       virtual std::shared_ptr<Promise<std::string>> evaluateJavaScript(const std::string& code) = 0;
+      virtual std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) = 0;
+      virtual std::shared_ptr<Promise<void>> setCookie(const std::string& url, const Cookie& cookie) = 0;
+      virtual std::shared_ptr<Promise<void>> clearCookies() = 0;
 
     protected:
       // Hybrid Setup

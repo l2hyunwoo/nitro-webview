@@ -8,6 +8,12 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `Cookie` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct Cookie; }
+// Forward declaration of `FileDownloadEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
+// Forward declaration of `FileDownload` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownload; }
 // Forward declaration of `HtmlSource` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct HtmlSource; }
 // Forward declaration of `HybridNitroWebViewSpec` to properly resolve imports.
@@ -28,6 +34,9 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 
 // Include C++ defined types
+#include "Cookie.hpp"
+#include "FileDownload.hpp"
+#include "FileDownloadEvent.hpp"
 #include "HtmlSource.hpp"
 #include "HybridNitroWebViewSpec.hpp"
 #include "NitroWebViewErrorEvent.hpp"
@@ -44,7 +53,9 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <variant>
+#include <vector>
 
 // C++ helpers for Swift
 #include "NitroWebview-Swift-Cxx-Bridge.hpp"

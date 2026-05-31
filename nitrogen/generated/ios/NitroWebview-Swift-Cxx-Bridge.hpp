@@ -8,6 +8,12 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `Cookie` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct Cookie; }
+// Forward declaration of `FileDownloadEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
+// Forward declaration of `FileDownload` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct FileDownload; }
 // Forward declaration of `HtmlSource` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct HtmlSource; }
 // Forward declaration of `HybridNitroWebViewSpec` to properly resolve imports.
@@ -32,6 +38,9 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 
 // Include C++ defined types
+#include "Cookie.hpp"
+#include "FileDownload.hpp"
+#include "FileDownloadEvent.hpp"
 #include "HtmlSource.hpp"
 #include "HybridNitroWebViewSpec.hpp"
 #include "NitroWebViewErrorEvent.hpp"
@@ -49,7 +58,9 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <variant>
+#include <vector>
 
 /**
  * Contains specialized versions of C++ templated types so they can be accessed from Swift,
@@ -57,6 +68,46 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
  */
 namespace margelo::nitro::nitrowebview::bridge::swift {
 
+  // pragma MARK: std::unordered_map<std::string, std::string>
+  /**
+   * Specialized version of `std::unordered_map<std::string, std::string>`.
+   */
+  using std__unordered_map_std__string__std__string_ = std::unordered_map<std::string, std::string>;
+  inline std::unordered_map<std::string, std::string> create_std__unordered_map_std__string__std__string_(size_t size) noexcept {
+    std::unordered_map<std::string, std::string> map;
+    map.reserve(size);
+    return map;
+  }
+  inline std::vector<std::string> get_std__unordered_map_std__string__std__string__keys(const std__unordered_map_std__string__std__string_& map) noexcept {
+    std::vector<std::string> keys;
+    keys.reserve(map.size());
+    for (const auto& entry : map) {
+      keys.push_back(entry.first);
+    }
+    return keys;
+  }
+  inline std::string get_std__unordered_map_std__string__std__string__value(const std__unordered_map_std__string__std__string_& map, const std::string& key) noexcept {
+    return map.find(key)->second;
+  }
+  inline void emplace_std__unordered_map_std__string__std__string_(std__unordered_map_std__string__std__string_& map, const std::string& key, const std::string& value) noexcept {
+    map.emplace(key, value);
+  }
+  
+  // pragma MARK: std::optional<std::unordered_map<std::string, std::string>>
+  /**
+   * Specialized version of `std::optional<std::unordered_map<std::string, std::string>>`.
+   */
+  using std__optional_std__unordered_map_std__string__std__string__ = std::optional<std::unordered_map<std::string, std::string>>;
+  inline std::optional<std::unordered_map<std::string, std::string>> create_std__optional_std__unordered_map_std__string__std__string__(const std::unordered_map<std::string, std::string>& value) noexcept {
+    return std::optional<std::unordered_map<std::string, std::string>>(value);
+  }
+  inline bool has_value_std__optional_std__unordered_map_std__string__std__string__(const std::optional<std::unordered_map<std::string, std::string>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::unordered_map<std::string, std::string> get_std__optional_std__unordered_map_std__string__std__string__(const std::optional<std::unordered_map<std::string, std::string>>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::optional<std::string>
   /**
    * Specialized version of `std::optional<std::string>`.
@@ -249,6 +300,58 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.value();
   }
   
+  // pragma MARK: std::optional<double>
+  /**
+   * Specialized version of `std::optional<double>`.
+   */
+  using std__optional_double_ = std::optional<double>;
+  inline std::optional<double> create_std__optional_double_(const double& value) noexcept {
+    return std::optional<double>(value);
+  }
+  inline bool has_value_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<void(const FileDownloadEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const FileDownloadEvent&)>`.
+   */
+  using Func_void_FileDownloadEvent = std::function<void(const FileDownloadEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const FileDownloadEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_FileDownloadEvent_Wrapper final {
+  public:
+    explicit Func_void_FileDownloadEvent_Wrapper(std::function<void(const FileDownloadEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const FileDownloadEvent& /* event */)>>(std::move(func))) {}
+    inline void call(FileDownloadEvent event) const noexcept {
+      _function->operator()(event);
+    }
+  private:
+    std::unique_ptr<std::function<void(const FileDownloadEvent& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_FileDownloadEvent create_Func_void_FileDownloadEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_FileDownloadEvent_Wrapper wrap_Func_void_FileDownloadEvent(Func_void_FileDownloadEvent value) noexcept {
+    return Func_void_FileDownloadEvent_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<std::function<void(const FileDownloadEvent& /* event */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(const FileDownloadEvent& / * event * /)>>`.
+   */
+  using std__optional_std__function_void_const_FileDownloadEvent_____event______ = std::optional<std::function<void(const FileDownloadEvent& /* event */)>>;
+  inline std::optional<std::function<void(const FileDownloadEvent& /* event */)>> create_std__optional_std__function_void_const_FileDownloadEvent_____event______(const std::function<void(const FileDownloadEvent& /* event */)>& value) noexcept {
+    return std::optional<std::function<void(const FileDownloadEvent& /* event */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_const_FileDownloadEvent_____event______(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(const FileDownloadEvent& /* event */)> get_std__optional_std__function_void_const_FileDownloadEvent_____event______(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::shared_ptr<Promise<std::string>>
   /**
    * Specialized version of `std::shared_ptr<Promise<std::string>>`.
@@ -305,6 +408,100 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::optional<bool>
+  /**
+   * Specialized version of `std::optional<bool>`.
+   */
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<Cookie>
+  /**
+   * Specialized version of `std::vector<Cookie>`.
+   */
+  using std__vector_Cookie_ = std::vector<Cookie>;
+  inline std::vector<Cookie> create_std__vector_Cookie_(size_t size) noexcept {
+    std::vector<Cookie> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::vector<Cookie>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::vector<Cookie>>>`.
+   */
+  using std__shared_ptr_Promise_std__vector_Cookie___ = std::shared_ptr<Promise<std::vector<Cookie>>>;
+  inline std::shared_ptr<Promise<std::vector<Cookie>>> create_std__shared_ptr_Promise_std__vector_Cookie___() noexcept {
+    return Promise<std::vector<Cookie>>::create();
+  }
+  inline PromiseHolder<std::vector<Cookie>> wrap_std__shared_ptr_Promise_std__vector_Cookie___(std::shared_ptr<Promise<std::vector<Cookie>>> promise) noexcept {
+    return PromiseHolder<std::vector<Cookie>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<Cookie>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::vector<Cookie>&)>`.
+   */
+  using Func_void_std__vector_Cookie_ = std::function<void(const std::vector<Cookie>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::vector<Cookie>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__vector_Cookie__Wrapper final {
+  public:
+    explicit Func_void_std__vector_Cookie__Wrapper(std::function<void(const std::vector<Cookie>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::vector<Cookie>& /* result */)>>(std::move(func))) {}
+    inline void call(std::vector<Cookie> result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::vector<Cookie>& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__vector_Cookie_ create_Func_void_std__vector_Cookie_(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__vector_Cookie__Wrapper wrap_Func_void_std__vector_Cookie_(Func_void_std__vector_Cookie_ value) noexcept {
+    return Func_void_std__vector_Cookie__Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<void>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<void>>`.
+   */
+  using std__shared_ptr_Promise_void__ = std::shared_ptr<Promise<void>>;
+  inline std::shared_ptr<Promise<void>> create_std__shared_ptr_Promise_void__() noexcept {
+    return Promise<void>::create();
+  }
+  inline PromiseHolder<void> wrap_std__shared_ptr_Promise_void__(std::shared_ptr<Promise<void>> promise) noexcept {
+    return PromiseHolder<void>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void()>
+  /**
+   * Specialized version of `std::function<void()>`.
+   */
+  using Func_void = std::function<void()>;
+  /**
+   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
+   */
+  class Func_void_Wrapper final {
+  public:
+    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
+    inline void call() const noexcept {
+      _function->operator()();
+    }
+  private:
+    std::unique_ptr<std::function<void()>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
+    return Func_void_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::shared_ptr<HybridNitroWebViewSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridNitroWebViewSpec>`.
@@ -333,6 +530,24 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
   }
   inline Result_std__shared_ptr_Promise_std__string___ create_Result_std__shared_ptr_Promise_std__string___(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<std::string>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<std::vector<Cookie>>>>
+  using Result_std__shared_ptr_Promise_std__vector_Cookie____ = Result<std::shared_ptr<Promise<std::vector<Cookie>>>>;
+  inline Result_std__shared_ptr_Promise_std__vector_Cookie____ create_Result_std__shared_ptr_Promise_std__vector_Cookie____(const std::shared_ptr<Promise<std::vector<Cookie>>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<Cookie>>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_std__vector_Cookie____ create_Result_std__shared_ptr_Promise_std__vector_Cookie____(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<std::vector<Cookie>>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<Promise<void>>>
+  using Result_std__shared_ptr_Promise_void___ = Result<std::shared_ptr<Promise<void>>>;
+  inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::shared_ptr<Promise<void>>& value) noexcept {
+    return Result<std::shared_ptr<Promise<void>>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_Promise_void___ create_Result_std__shared_ptr_Promise_void___(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<Promise<void>>>::withError(error);
   }
 
 } // namespace margelo::nitro::nitrowebview::bridge::swift

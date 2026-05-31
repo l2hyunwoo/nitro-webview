@@ -36,6 +36,16 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.source: ") + exc.what());
       }
     }()),
+    defaultHeaders([&]() -> CachedProp<std::optional<std::unordered_map<std::string, std::string>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("defaultHeaders", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.defaultHeaders;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::unordered_map<std::string, std::string>>>::fromRawValue(*runtime, value, sourceProps.defaultHeaders);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.defaultHeaders: ") + exc.what());
+      }
+    }()),
     injectedJavaScript([&]() -> CachedProp<std::optional<std::string>> {
       try {
         const react::RawValue* rawValue = rawProps.at("injectedJavaScript", nullptr, nullptr);
@@ -96,6 +106,16 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.onError: ") + exc.what());
       }
     }()),
+    onFileDownload([&]() -> CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onFileDownload", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onFileDownload;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onFileDownload);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onFileDownload: ") + exc.what());
+      }
+    }()),
     hybridRef([&]() -> CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("hybridRef", nullptr, nullptr);
@@ -110,12 +130,14 @@ namespace margelo::nitro::nitrowebview::views {
   bool HybridNitroWebViewProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
       case hashString("source"): return true;
+      case hashString("defaultHeaders"): return true;
       case hashString("injectedJavaScript"): return true;
       case hashString("onLoadStart"): return true;
       case hashString("onLoadEnd"): return true;
       case hashString("onNavigationStateChange"): return true;
       case hashString("onMessage"): return true;
       case hashString("onError"): return true;
+      case hashString("onFileDownload"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

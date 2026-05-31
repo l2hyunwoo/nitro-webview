@@ -41,6 +41,10 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setSource(props->source.value);
     props->source.isDirty = false;
   }
+  if (props->defaultHeaders.isDirty) {
+    hybridView->setDefaultHeaders(props->defaultHeaders.value);
+    props->defaultHeaders.isDirty = false;
+  }
   if (props->injectedJavaScript.isDirty) {
     hybridView->setInjectedJavaScript(props->injectedJavaScript.value);
     props->injectedJavaScript.isDirty = false;
@@ -64,6 +68,10 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
   if (props->onError.isDirty) {
     hybridView->setOnError(props->onError.value);
     props->onError.isDirty = false;
+  }
+  if (props->onFileDownload.isDirty) {
+    hybridView->setOnFileDownload(props->onFileDownload.value);
+    props->onFileDownload.isDirty = false;
   }
 
   // Update hybridRef if it changed

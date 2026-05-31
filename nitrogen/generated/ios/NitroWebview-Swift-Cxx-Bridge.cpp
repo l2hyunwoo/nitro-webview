@@ -46,6 +46,14 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(const FileDownloadEvent& /* event */)>
+  Func_void_FileDownloadEvent create_Func_void_FileDownloadEvent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_FileDownloadEvent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const FileDownloadEvent& event) mutable -> void {
+      swiftClosure.call(event);
+    };
+  }
+  
   // pragma MARK: std::function<void(const std::string& /* result */)>
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = NitroWebview::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
@@ -59,6 +67,22 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     auto swiftClosure = NitroWebview::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
       swiftClosure.call(error);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const std::vector<Cookie>& /* result */)>
+  Func_void_std__vector_Cookie_ create_Func_void_std__vector_Cookie_(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_std__vector_Cookie_::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::vector<Cookie>& result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void()>
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
+      swiftClosure.call();
     };
   }
   
