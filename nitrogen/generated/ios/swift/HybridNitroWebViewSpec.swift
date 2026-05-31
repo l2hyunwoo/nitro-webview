@@ -12,6 +12,7 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   // Properties
   var source: WebViewSource { get set }
   var defaultHeaders: Dictionary<String, String>? { get set }
+  var userAgent: String? { get set }
   var injectedJavaScript: String? { get set }
   var onLoadStart: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onLoadEnd: ((_ event: WebViewLoadEvent) -> Void)? { get set }

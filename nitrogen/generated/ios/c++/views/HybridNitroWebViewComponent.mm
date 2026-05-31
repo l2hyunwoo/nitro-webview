@@ -89,6 +89,11 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setDefaultHeaders(newViewProps.defaultHeaders.value);
     newViewProps.defaultHeaders.isDirty = false;
   }
+  // userAgent: optional
+  if (newViewProps.userAgent.isDirty) {
+    swiftPart.setUserAgent(newViewProps.userAgent.value);
+    newViewProps.userAgent.isDirty = false;
+  }
   // injectedJavaScript: optional
   if (newViewProps.injectedJavaScript.isDirty) {
     swiftPart.setInjectedJavaScript(newViewProps.injectedJavaScript.value);

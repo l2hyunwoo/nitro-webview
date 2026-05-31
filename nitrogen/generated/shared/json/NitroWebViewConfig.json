@@ -6,6 +6,7 @@
   "validAttributes": {
     "source": true,
     "defaultHeaders": true,
+    "userAgent": true,
     "injectedJavaScript": true,
     "onLoadStart": true,
     "onLoadEnd": true,

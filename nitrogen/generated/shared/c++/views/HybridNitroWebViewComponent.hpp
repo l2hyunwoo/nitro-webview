@@ -53,6 +53,7 @@ namespace margelo::nitro::nitrowebview::views {
   public:
     CachedProp<std::variant<UriSource, HtmlSource>> source;
     CachedProp<std::optional<std::unordered_map<std::string, std::string>>> defaultHeaders;
+    CachedProp<std::optional<std::string>> userAgent;
     CachedProp<std::optional<std::string>> injectedJavaScript;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;

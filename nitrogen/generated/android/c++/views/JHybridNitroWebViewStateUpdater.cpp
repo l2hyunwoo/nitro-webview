@@ -45,6 +45,10 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setDefaultHeaders(props->defaultHeaders.value);
     props->defaultHeaders.isDirty = false;
   }
+  if (props->userAgent.isDirty) {
+    hybridView->setUserAgent(props->userAgent.value);
+    props->userAgent.isDirty = false;
+  }
   if (props->injectedJavaScript.isDirty) {
     hybridView->setInjectedJavaScript(props->injectedJavaScript.value);
     props->injectedJavaScript.isDirty = false;

@@ -54,6 +54,8 @@ namespace margelo::nitro::nitrowebview {
     void setSource(const std::variant<UriSource, HtmlSource>& source) override;
     std::optional<std::unordered_map<std::string, std::string>> getDefaultHeaders() override;
     void setDefaultHeaders(const std::optional<std::unordered_map<std::string, std::string>>& defaultHeaders) override;
+    std::optional<std::string> getUserAgent() override;
+    void setUserAgent(const std::optional<std::string>& userAgent) override;
     std::optional<std::string> getInjectedJavaScript() override;
     void setInjectedJavaScript(const std::optional<std::string>& injectedJavaScript) override;
     std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() override;

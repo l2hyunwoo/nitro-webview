@@ -130,6 +130,15 @@ namespace margelo::nitro::nitrowebview {
       return __map;
     }() : nullptr);
   }
+  std::optional<std::string> JHybridNitroWebViewSpec::getUserAgent() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getUserAgent");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(__result->toStdString()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setUserAgent(const std::optional<std::string>& userAgent) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* userAgent */)>("setUserAgent");
+    method(_javaPart, userAgent.has_value() ? jni::make_jstring(userAgent.value()) : nullptr);
+  }
   std::optional<std::string> JHybridNitroWebViewSpec::getInjectedJavaScript() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getInjectedJavaScript");
     auto __result = method(_javaPart);

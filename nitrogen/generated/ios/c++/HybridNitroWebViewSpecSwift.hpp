@@ -114,6 +114,13 @@ namespace margelo::nitro::nitrowebview {
     inline void setDefaultHeaders(const std::optional<std::unordered_map<std::string, std::string>>& defaultHeaders) noexcept override {
       _swiftPart.setDefaultHeaders(defaultHeaders);
     }
+    inline std::optional<std::string> getUserAgent() noexcept override {
+      auto __result = _swiftPart.getUserAgent();
+      return __result;
+    }
+    inline void setUserAgent(const std::optional<std::string>& userAgent) noexcept override {
+      _swiftPart.setUserAgent(userAgent);
+    }
     inline std::optional<std::string> getInjectedJavaScript() noexcept override {
       auto __result = _swiftPart.getInjectedJavaScript();
       return __result;

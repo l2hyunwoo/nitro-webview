@@ -43,6 +43,12 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @get:Keep
   @set:DoNotStrip
   @set:Keep
+  abstract var userAgent: String?
+  
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
   abstract var injectedJavaScript: String?
   
   abstract var onLoadStart: ((event: WebViewLoadEvent) -> Unit)?

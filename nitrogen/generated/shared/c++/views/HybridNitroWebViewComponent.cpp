@@ -46,6 +46,16 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.defaultHeaders: ") + exc.what());
       }
     }()),
+    userAgent([&]() -> CachedProp<std::optional<std::string>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("userAgent", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.userAgent;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::string>>::fromRawValue(*runtime, value, sourceProps.userAgent);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.userAgent: ") + exc.what());
+      }
+    }()),
     injectedJavaScript([&]() -> CachedProp<std::optional<std::string>> {
       try {
         const react::RawValue* rawValue = rawProps.at("injectedJavaScript", nullptr, nullptr);
@@ -131,6 +141,7 @@ namespace margelo::nitro::nitrowebview::views {
     switch (hashString(propName)) {
       case hashString("source"): return true;
       case hashString("defaultHeaders"): return true;
+      case hashString("userAgent"): return true;
       case hashString("injectedJavaScript"): return true;
       case hashString("onLoadStart"): return true;
       case hashString("onLoadEnd"): return true;

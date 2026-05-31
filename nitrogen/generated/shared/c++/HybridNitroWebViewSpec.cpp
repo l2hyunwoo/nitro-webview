@@ -18,6 +18,8 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridSetter("source", &HybridNitroWebViewSpec::setSource);
       prototype.registerHybridGetter("defaultHeaders", &HybridNitroWebViewSpec::getDefaultHeaders);
       prototype.registerHybridSetter("defaultHeaders", &HybridNitroWebViewSpec::setDefaultHeaders);
+      prototype.registerHybridGetter("userAgent", &HybridNitroWebViewSpec::getUserAgent);
+      prototype.registerHybridSetter("userAgent", &HybridNitroWebViewSpec::setUserAgent);
       prototype.registerHybridGetter("injectedJavaScript", &HybridNitroWebViewSpec::getInjectedJavaScript);
       prototype.registerHybridSetter("injectedJavaScript", &HybridNitroWebViewSpec::setInjectedJavaScript);
       prototype.registerHybridGetter("onLoadStart", &HybridNitroWebViewSpec::getOnLoadStart);
