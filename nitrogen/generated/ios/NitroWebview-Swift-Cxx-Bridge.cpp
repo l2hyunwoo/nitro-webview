@@ -46,6 +46,31 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>
+  Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest create_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const ShouldStartLoadRequest& event) mutable -> std::shared_ptr<Promise<bool>> {
+      auto __result = swiftClosure.call(event);
+      return __result;
+    };
+  }
+  
+  // pragma MARK: std::function<void(bool /* result */)>
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_bool::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](bool result) mutable -> void {
+      swiftClosure.call(result);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
+  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
+      swiftClosure.call(error);
+    };
+  }
+  
   // pragma MARK: std::function<void(const FileDownloadEvent& /* event */)>
   Func_void_FileDownloadEvent create_Func_void_FileDownloadEvent(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = NitroWebview::Func_void_FileDownloadEvent::fromUnsafe(swiftClosureWrapper);
@@ -59,14 +84,6 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     auto swiftClosure = NitroWebview::Func_void_std__string::fromUnsafe(swiftClosureWrapper);
     return [swiftClosure = std::move(swiftClosure)](const std::string& result) mutable -> void {
       swiftClosure.call(result);
-    };
-  }
-  
-  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
-  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = NitroWebview::Func_void_std__exception_ptr::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
-      swiftClosure.call(error);
     };
   }
   

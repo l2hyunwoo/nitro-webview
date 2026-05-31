@@ -13,6 +13,7 @@
     "onNavigationStateChange": true,
     "onMessage": true,
     "onError": true,
+    "onShouldStartLoadWithRequest": true,
     "onFileDownload": true,
     "hybridRef": true
   }

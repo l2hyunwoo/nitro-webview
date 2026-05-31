@@ -28,6 +28,10 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
+// Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
+// Forward declaration of `WebViewNavigationType` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 // Forward declaration of `FileDownloadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `FileDownload` to properly resolve imports.
@@ -48,9 +52,11 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "WebViewMessageNativeEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
+#include <NitroModules/Promise.hpp>
+#include "ShouldStartLoadRequest.hpp"
+#include "WebViewNavigationType.hpp"
 #include "FileDownloadEvent.hpp"
 #include "FileDownload.hpp"
-#include <NitroModules/Promise.hpp>
 #include "Cookie.hpp"
 #include <vector>
 
@@ -162,6 +168,13 @@ namespace margelo::nitro::nitrowebview {
     }
     inline void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) noexcept override {
       _swiftPart.setOnError(onError);
+    }
+    inline std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> getOnShouldStartLoadWithRequest() noexcept override {
+      auto __result = _swiftPart.getOnShouldStartLoadWithRequest();
+      return __result;
+    }
+    inline void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) noexcept override {
+      _swiftPart.setOnShouldStartLoadWithRequest(onShouldStartLoadWithRequest);
     }
     inline std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() noexcept override {
       auto __result = _swiftPart.getOnFileDownload();

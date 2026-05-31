@@ -22,6 +22,8 @@ namespace margelo::nitro::nitrowebview { class HybridNitroWebViewSpec; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
+// Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `UriSource` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct UriSource; }
 // Forward declaration of `WebViewLoadEvent` to properly resolve imports.
@@ -32,6 +34,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 // Forward declaration of `WebViewNavigationState` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
+// Forward declaration of `WebViewNavigationType` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridNitroWebViewSpec_cxx` to properly resolve imports.
@@ -45,11 +49,13 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include "HybridNitroWebViewSpec.hpp"
 #include "NitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
+#include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "WebViewMessageNativeEvent.hpp"
 #include "WebViewNavigationState.hpp"
+#include "WebViewNavigationType.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
@@ -300,6 +306,115 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.value();
   }
   
+  // pragma MARK: std::optional<bool>
+  /**
+   * Specialized version of `std::optional<bool>`.
+   */
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>
+  /**
+   * Specialized version of `std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest&)>`.
+   */
+  using Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest = std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_Wrapper final {
+  public:
+    explicit Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_Wrapper(std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>&& func): _function(std::make_unique<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>(std::move(func))) {}
+    inline std::shared_ptr<Promise<bool>> call(ShouldStartLoadRequest event) const noexcept {
+      auto __result = _function->operator()(event);
+      return __result;
+    }
+  private:
+    std::unique_ptr<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest create_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_Wrapper wrap_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest value) noexcept {
+    return Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<bool>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<bool>>`.
+   */
+  using std__shared_ptr_Promise_bool__ = std::shared_ptr<Promise<bool>>;
+  inline std::shared_ptr<Promise<bool>> create_std__shared_ptr_Promise_bool__() noexcept {
+    return Promise<bool>::create();
+  }
+  inline PromiseHolder<bool> wrap_std__shared_ptr_Promise_bool__(std::shared_ptr<Promise<bool>> promise) noexcept {
+    return PromiseHolder<bool>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(bool /* result */)>
+  /**
+   * Specialized version of `std::function<void(bool)>`.
+   */
+  using Func_void_bool = std::function<void(bool /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(bool / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_bool_Wrapper final {
+  public:
+    explicit Func_void_bool_Wrapper(std::function<void(bool /* result */)>&& func): _function(std::make_unique<std::function<void(bool /* result */)>>(std::move(func))) {}
+    inline void call(bool result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(bool /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_bool create_Func_void_bool(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_bool_Wrapper wrap_Func_void_bool(Func_void_bool value) noexcept {
+    return Func_void_bool_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
+  /**
+   * Specialized version of `std::function<void(const std::exception_ptr&)>`.
+   */
+  using Func_void_std__exception_ptr = std::function<void(const std::exception_ptr& /* error */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::exception_ptr& / * error * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__exception_ptr_Wrapper final {
+  public:
+    explicit Func_void_std__exception_ptr_Wrapper(std::function<void(const std::exception_ptr& /* error */)>&& func): _function(std::make_unique<std::function<void(const std::exception_ptr& /* error */)>>(std::move(func))) {}
+    inline void call(std::exception_ptr error) const noexcept {
+      _function->operator()(error);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::exception_ptr& /* error */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
+    return Func_void_std__exception_ptr_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>
+  /**
+   * Specialized version of `std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& / * event * /)>>`.
+   */
+  using std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______ = std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>;
+  inline std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> create_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(const std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>& value) noexcept {
+    return std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)> get_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::optional<double>
   /**
    * Specialized version of `std::optional<double>`.
@@ -384,43 +499,6 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__string_Wrapper wrap_Func_void_std__string(Func_void_std__string value) noexcept {
     return Func_void_std__string_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::function<void(const std::exception_ptr& /* error */)>
-  /**
-   * Specialized version of `std::function<void(const std::exception_ptr&)>`.
-   */
-  using Func_void_std__exception_ptr = std::function<void(const std::exception_ptr& /* error */)>;
-  /**
-   * Wrapper class for a `std::function<void(const std::exception_ptr& / * error * /)>`, this can be used from Swift.
-   */
-  class Func_void_std__exception_ptr_Wrapper final {
-  public:
-    explicit Func_void_std__exception_ptr_Wrapper(std::function<void(const std::exception_ptr& /* error */)>&& func): _function(std::make_unique<std::function<void(const std::exception_ptr& /* error */)>>(std::move(func))) {}
-    inline void call(std::exception_ptr error) const noexcept {
-      _function->operator()(error);
-    }
-  private:
-    std::unique_ptr<std::function<void(const std::exception_ptr& /* error */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
-    return Func_void_std__exception_ptr_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::optional<bool>
-  /**
-   * Specialized version of `std::optional<bool>`.
-   */
-  using std__optional_bool_ = std::optional<bool>;
-  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
-    return std::optional<bool>(value);
-  }
-  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
-    return optional.value();
   }
   
   // pragma MARK: std::vector<Cookie>

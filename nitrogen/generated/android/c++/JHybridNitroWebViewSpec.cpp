@@ -23,6 +23,10 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
+// Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
+// Forward declaration of `WebViewNavigationType` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 // Forward declaration of `FileDownloadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `FileDownload` to properly resolve imports.
@@ -57,13 +61,18 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "JNitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
 #include "JNitroWebViewErrorNativeEvent.hpp"
+#include <NitroModules/Promise.hpp>
+#include "ShouldStartLoadRequest.hpp"
+#include "JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest.hpp"
+#include <NitroModules/JPromise.hpp>
+#include "JShouldStartLoadRequest.hpp"
+#include "WebViewNavigationType.hpp"
+#include "JWebViewNavigationType.hpp"
 #include "FileDownloadEvent.hpp"
 #include "JFunc_void_FileDownloadEvent.hpp"
 #include "JFileDownloadEvent.hpp"
 #include "FileDownload.hpp"
 #include "JFileDownload.hpp"
-#include <NitroModules/Promise.hpp>
-#include <NitroModules/JPromise.hpp>
 #include "Cookie.hpp"
 #include <vector>
 #include "JCookie.hpp"
@@ -232,6 +241,23 @@ namespace margelo::nitro::nitrowebview {
   void JHybridNitroWebViewSpec::setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_NitroWebViewErrorEvent::javaobject> /* onError */)>("setOnError_cxx");
     method(_javaPart, onError.has_value() ? JFunc_void_NitroWebViewErrorEvent_cxx::fromCpp(onError.value()) : nullptr);
+  }
+  std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> JHybridNitroWebViewSpec::getOnShouldStartLoadWithRequest() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest::javaobject>()>("getOnShouldStartLoadWithRequest_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)> {
+      if (__result->isInstanceOf(JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest, std::shared_ptr<Promise<bool>>(ShouldStartLoadRequest)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest::javaobject> /* onShouldStartLoadWithRequest */)>("setOnShouldStartLoadWithRequest_cxx");
+    method(_javaPart, onShouldStartLoadWithRequest.has_value() ? JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::fromCpp(onShouldStartLoadWithRequest.value()) : nullptr);
   }
   std::optional<std::function<void(const FileDownloadEvent& /* event */)>> JHybridNitroWebViewSpec::getOnFileDownload() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_FileDownloadEvent::javaobject>()>("getOnFileDownload_cxx");

@@ -124,6 +124,11 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setOnError(newViewProps.onError.value);
     newViewProps.onError.isDirty = false;
   }
+  // onShouldStartLoadWithRequest: optional
+  if (newViewProps.onShouldStartLoadWithRequest.isDirty) {
+    swiftPart.setOnShouldStartLoadWithRequest(newViewProps.onShouldStartLoadWithRequest.value);
+    newViewProps.onShouldStartLoadWithRequest.isDirty = false;
+  }
   // onFileDownload: optional
   if (newViewProps.onFileDownload.isDirty) {
     swiftPart.setOnFileDownload(newViewProps.onFileDownload.value);

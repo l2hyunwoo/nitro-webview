@@ -27,6 +27,8 @@
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
+#include <NitroModules/Promise.hpp>
+#include "ShouldStartLoadRequest.hpp"
 #include "FileDownloadEvent.hpp"
 #include <memory>
 #include "HybridNitroWebViewSpec.hpp"
@@ -60,6 +62,7 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;
     CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
     CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
+    CachedProp<std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>> onShouldStartLoadWithRequest;
     CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> hybridRef;
 

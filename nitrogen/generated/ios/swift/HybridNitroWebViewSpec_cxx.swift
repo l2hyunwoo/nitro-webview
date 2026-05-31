@@ -397,6 +397,59 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
+  public final var onShouldStartLoadWithRequest: bridge.std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______ in
+        if let __unwrappedValue = self.__implementation.onShouldStartLoadWithRequest {
+          return bridge.create_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______({ () -> bridge.Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest in
+            let __closureWrapper = Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(__unwrappedValue)
+            return bridge.create_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onShouldStartLoadWithRequest = { () -> ((_ event: ShouldStartLoadRequest) -> Promise<Bool>)? in
+        if bridge.has_value_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(newValue)
+          return { () -> (ShouldStartLoadRequest) -> Promise<Bool> in
+            let __wrappedFunction = bridge.wrap_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(__unwrapped)
+            return { (__event: ShouldStartLoadRequest) -> Promise<Bool> in
+              let __result = __wrappedFunction.call(__event)
+              return { () -> Promise<Bool> in
+                let __promise = Promise<Bool>()
+                let __resolver = { (__result: Bool) in
+                  __promise.resolve(withResult: __result)
+                }
+                let __rejecter = { (__error: Error) in
+                  __promise.reject(withError: __error)
+                }
+                let __resolverCpp = { () -> bridge.Func_void_bool in
+                  let __closureWrapper = Func_void_bool(__resolver)
+                  return bridge.create_Func_void_bool(__closureWrapper.toUnsafe())
+                }()
+                let __rejecterCpp = { () -> bridge.Func_void_std__exception_ptr in
+                  let __closureWrapper = Func_void_std__exception_ptr(__rejecter)
+                  return bridge.create_Func_void_std__exception_ptr(__closureWrapper.toUnsafe())
+                }()
+                let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_bool__(__result)
+                __promiseHolder.addOnResolvedListenerCopy(__resolverCpp)
+                __promiseHolder.addOnRejectedListener(__rejecterCpp)
+                return __promise
+              }()
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
   public final var onFileDownload: bridge.std__optional_std__function_void_const_FileDownloadEvent_____event______ {
     @inline(__always)
     get {

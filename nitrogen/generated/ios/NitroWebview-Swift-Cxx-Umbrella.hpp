@@ -22,6 +22,8 @@ namespace margelo::nitro::nitrowebview { class HybridNitroWebViewSpec; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
+// Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `UriSource` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct UriSource; }
 // Forward declaration of `WebViewLoadEvent` to properly resolve imports.
@@ -32,6 +34,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 // Forward declaration of `WebViewNavigationState` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
+// Forward declaration of `WebViewNavigationType` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 
 // Include C++ defined types
 #include "Cookie.hpp"
@@ -41,11 +45,13 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 #include "HybridNitroWebViewSpec.hpp"
 #include "NitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
+#include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "WebViewMessageNativeEvent.hpp"
 #include "WebViewNavigationState.hpp"
+#include "WebViewNavigationType.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>

@@ -32,6 +32,8 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridSetter("onMessage", &HybridNitroWebViewSpec::setOnMessage);
       prototype.registerHybridGetter("onError", &HybridNitroWebViewSpec::getOnError);
       prototype.registerHybridSetter("onError", &HybridNitroWebViewSpec::setOnError);
+      prototype.registerHybridGetter("onShouldStartLoadWithRequest", &HybridNitroWebViewSpec::getOnShouldStartLoadWithRequest);
+      prototype.registerHybridSetter("onShouldStartLoadWithRequest", &HybridNitroWebViewSpec::setOnShouldStartLoadWithRequest);
       prototype.registerHybridGetter("onFileDownload", &HybridNitroWebViewSpec::getOnFileDownload);
       prototype.registerHybridSetter("onFileDownload", &HybridNitroWebViewSpec::setOnFileDownload);
       prototype.registerHybridMethod("goBack", &HybridNitroWebViewSpec::goBack);

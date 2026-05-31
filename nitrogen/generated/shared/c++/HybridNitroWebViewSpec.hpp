@@ -25,6 +25,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 // Forward declaration of `NitroWebViewErrorEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
+// Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `FileDownloadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `Cookie` to properly resolve imports.
@@ -41,8 +43,9 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
-#include "FileDownloadEvent.hpp"
 #include <NitroModules/Promise.hpp>
+#include "ShouldStartLoadRequest.hpp"
+#include "FileDownloadEvent.hpp"
 #include "Cookie.hpp"
 #include <vector>
 
@@ -91,6 +94,8 @@ namespace margelo::nitro::nitrowebview {
       virtual void setOnMessage(const std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>& onMessage) = 0;
       virtual std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>> getOnError() = 0;
       virtual void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) = 0;
+      virtual std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> getOnShouldStartLoadWithRequest() = 0;
+      virtual void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) = 0;
       virtual std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() = 0;
       virtual void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) = 0;
 
