@@ -109,14 +109,17 @@ run_check() {
   done < <(grep -nE "$pattern" "$FILE" 2>/dev/null || true)
 }
 
-# Rule 1a: Swift must not use /** */ doc comments.
+# Rule 1a: Swift must not use /** */ doc comments. Anchor to line start so
+# `/**` inside string literals or trailing comments does not false-positive.
 if [[ "$IS_SWIFT" -eq 1 ]]; then
-  run_check '/\*\*' "swift-no-kdoc: use /// not /** */ in Swift"
+  run_check '^[[:space:]]*/\*\*' "swift-no-kdoc: use /// not /** */ in Swift"
 fi
 
-# Rule 1b: Kotlin must not use /// doc comments.
+# Rule 1b: Kotlin must not use /// doc comments. Anchor to line start so
+# URL literals like `file:///android_asset/` inside string contents do not
+# false-positive.
 if [[ "$IS_KOTLIN" -eq 1 ]]; then
-  run_check '///' "kotlin-no-triple-slash: use /** */ not /// in Kotlin"
+  run_check '^[[:space:]]*///' "kotlin-no-triple-slash: use /** */ not /// in Kotlin"
 fi
 
 # Rule 2: No ASCII-art box-drawing dividers (3+ consecutive chars from ─━═).
