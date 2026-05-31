@@ -8,6 +8,65 @@ import type { WebViewSource } from './WebViewSource'
 
 export type { HtmlSource, UriSource, WebViewSource } from './WebViewSource'
 
+/**
+ * Enumerates the navigation kinds surfaced to JS through the
+ * {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest} hook. Mirrors
+ * the string-literal union exposed by react-native-webview so existing RNW
+ * call-sites compile unchanged.
+ *
+ * Platform mapping:
+ *   - iOS (WKWebView): derived from `WKNavigationAction.navigationType`
+ *     (`.linkActivated` → `'click'`, `.formSubmitted` → `'formsubmit'`,
+ *     `.backForward` → `'backforward'`, `.reload` → `'reload'`,
+ *     `.formResubmitted` → `'formresubmit'`, `.other` → `'other'`).
+ *   - Android (WebViewClient.shouldOverrideUrlLoading): always `'other'`
+ *     because Android does not surface a navigation-type discriminator at
+ *     interception time.
+ */
+export type WebViewNavigationType =
+  | 'click'
+  | 'formsubmit'
+  | 'backforward'
+  | 'reload'
+  | 'formresubmit'
+  | 'other'
+
+/**
+ * Payload delivered to {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest}
+ * before the platform commits to a navigation.
+ *
+ * The handler returns `Promise<boolean>` — resolve with `true` to allow the
+ * navigation, `false` to silently cancel it. Unlike react-native-webview the
+ * payload does NOT include a `lockIdentifier`: Nitro's Promise return value
+ * replaces RNW's round-trip through `shouldStartLoadWithLockIdentifier`.
+ *
+ * Optional iOS-only fields:
+ *   - `mainDocumentURL` — `WKNavigationAction.request.mainDocumentURL`.
+ *   - `isTopFrame`      — true when the navigation targets the main frame
+ *                         (derived from `targetFrame?.isMainFrame`).
+ *   - `hasTargetFrame`  — true when `WKNavigationAction.targetFrame` is not
+ *                         nil (a `target=_blank` / new-window navigation
+ *                         surfaces as `false`).
+ *
+ * Android leaves all three optional fields `undefined` because
+ * `WebViewClient.shouldOverrideUrlLoading` does not expose them.
+ */
+export interface ShouldStartLoadRequest {
+  /** Absolute URL the WebView is about to navigate to. */
+  url: string
+  /** Navigation kind. Always `'other'` on Android. */
+  navigationType: WebViewNavigationType
+  /** iOS-only: main-document URL associated with the navigation. */
+  mainDocumentURL?: string
+  /** iOS-only: true when the navigation targets the main frame. */
+  isTopFrame?: boolean
+  /**
+   * iOS-only: true when the navigation has a target frame (false for
+   * `target=_blank` / new-window navigations).
+   */
+  hasTargetFrame?: boolean
+}
+
 /** Read-only navigation state surfaced to JS via callbacks. */
 export interface WebViewNavigationState {
   url: string
@@ -121,6 +180,38 @@ export interface NitroWebViewProps extends HybridViewProps {
 
   /** Fired when navigation fails on either platform. */
   onError?: (event: NitroWebViewErrorEvent) => void
+
+  /**
+   * Navigation-interception hook. Fired before the WebView commits to a
+   * navigation. Return `true` to allow the navigation, `false` to silently
+   * cancel it. JS implementations may be `async` — the bridge transparently
+   * awaits any returned thenable before applying the decision, so the spec
+   * declares the synchronous return type while still admitting an async
+   * implementation.
+   *
+   *   - iOS (WKWebView): wired through
+   *     `webView(_:decidePolicyFor:decisionHandler:)`. The native
+   *     `decisionHandler` is stashed in an in-memory map keyed by request and
+   *     resolved when the JS handler's return value settles. No timeout — the
+   *     handler stays stashed indefinitely until JS resolves (mirrors
+   *     react-native-webview).
+   *   - Android (WebViewClient): wired through
+   *     `shouldOverrideUrlLoading(WebView, WebResourceRequest)`. The native
+   *     side blocks on a `synchronized.wait` with a 250 ms window. When JS
+   *     resolves inside the window, its boolean determines the return value.
+   *     When the window elapses without a resolution the navigation defaults
+   *     to allow (mirrors RNW's
+   *     `SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
+   *
+   * When the prop is unset every navigation is allowed (allow-all default).
+   * Blocked navigations are silently cancelled — no new event is emitted
+   * (`onError` stays scoped to network / SSL failures).
+   *
+   * Out of scope for the MVP: `history.pushState` interception, iframe
+   * navigation, `target=_blank` / new-window handling, and per-request
+   * `originWhitelist` override.
+   */
+  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean
 
   /**
    * Fired when the WebView detects a navigation that should be treated as a

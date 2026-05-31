@@ -27,6 +27,8 @@ export type {
   WebViewMessageEvent,
   WebViewMessageNativeEvent,
   WebViewNavigationState,
+  WebViewNavigationType,
+  ShouldStartLoadRequest,
   NitroWebViewErrorEvent,
   NitroWebViewErrorNativeEvent,
   WebViewErrorEvent,
@@ -34,6 +36,17 @@ export type {
   FileDownload,
   FileDownloadEvent,
 } from './specs/NitroWebView.nitro'
+
+export {
+  originMatches,
+  createOriginWhitelistGuard,
+  wrapWithOriginWhitelist,
+  DEFAULT_ORIGIN_WHITELIST,
+} from './originWhitelist'
+export type {
+  OriginWhitelistGuard,
+  OnShouldStartLoadWithRequest,
+} from './originWhitelist'
 
 export {
   isHtmlSource,
