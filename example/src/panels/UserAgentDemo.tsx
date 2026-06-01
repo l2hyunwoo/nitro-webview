@@ -67,9 +67,11 @@ export function UserAgentDemo() {
     NitroWebViewErrorEvent['nativeEvent'] | null
   >(null)
 
-  // userAgent demo state — migrated verbatim from App.tsx.
-  // `undefined` keeps the platform default.
-  const [userAgent, setUserAgent] = useState<string | undefined>(undefined)
+  // Empty string signals "use platform default UA" to the native layer,
+  // which converts it to nil (see HybridNitroWebView.userAgent setter).
+  // We cannot pass undefined after the prop has been set once — Nitro
+  // would receive null and throw "Value is null, expected a String".
+  const [userAgent, setUserAgent] = useState<string>('')
 
   return (
     <SafeAreaView style={styles.root}>
@@ -126,7 +128,7 @@ export function UserAgentDemo() {
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>userAgent:</Text>
           <Text style={styles.statusValue} numberOfLines={1}>
-            {userAgent ?? 'platform default'}
+            {userAgent || 'platform default'}
           </Text>
         </View>
         <View style={styles.toolbar}>
@@ -135,15 +137,15 @@ export function UserAgentDemo() {
             onPress={() => {
               setLastError(null)
               setUserAgent('NitroWebView/0.1 (demo)')
-              setSource(USER_AGENT_SOURCE)
+              setSource({ uri: 'https://httpbin.org/user-agent' })
             }}
           />
           <ToolbarButton
             label="Reset UA"
             onPress={() => {
               setLastError(null)
-              setUserAgent(undefined)
-              setSource(USER_AGENT_SOURCE)
+              setUserAgent('')
+              setSource({ uri: 'https://httpbin.org/user-agent' })
             }}
           />
         </View>
