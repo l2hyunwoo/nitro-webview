@@ -1,6 +1,6 @@
 {
   "name": "nitro-webview",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "nitro-webview",
   "main": "lib/index",
   "module": "lib/index",
@@ -36,6 +36,7 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\" --fix",
     "lint-ci": "eslint \"**/*.{js,ts,tsx}\" -f @jamesacarr/github-actions --max-warnings 0",
     "typescript": "tsc",
+    "prepare": "tsc",
     "specs": "tsc --noEmit false && nitrogen --logLevel=\"debug\""
   },
   "keywords": [
@@ -44,18 +45,19 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrousavy/nitro.git"
+    "url": "git+https://github.com/l2hyunwoo/nitro-webview.git"
   },
-  "author": "Marc Rousavy <me@mrousavy.com> (https://github.com/mrousavy)",
+  "author": "l2hyunwoo <l2hyunwoo@gmail.com> (https://github.com/l2hyunwoo)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mrousavy/nitro/issues"
+    "url": "https://github.com/l2hyunwoo/nitro-webview/issues"
   },
-  "homepage": "https://github.com/mrousavy/nitro#readme",
+  "homepage": "https://github.com/l2hyunwoo/nitro-webview#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
+    "@jamesacarr/eslint-formatter-github-actions": "^0.2.0",
     "@react-native/eslint-config": "0.85.3",
     "@types/react": "^19.2.15",
     "eslint": "^9.39.4",
