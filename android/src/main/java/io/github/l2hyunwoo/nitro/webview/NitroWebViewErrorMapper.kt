@@ -1,4 +1,4 @@
-package com.margelo.nitro.nitrowebview
+package io.github.l2hyunwoo.nitro.webview
 
 /**
  * Mirror of the JS-side `WebViewErrorEvent.nativeEvent`:

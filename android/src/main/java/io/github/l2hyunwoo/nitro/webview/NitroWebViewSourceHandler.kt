@@ -1,4 +1,4 @@
-package com.margelo.nitro.nitrowebview
+package io.github.l2hyunwoo.nitro.webview
 
 /** Normalised payload for the `loadHtml` command from the JS bridge. */
 data class NitroLoadHtmlPayload(

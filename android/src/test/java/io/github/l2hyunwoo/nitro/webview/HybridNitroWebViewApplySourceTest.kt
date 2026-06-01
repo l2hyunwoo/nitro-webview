@@ -1,5 +1,6 @@
-package com.margelo.nitro.nitrowebview
+package io.github.l2hyunwoo.nitro.webview
 
+import com.margelo.nitro.nitrowebview.UriSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

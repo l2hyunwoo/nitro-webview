@@ -1,4 +1,4 @@
-package com.margelo.nitro.nitrowebview
+package io.github.l2hyunwoo.nitro.webview
 
 /**
  * Abstraction over `android.webkit.WebView.evaluateJavascript(String, ValueCallback<String>)`.

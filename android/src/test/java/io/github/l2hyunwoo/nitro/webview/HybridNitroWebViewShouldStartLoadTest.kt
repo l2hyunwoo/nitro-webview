@@ -1,4 +1,4 @@
-package com.margelo.nitro.nitrowebview
+package io.github.l2hyunwoo.nitro.webview
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
