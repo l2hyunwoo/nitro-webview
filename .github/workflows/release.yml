@@ -383,6 +383,57 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.create-version-commit.outputs.commit_sha }}
 
+      - name: Generate release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.create-version-tag.outputs.tag }}
+          RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          PREVIOUS_TAG=$(git tag -l "v*" --sort=-v:refname \
+            | grep -v "^v${RESOLVED_VERSION}$" \
+            | head -1 || echo "")
+          echo "Previous tag: ${PREVIOUS_TAG}" >&2
+
+          RELEASE_NOTES_FILE="$(mktemp)"
+          {
+            echo "## What's Changed"
+            echo ""
+            if [ -n "${PREVIOUS_TAG}" ]; then
+              git log "${PREVIOUS_TAG}..HEAD" \
+                --pretty=format:"- %s" \
+                --no-merges \
+                | head -50 || echo "- (no commits found)"
+            else
+              git log HEAD --pretty=format:"- %s" --no-merges | head -50
+            fi
+            echo ""
+            echo ""
+            echo "## Installation"
+            echo ""
+            echo '```sh'
+            echo "yarn add nitro-webview@${RESOLVED_VERSION}"
+            echo "# or"
+            echo "npm install nitro-webview@${RESOLVED_VERSION}"
+            echo '```'
+            echo ""
+            echo "## Documentation"
+            echo ""
+            echo "- [README](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG_NAME}/README.md)"
+            echo ""
+            if [ -n "${PREVIOUS_TAG}" ]; then
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${TAG_NAME}"
+            else
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/commits/${TAG_NAME}"
+            fi
+          } > "${RELEASE_NOTES_FILE}"
+
+          {
+            echo "notes_file=${RELEASE_NOTES_FILE}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         id: gh_release
         env:
@@ -390,28 +441,16 @@ jobs:
           TAG_NAME: ${{ needs.create-version-tag.outputs.tag }}
           RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
           DRY_RUN: ${{ inputs.dry_run }}
+          NOTES_FILE: ${{ steps.notes.outputs.notes_file }}
         run: |
           set -euo pipefail
 
           RELEASE_TITLE="nitro-webview ${TAG_NAME}"
-          RELEASE_NOTES_FILE="$(mktemp)"
-          cat > "${RELEASE_NOTES_FILE}" <<EOF
-          ## nitro-webview ${TAG_NAME}
-
-          Published to npm: https://www.npmjs.com/package/nitro-webview/v/${RESOLVED_VERSION}
-
-          Install:
-          \`\`\`sh
-          yarn add nitro-webview@${RESOLVED_VERSION}
-          \`\`\`
-
-          See the [README](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG_NAME}/README.md) for usage details.
-          EOF
 
           if [ "${DRY_RUN}" = "true" ]; then
             echo "dry_run=true — would create GitHub Release ${TAG_NAME} with the following body:"
             echo "---"
-            cat "${RELEASE_NOTES_FILE}"
+            cat "${NOTES_FILE}"
             echo "---"
             echo "Skipping actual GitHub Release creation."
             echo "created=false" >> "$GITHUB_OUTPUT"
@@ -425,7 +464,7 @@ jobs:
             gh release create "${TAG_NAME}" \
               --repo "${GITHUB_REPOSITORY}" \
               --title "${RELEASE_TITLE}" \
-              --notes-file "${RELEASE_NOTES_FILE}" \
+              --notes-file "${NOTES_FILE}" \
               --verify-tag
             echo "Created GitHub Release ${TAG_NAME}."
             echo "created=true" >> "$GITHUB_OUTPUT"
