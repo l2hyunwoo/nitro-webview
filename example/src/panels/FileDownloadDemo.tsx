@@ -26,7 +26,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import * as RNFS from '@dr.pogodin/react-native-fs'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
@@ -148,7 +148,7 @@ export function FileDownloadDemo() {
         onFileDownload={handleFileDownload}
       />
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
         <SectionLabel text="File download demo" />
         {lastDownload ? (
           <View style={styles.downloadRow}>
@@ -180,7 +180,7 @@ export function FileDownloadDemo() {
         <Text style={styles.hint}>
           onFileDownload fires; row above updates with fileName + contentLength
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.appBackground,
     borderTopWidth: 2,
     borderTopColor: color.divider,
-    paddingBottom: spacing.xl5,
   },
+  controlsContent: { paddingBottom: spacing.xl5 },
   toolbar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,

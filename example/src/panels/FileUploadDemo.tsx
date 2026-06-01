@@ -22,7 +22,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -159,7 +159,7 @@ export function FileUploadDemo() {
         onMessage={handleMessage}
       />
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
         <SectionLabel text="File upload demo" />
         {uploadStatus ? (
           <View style={styles.uploadPill}>
@@ -179,7 +179,7 @@ export function FileUploadDemo() {
         <Text style={styles.hint}>
           Tap an input in the WebView, pick a file — pill updates above
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.appBackground,
     borderTopWidth: 2,
     borderTopColor: color.divider,
-    paddingBottom: spacing.xl5,
   },
+  controlsContent: { paddingBottom: spacing.xl5 },
   toolbar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,

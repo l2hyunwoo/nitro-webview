@@ -16,7 +16,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -113,7 +113,7 @@ export function HeadersDemo() {
         })}
       />
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
         <SectionLabel text="Headers demo" />
         <View style={styles.toolbar}>
           <ToolbarButton
@@ -135,7 +135,7 @@ export function HeadersDemo() {
           Expected: X-Nitro-Default: global • X-Nitro-Test: per-request (not
           &quot;default-loses&quot;)
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.appBackground,
     borderTopWidth: 2,
     borderTopColor: color.divider,
-    paddingBottom: spacing.xl5,
   },
+  controlsContent: { paddingBottom: spacing.xl5 },
   toolbar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,

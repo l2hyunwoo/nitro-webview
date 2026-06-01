@@ -28,7 +28,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   Cookie,
@@ -121,7 +121,7 @@ export function CookiesDemo() {
         })}
       />
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
         <SectionLabel text="Cookies demo" />
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>cookies for httpbin.org:</Text>
@@ -217,7 +217,7 @@ export function CookiesDemo() {
             ) : null}
           </View>
         ) : null}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.appBackground,
     borderTopWidth: 2,
     borderTopColor: color.divider,
-    paddingBottom: spacing.xl5,
   },
+  controlsContent: { paddingBottom: spacing.xl5 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',

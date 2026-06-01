@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { BackHandler, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 import { HomeList } from './src/components/HomeList'
 import { color, fontSize, spacing } from './src/components/theme'
@@ -10,6 +10,15 @@ export default function App() {
   const [activePanelId, setActivePanelId] = useState<PanelId | null>(null)
 
   const activePanel = findPanelById(activePanelId)
+
+  useEffect(() => {
+    if (!activePanel) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setActivePanelId(null)
+      return true
+    })
+    return () => sub.remove()
+  }, [activePanel])
 
   if (activePanel) {
     const PanelComponent = activePanel.component

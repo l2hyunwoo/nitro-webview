@@ -24,7 +24,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -171,7 +171,7 @@ export function JSBridgeDemo() {
         onMessage={handleMessage}
       />
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
         <SectionLabel text="postMessage bridge" />
         <View style={styles.toolbar}>
           <ToolbarButton
@@ -212,7 +212,7 @@ export function JSBridgeDemo() {
           Reads document.title and window.innerWidth from inside the WebView and
           renders the JSON in the blue banner above.
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -251,8 +251,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.appBackground,
     borderTopWidth: 2,
     borderTopColor: color.divider,
-    paddingBottom: spacing.xl5,
   },
+  controlsContent: { paddingBottom: spacing.xl5 },
   toolbar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,

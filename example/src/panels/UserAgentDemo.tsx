@@ -26,7 +26,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -121,7 +121,7 @@ export function UserAgentDemo() {
         })}
       />
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
         <SectionLabel text="User-Agent demo" />
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>userAgent:</Text>
@@ -151,7 +151,7 @@ export function UserAgentDemo() {
           Hits httpbin.org/user-agent — the rendered JSON should mirror the
           value above.
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -190,8 +190,8 @@ const styles = StyleSheet.create({
     backgroundColor: color.appBackground,
     borderTopWidth: 2,
     borderTopColor: color.divider,
-    paddingBottom: spacing.xl5,
   },
+  controlsContent: { paddingBottom: spacing.xl5 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
