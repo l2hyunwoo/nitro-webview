@@ -1,5 +1,16 @@
 # nitro-webview
 
+<table>
+  <tr>
+    <td align="center"><b>iOS</b></td>
+    <td align="center"><b>Android</b></td>
+  </tr>
+  <tr>
+    <td><video src="https://github.com/user-attachments/assets/4ae45afd-b595-4efd-8e44-25c1d03434a8" width="360" autoplay loop muted playsinline /></td>
+    <td><video src="https://github.com/user-attachments/assets/9431b353-24a1-41f5-9aee-1fea0520e13d" width="360" autoplay loop muted playsinline /></td>
+  </tr>
+</table>
+
 A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin native sides, JSI-direct prop and event dispatch, no bridge round-trips.
 
 ## Introduction
