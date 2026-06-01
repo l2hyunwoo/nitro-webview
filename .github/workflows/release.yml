@@ -1,0 +1,456 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version to release (e.g. 0.1.0). Must match the version currently in package.json or a valid npm version keyword (patch, minor, major).'
+        required: true
+        type: string
+      dry_run:
+        description: 'When true, run the full pipeline without pushing the commit, creating a tag, or publishing to npm.'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate (lint, typecheck, build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint (ESLint, --max-warnings 0)
+        run: yarn lint-ci
+
+      - name: Typecheck (tsc --noEmit)
+        run: yarn typecheck
+
+      - name: Build library (yarn prepare)
+        run: yarn prepare
+
+      - name: Verify build artifacts
+        run: |
+          set -euo pipefail
+          # tsconfig.json compiles src/ -> lib/ as a flat layout, so the entry
+          # JS and its declaration file must land directly at lib/index.{js,d.ts}.
+          if ! (test -f lib/index.js && test -f lib/index.d.ts); then
+            echo "Expected build artifacts lib/index.js and lib/index.d.ts were not both produced."
+            echo "Contents of lib/ (if it exists):"
+            ls -la lib/ || echo "lib/ directory is missing."
+            exit 1
+          fi
+          echo "Build artifacts verified: lib/index.js and lib/index.d.ts both present."
+
+  test:
+    name: Test (yarn test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run test suite (yarn test)
+        # The test job runs the full Node test suite regardless of dry_run.
+        # `yarn test` invokes `node --test --experimental-strip-types
+        # "src/**/*.test.ts"`, so a non-zero exit code from any test fails
+        # the job and short-circuits the pipeline before any release commit,
+        # tag, or npm publish is attempted.
+        run: yarn test
+
+      - name: Report test job outcome
+        # Dry-run support: when dry_run=true we still execute the full suite
+        # (the previous step) but we log an explicit success marker so the
+        # release operator can see at a glance that the test gate passed
+        # green without any tag/publish side effects elsewhere in the run.
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "dry_run=true — yarn test executed and reported success."
+          else
+            echo "yarn test executed and reported success."
+          fi
+
+  create-version-commit:
+    name: Create version commit
+    needs:
+      - validate
+      - test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      commit_sha: ${{ steps.bump.outputs.commit_sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump package.json version and commit
+        id: bump
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current package.json version: ${CURRENT_VERSION}"
+          echo "Requested release version: ${INPUT_VERSION}"
+
+          # If the requested version already matches package.json, treat the bump
+          # step as a no-op but still surface the resolved version downstream.
+          if [ "${CURRENT_VERSION}" = "${INPUT_VERSION}" ]; then
+            echo "package.json already at ${INPUT_VERSION}; skipping version bump."
+            RESOLVED_VERSION="${CURRENT_VERSION}"
+          else
+            # `npm version` accepts an explicit semver or a keyword (patch/minor/major).
+            # --no-git-tag-version: tagging happens in a later job.
+            npm version "${INPUT_VERSION}" --no-git-tag-version --allow-same-version
+            RESOLVED_VERSION=$(node -p "require('./package.json').version")
+            echo "Bumped package.json to ${RESOLVED_VERSION}"
+          fi
+
+          echo "version=${RESOLVED_VERSION}" >> "$GITHUB_OUTPUT"
+
+          # Stage and commit only if package.json actually changed.
+          if git diff --quiet -- package.json; then
+            echo "No package.json changes to commit."
+            COMMIT_SHA=$(git rev-parse HEAD)
+          else
+            git add package.json
+            git commit -m "chore(release): v${RESOLVED_VERSION}"
+            COMMIT_SHA=$(git rev-parse HEAD)
+            echo "Created release commit ${COMMIT_SHA}"
+          fi
+
+          echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Push release commit
+        if: inputs.dry_run != 'true'
+        run: |
+          set -euo pipefail
+          BRANCH_REF="${GITHUB_REF#refs/heads/}"
+          echo "Pushing release commit to origin/${BRANCH_REF}"
+          git push origin "HEAD:${BRANCH_REF}"
+
+      - name: Skip push (dry run)
+        if: inputs.dry_run == 'true'
+        run: echo "dry_run=true — skipping push of release commit ${{ steps.bump.outputs.commit_sha }}"
+
+  create-version-tag:
+    name: Create version tag
+    needs: create-version-commit
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch release commit (live run)
+        if: inputs.dry_run != 'true'
+        run: |
+          set -euo pipefail
+          echo "Fetching release commit ${{ needs.create-version-commit.outputs.commit_sha }}"
+          git fetch origin "${{ needs.create-version-commit.outputs.commit_sha }}"
+          git checkout "${{ needs.create-version-commit.outputs.commit_sha }}"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push version tag
+        id: tag
+        env:
+          RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
+          COMMIT_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="v${RESOLVED_VERSION}"
+          echo "Preparing tag ${TAG_NAME} for commit ${COMMIT_SHA}"
+          echo "tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            # Create tag locally so the job is fully testable in dry-run mode,
+            # but do not push it to origin.
+            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}" || \
+              git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+            echo "dry_run=true — created tag ${TAG_NAME} locally; skipping push."
+            git tag --list "${TAG_NAME}"
+          else
+            # Refuse to overwrite an existing remote tag — release versions must be unique.
+            if git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "${TAG_NAME}"; then
+              echo "Tag ${TAG_NAME} already exists on origin — aborting to avoid an overwrite."
+              exit 1
+            fi
+
+            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}"
+            echo "Pushing tag ${TAG_NAME} to origin"
+            git push origin "refs/tags/${TAG_NAME}"
+          fi
+
+      - name: Verify tag presence
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.tag }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          # Local verification works for both live and dry-run modes.
+          if ! git rev-parse -q --verify "refs/tags/${TAG_NAME}" >/dev/null; then
+            echo "Expected tag ${TAG_NAME} to exist locally but it does not."
+            exit 1
+          fi
+          echo "Local tag ${TAG_NAME} verified."
+
+          if [ "${DRY_RUN}" != "true" ]; then
+            if ! git ls-remote --tags origin "refs/tags/${TAG_NAME}" | grep -q "${TAG_NAME}"; then
+              echo "Expected tag ${TAG_NAME} to exist on origin but it does not."
+              exit 1
+            fi
+            echo "Remote tag ${TAG_NAME} verified on origin."
+          else
+            echo "dry_run=true — skipping remote tag verification."
+          fi
+
+  publish-npm:
+    name: Publish to npm
+    needs:
+      - create-version-commit
+      - create-version-tag
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          always-auth: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build library (yarn prepare)
+        run: yarn prepare
+
+      - name: Verify build artifacts
+        run: |
+          set -euo pipefail
+          # tsconfig.json compiles src/ -> lib/ as a flat layout, so the entry
+          # JS and its declaration file must land directly at lib/index.{js,d.ts}.
+          # Match the acceptance criterion command form exactly.
+          if ! (test -f lib/index.js && test -f lib/index.d.ts); then
+            echo "Expected build artifacts lib/index.js and lib/index.d.ts were not both produced."
+            echo "Contents of lib/ (if it exists):"
+            ls -la lib/ || echo "lib/ directory is missing."
+            exit 1
+          fi
+          echo "Build artifacts verified: lib/index.js and lib/index.d.ts both present."
+
+      - name: Verify package version matches release input
+        env:
+          RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
+        run: |
+          set -euo pipefail
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "${PKG_VERSION}" != "${RESOLVED_VERSION}" ]; then
+            echo "package.json version (${PKG_VERSION}) does not match resolved release version (${RESOLVED_VERSION})."
+            exit 1
+          fi
+          echo "package.json version ${PKG_VERSION} matches release ${RESOLVED_VERSION}."
+
+      - name: Publish to npm (dry run)
+        if: inputs.dry_run == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "dry_run=true — running npm publish in dry-run mode (no upload)."
+          npm publish --provenance --access public --dry-run
+
+      - name: Publish to npm
+        if: inputs.dry_run != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Publishing nitro-webview@${{ needs.create-version-commit.outputs.version }} to npm."
+          npm publish --provenance --access public
+
+      - name: Confirm npm registry publication
+        if: inputs.dry_run != 'true'
+        env:
+          RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
+        run: |
+          set -euo pipefail
+          # npm registry can take a moment to surface a freshly published version.
+          for attempt in 1 2 3 4 5; do
+            PUBLISHED=$(npm view "nitro-webview@${RESOLVED_VERSION}" version 2>/dev/null || echo "")
+            if [ "${PUBLISHED}" = "${RESOLVED_VERSION}" ]; then
+              echo "Confirmed nitro-webview@${RESOLVED_VERSION} is live on npm."
+              exit 0
+            fi
+            echo "Attempt ${attempt}: nitro-webview@${RESOLVED_VERSION} not yet visible on registry; retrying..."
+            sleep 10
+          done
+          echo "Failed to confirm nitro-webview@${RESOLVED_VERSION} on npm after retries."
+          exit 1
+
+  create-github-release:
+    name: Create GitHub Release
+    needs:
+      - create-version-commit
+      - create-version-tag
+      - publish-npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+
+      - name: Create GitHub Release
+        id: gh_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.create-version-tag.outputs.tag }}
+          RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_TITLE="nitro-webview ${TAG_NAME}"
+          RELEASE_NOTES_FILE="$(mktemp)"
+          cat > "${RELEASE_NOTES_FILE}" <<EOF
+          ## nitro-webview ${TAG_NAME}
+
+          Published to npm: https://www.npmjs.com/package/nitro-webview/v/${RESOLVED_VERSION}
+
+          Install:
+          \`\`\`sh
+          yarn add nitro-webview@${RESOLVED_VERSION}
+          \`\`\`
+
+          See the [README](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG_NAME}/README.md) for usage details.
+          EOF
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "dry_run=true — would create GitHub Release ${TAG_NAME} with the following body:"
+            echo "---"
+            cat "${RELEASE_NOTES_FILE}"
+            echo "---"
+            echo "Skipping actual GitHub Release creation."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            # Refuse to overwrite an existing release for the same tag.
+            if gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+              echo "GitHub Release ${TAG_NAME} already exists — aborting to avoid an overwrite."
+              exit 1
+            fi
+
+            gh release create "${TAG_NAME}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${RELEASE_TITLE}" \
+              --notes-file "${RELEASE_NOTES_FILE}" \
+              --verify-tag
+            echo "Created GitHub Release ${TAG_NAME}."
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify GitHub Release exists
+        if: inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.create-version-tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Expected GitHub Release ${TAG_NAME} to exist but it does not."
+            exit 1
+          fi
+          RELEASE_TAG=$(gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --json tagName --jq '.tagName')
+          if [ "${RELEASE_TAG}" != "${TAG_NAME}" ]; then
+            echo "GitHub Release tag (${RELEASE_TAG}) does not match expected tag (${TAG_NAME})."
+            exit 1
+          fi
+          echo "GitHub Release ${TAG_NAME} verified."
+
+      - name: Skip verification (dry run)
+        if: inputs.dry_run == 'true'
+        env:
+          TAG_NAME: ${{ needs.create-version-tag.outputs.tag }}
+        run: echo "dry_run=true — skipping GitHub Release verification for ${TAG_NAME}."
