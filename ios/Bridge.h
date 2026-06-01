@@ -2,7 +2,7 @@
 //  Bridge.h
 //  NitroWebview
 //
-//  Created by Marc Rousavy on 22.07.24.
+//  Created by l2hyunwoo.
 //
 
 #pragma once
