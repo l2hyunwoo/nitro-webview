@@ -366,56 +366,6 @@ allprojects {
 }
 ```
 
-## Known platform limitations
-
-These are inherent to the underlying WebKit / Chromium contracts, not bugs in this library:
-
-- `onShouldStartLoadWithRequest` on Android fires only for **user-initiated** navigations (`<a href>` taps, form submits, history actions). Programmatic loads — `view.loadUrl(...)` triggered by changing the `source` prop from JS — bypass `WebViewClient.shouldOverrideUrlLoading` and do not invoke the hook. iOS `WKNavigationDelegate.decidePolicyFor` fires for both programmatic and user-initiated navigations.
-- `defaultHeaders` and `UriSource.headers` only apply to the **main-frame navigation** a `source` update triggers. Redirects, sub-frames, and sub-resource requests do not re-apply them.
-- `onFileDownload` never auto-saves. On both platforms the library surfaces the URL + metadata and leaves storage to the JS layer (use `@dr.pogodin/react-native-fs`, `react-native-blob-util`, etc.). Blob URLs are out of scope.
-- Android `getCookies(url)` returns cookies with only `name` and `value` populated (the platform `CookieManager.getCookie(url)` API does not expose the rest). iOS preserves the full attribute set.
-- Android's `onShouldStartLoadWithRequest` waits up to **250 ms** on a `synchronized.wait` for the JS callback to resolve. If the JS handler does not settle inside that window the navigation defaults to **allow** (mirrors RNW's `SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`). iOS has no such timeout.
-
-## Example app
-
-The `example/` directory contains a bare React Native demo that exercises every feature:
-
-```sh
-cd example
-yarn install
-cd ios && pod install
-cd ..
-yarn start --reset-cache
-# In another shell:
-yarn ios     # or: yarn android
-```
-
-The demo panels exercise headers, cookies, file upload, file download, user-agent overrides, and navigation interception — each with the platform-specific quirks documented above.
-
-## Development
-
-```sh
-yarn typecheck
-yarn lint
-yarn test
-yarn nitrogen          # regenerate codegen after touching src/specs/*.nitro.ts
-swift test             # iOS native unit tests
-cd example/android && ./gradlew :nitro-webview:testDebugUnitTest
-```
-
-### Style guardrails
-
-The repo ships two layers of automated style enforcement so [`CLAUDE.md`](CLAUDE.md)'s rules cannot drift silently:
-
-1. A **PostToolUse hook** (`.claude/settings.json`) lints every Edit/Write tool call against `scripts/claude-md-guardrails.sh`. Claude Code sessions get the same gate by default.
-2. A **git pre-commit hook** at `scripts/git-hooks/pre-commit` runs the same script against every staged file. Activate once per clone:
-
-   ```sh
-   git config core.hooksPath scripts/git-hooks
-   ```
-
-Both layers share the same rule set, so adding a rule means editing `scripts/claude-md-guardrails.sh` and nothing else.
-
 ## License
 
 MIT.
