@@ -59,7 +59,7 @@ const DOWNLOAD_SOURCE: WebViewSource = { uri: DOWNLOAD_URL }
 
 export function FileDownloadDemo() {
   const ref = useRef<NitroWebViewMethods | null>(null)
-  const [source, setSource] = useState<WebViewSource>(DOWNLOAD_SOURCE)
+  const [source, setSource] = useState<WebViewSource>({ uri: 'about:blank' })
   const [navState, setNavState] = useState<WebViewNavigationState>({
     url: '',
     title: '',
