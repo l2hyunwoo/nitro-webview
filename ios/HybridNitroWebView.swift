@@ -117,8 +117,7 @@ final class HybridNitroWebView:
 
   // MARK: - Settings props
 
-  // Bucket A (mutable-anytime): applied live in didSet on the scrollView /
-  // WKWebView. nil restores the documented default.
+  // Applied live in didSet; nil restores the documented default.
   var scrollEnabled: Bool? {
     didSet { view.scrollView.isScrollEnabled = scrollEnabled ?? true }
   }
@@ -137,14 +136,8 @@ final class HybridNitroWebView:
   /// `Self.cachePolicy(forCacheEnabled:)`.
   var cacheEnabled: Bool?
 
-  // Bucket B (construction-only) + bucket N (no iOS knob): Nitro pins the
-  // WKWebView for the component's lifetime (the configuration is copied into
-  // the view at init and cannot be swapped), so these have no live effect
-  // after mount. They are declared to satisfy the generated Spec and to keep
-  // the prop surface cross-platform; the value is stored but nothing is
-  // applied. The JSDoc on each prop documents this (react-native-webview
-  // parity: the only way to change a construction-only prop is a JS remount
-  // via a `key` change).
+  // Construction-only / no iOS knob: stored but not applied post-mount. See
+  // each prop's JSDoc in `NitroWebView.nitro.ts` for why.
   var incognito: Bool?
   var mediaPlaybackRequiresUserAction: Bool?
   var allowsInlineMediaPlayback: Bool?
@@ -153,9 +146,7 @@ final class HybridNitroWebView:
   var scalesPageToFit: Bool?
   var thirdPartyCookiesEnabled: Bool?
 
-  /// `javaScriptEnabled` is a WKPreferences value read at view construction;
-  /// WebKit does not honor post-mount changes on the pinned view
-  /// (react-native-webview parity). Stored but not applied.
+  // Construction-only (WKPreferences read at init). Stored but not applied.
   var javaScriptEnabled: Bool?
 
   var injectedJavaScript: String? {

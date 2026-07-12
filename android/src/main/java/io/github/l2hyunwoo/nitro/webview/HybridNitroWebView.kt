@@ -42,9 +42,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     // OFF; without JS the `<input type="file">` chooser never reaches the
     // WebChromeClient (Chromium routes the picker through its renderer,
     // dormant when JS is off) and the injected message bridge is dead. These
-    // stay ON by default and are the single source for the "prop unset"
-    // state; the `javaScriptEnabled` / `domStorageEnabled` prop setters below
-    // override them when a consumer passes an explicit value.
+    // stay ON by default; the prop setters below override them on demand.
     wv.settings.javaScriptEnabled = true
     wv.settings.domStorageEnabled = true
     // Required for `<input type="file">` to open the file chooser via the
@@ -271,8 +269,6 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   )? = null
 
   init {
-    // JavaScript / DOM storage baseline defaults live in the `view`
-    // initializer above (the single source for the "prop unset" state).
     view.webViewClient = ClientImpl()
     view.webChromeClient = webChromeClient
     view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
