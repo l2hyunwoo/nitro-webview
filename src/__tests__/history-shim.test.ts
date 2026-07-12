@@ -201,46 +201,20 @@ test('reverse isolation: a page message on ReactNativeWebView never reaches the 
   )
 })
 
-test('buildHistoryShimScript(ios) targets the WebKit history handler, not the Android sink or the message bridge', () => {
-  const src = buildHistoryShimScript('ios')
-  assert.ok(
-    src.includes(`messageHandlers.${HISTORY_SHIM_NAME}`),
-    'iOS shim must post to the dedicated WKScriptMessageHandler'
-  )
-  assert.ok(
-    !src.includes(ANDROID_HISTORY_SHIM_NAME),
-    'iOS shim must not reference the Android history interface'
-  )
-  assert.ok(
-    !src.includes(`messageHandlers.${BRIDGE_NAME}`),
-    'iOS shim must not reference the onMessage bridge sink'
-  )
-})
+test('each platform shim targets its own sink and hooks all three history APIs', () => {
+  const ios = buildHistoryShimScript('ios')
+  assert.ok(ios.includes(`messageHandlers.${HISTORY_SHIM_NAME}`))
+  assert.ok(!ios.includes(ANDROID_HISTORY_SHIM_NAME))
+  assert.ok(!ios.includes(`messageHandlers.${BRIDGE_NAME}`))
 
-test('buildHistoryShimScript(android) targets the Android history interface, not WebKit or the message bridge', () => {
-  const src = buildHistoryShimScript('android')
-  assert.ok(
-    src.includes(`window.${ANDROID_HISTORY_SHIM_NAME}`),
-    'Android shim must post to the dedicated @JavascriptInterface'
-  )
-  assert.ok(
-    !src.includes('webkit.messageHandlers'),
-    'Android shim must not reference the iOS WebKit chain'
-  )
-  assert.ok(
-    !src.includes(ANDROID_NATIVE_BRIDGE_NAME),
-    'Android shim must not reference the onMessage native bridge name'
-  )
-})
+  const android = buildHistoryShimScript('android')
+  assert.ok(android.includes(`window.${ANDROID_HISTORY_SHIM_NAME}`))
+  assert.ok(!android.includes('webkit.messageHandlers'))
+  assert.ok(!android.includes(ANDROID_NATIVE_BRIDGE_NAME))
 
-test('both platform shims hook pushState, replaceState, and popstate', () => {
-  for (const platform of ['ios', 'android'] as const) {
-    const src = buildHistoryShimScript(platform)
-    assert.ok(src.includes('history.pushState'), `${platform}: hooks pushState`)
-    assert.ok(
-      src.includes('history.replaceState'),
-      `${platform}: hooks replaceState`
-    )
-    assert.ok(src.includes("'popstate'"), `${platform}: hooks popstate`)
+  for (const src of [ios, android]) {
+    assert.ok(src.includes('history.pushState'))
+    assert.ok(src.includes('history.replaceState'))
+    assert.ok(src.includes("'popstate'"))
   }
 })

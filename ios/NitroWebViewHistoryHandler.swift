@@ -42,8 +42,7 @@ final class NitroWebViewHistoryHandler: NSObject {
   }
 
   /// Coerce the shim's message body into the nav-type string. The shim always
-  /// posts a `String`, but coerce defensively (mirroring
-  /// `NitroWebViewMessageHandler.stringifyBody`).
+  /// posts a `String`, but coerce defensively.
   internal static func stringifyNavType(_ body: Any) -> String {
     if let s = body as? String { return s }
     if let s = body as? NSString { return s as String }

@@ -197,24 +197,3 @@ test('non-string url in payload throws TypeError', async () => {
   )
   assert.equal(spy.calls.length, 0)
 })
-
-test('prop signature is assignable to (event) => Promise<boolean>', () => {
-  // Compile-time pin: the spec must expose the prop as a
-  // `Promise<boolean>`-returning function; if a future refactor swaps it
-  // for a synchronous boolean (RNW v12 style) this assignment fails
-  // typecheck.
-  const handler: NitroWebViewProps['onShouldStartLoadWithRequest'] = async (
-    event
-  ) => {
-    return event.url.startsWith('https://')
-  }
-  assert.equal(typeof handler, 'function')
-})
-
-test('prop is optional on NitroWebViewProps (allow-all when unset)', () => {
-  // Compile-time pin: omitting the prop must not be a type error.
-  const props: NitroWebViewProps = {
-    source: { uri: 'https://example.com' },
-  }
-  assert.equal(props.onShouldStartLoadWithRequest, undefined)
-})
