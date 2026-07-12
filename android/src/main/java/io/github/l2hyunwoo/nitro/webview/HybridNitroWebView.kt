@@ -35,6 +35,8 @@ import com.margelo.nitro.nitrowebview.NitroWebViewRenderProcessGoneEvent
 import com.margelo.nitro.nitrowebview.NitroWebViewRenderProcessGoneNativeEvent
 import com.margelo.nitro.nitrowebview.NitroWebViewScrollEvent
 import com.margelo.nitro.nitrowebview.NitroWebViewScrollNativeEvent
+import com.margelo.nitro.nitrowebview.OpenWindowEvent
+import com.margelo.nitro.nitrowebview.OpenWindowNativeEvent
 import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
 import com.margelo.nitro.nitrowebview.WebViewPoint
 import com.margelo.nitro.nitrowebview.UriSource
@@ -318,10 +320,45 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     (event: ShouldStartLoadRequest) -> Promise<Boolean>
   )? = null
 
+  /**
+   * Opt-in: intercept sub-frame (iframe) navigations through
+   * [onShouldStartLoadWithRequest] too. Default `false`.
+   *
+   * When `false`/`null`, sub-frame navigations are allowed without a JS
+   * round-trip so the 250 ms UI-thread block in [dispatchShouldStart] never
+   * stacks per iframe (jank / ANR risk on iframe-heavy pages). Main-frame
+   * navigations are always intercepted regardless of this flag.
+   */
+  override var interceptSubframeNavigation: Boolean? = null
+
+  /**
+   * Fired when the page requests a new window (`window.open` /
+   * `target=_blank`), surfaced via [NitroWebChromeClient.onCreateWindow].
+   * When set, the destination URL is delivered to JS and the WebView does
+   * NOT load it. When unset, [NitroWebChromeClient] loads the URL in-place
+   * in this WebView (react-native-webview default).
+   */
+  override var onOpenWindow: ((event: OpenWindowEvent) -> Unit)? = null
+
   init {
+    // Required for WebChromeClient.onCreateWindow to fire at all — without it
+    // `window.open` / `target=_blank` are silently swallowed by the WebView
+    // and onOpenWindow can never surface (see NitroWebChromeClient).
+    view.settings.setSupportMultipleWindows(true)
     view.webViewClient = ClientImpl()
     view.webChromeClient = webChromeClient
     view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
+    // Second, DISTINCT @JavascriptInterface for the SPA history shim. A route
+    // change (pushState/replaceState/popstate) posts here — never the
+    // ReactNativeWebView bridge — so it can never be mistaken for onMessage.
+    view.addJavascriptInterface(HistoryShimInterface(), HISTORY_SHIM_NAME)
+    // New-window requests route through the chrome client; forward the URL to
+    // onOpenWindow on the UI thread when a handler is set.
+    webChromeClient.onOpenWindow = { url ->
+      view.post {
+        onOpenWindow?.invoke(OpenWindowEvent(OpenWindowNativeEvent(url)))
+      }
+    }
     // File-download bridge. Every Android-side download notification is
     // translated 1:1 into an `onFileDownload` emission. The WebView itself
     // does NOT save anything — JS decides.
@@ -496,8 +533,10 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     // the WebView itself is being torn down. The chooser client is
     // GC-eligible once the WebView drops its strong reference below.
     webChromeClient.hostActivity = null
+    webChromeClient.onOpenWindow = null
     view.webChromeClient = null
     view.removeJavascriptInterface(BRIDGE_NAME)
+    view.removeJavascriptInterface(HISTORY_SHIM_NAME)
     view.setOnScrollChangeListener(null)
     view.stopLoading()
     // Deregister the activity-result forwarder so this WebView can be GC'd
@@ -613,6 +652,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
 
   private inner class ClientImpl : WebViewClient() {
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+      // Inject the SPA history shim FIRST so history.pushState is wrapped
+      // before the page's own scripts (including injectedJavaScriptBeforeContentLoaded
+      // below) run. Idempotent via `window.__nitroHistoryShimInstalled`, so
+      // re-running it on every onPageStarted (including iframe loads) never
+      // double-wraps.
+      view.evaluateJavascript(HISTORY_SHIM_SCRIPT, null)
       // Fallback path for WebViews without the DOCUMENT_START_SCRIPT
       // feature: inject the before-content script here. Supported WebViews
       // register it via addDocumentStartJavaScript (see
@@ -664,12 +709,19 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     ): Boolean {
       val hook = onShouldStartLoadWithRequest ?: return false
       val url = request.url?.toString() ?: return false
+      // Sub-frame (iframe) navigations only reach the JS hook when the caller
+      // opts in via interceptSubframeNavigation. Otherwise allow them without
+      // the 250 ms UI-thread block (which would stack per iframe → jank/ANR).
+      // Main-frame navigations are always intercepted.
+      if (!request.isForMainFrame && interceptSubframeNavigation != true) {
+        return false // allow
+      }
       val payload = ShouldStartLoadRequest(
         url = url,
         navigationType = WebViewNavigationType.OTHER,
         mainDocumentURL = null,
-        isTopFrame = null,
-        hasTargetFrame = null,
+        isTopFrame = request.isForMainFrame, // was null; now meaningful
+        hasTargetFrame = null, // Android has no target-frame concept here
       )
       val allow = dispatchShouldStart(hook, payload)
       // Convention: shouldOverrideUrlLoading returns `true` to BLOCK.
@@ -777,6 +829,24 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         )
         onMessage?.invoke(payload)
       }
+    }
+  }
+
+  /**
+   * Second `@JavascriptInterface`, registered under a DISTINCT name
+   * ([HISTORY_SHIM_NAME]) from [BridgeInterface]. The SPA history shim posts
+   * the nav-type here on pushState/replaceState/popstate. We route to
+   * `onNavigationStateChange` (never `onMessage`, never
+   * `onShouldStartLoadWithRequest` — a pushState already happened and cannot
+   * be vetoed). The nav-type is advisory; the fresh URL is read live from
+   * `view.url` in [snapshotNavigationState].
+   */
+  private inner class HistoryShimInterface {
+    @JavascriptInterface
+    fun postMessage(navType: String) {
+      // Runs on the JavaBridge thread; hop to the UI thread to read
+      // view.url and deliver the callback.
+      view.post { emitNavigationState() }
     }
   }
 
@@ -913,6 +983,47 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         .replace(" ", "\\u2028")
         .replace(" ", "\\u2029")
     }
+
+    /**
+     * @JavascriptInterface name for the SPA history sink. Must match
+     * `ANDROID_HISTORY_SHIM_NAME` in `bridgeScript.ts` and the sink the
+     * injected [HISTORY_SHIM_SCRIPT] posts to.
+     */
+    private const val HISTORY_SHIM_NAME = "ReactNativeHistoryShimNative"
+
+    /**
+     * SPA history-API shim. Ships the same body
+     * `buildHistoryShimScript('android')` produces in `bridgeScript.ts`
+     * (the source of truth exercised by the node:test suite). Hooks
+     * pushState/replaceState/popstate and posts the nav-type to the
+     * dedicated [HISTORY_SHIM_NAME] interface. Idempotent via
+     * `window.__nitroHistoryShimInstalled` so re-injection on every
+     * onPageStarted never double-wraps.
+     */
+    private val HISTORY_SHIM_SCRIPT: String =
+      """
+      ;(function (history) {
+        if (window.__nitroHistoryShimInstalled) { return; }
+        window.__nitroHistoryShimInstalled = true;
+        function notify(__type) {
+          window.setTimeout(function () {
+            var __n = window.ReactNativeHistoryShimNative;
+            if (__n && typeof __n.postMessage === 'function') {
+              __n.postMessage(__type);
+            }
+          }, 0);
+        }
+        function shim(f) {
+          return function () {
+            notify('other');
+            return f.apply(history, arguments);
+          };
+        }
+        history.pushState = shim(history.pushState);
+        history.replaceState = shim(history.replaceState);
+        window.addEventListener('popstate', function () { notify('backforward'); });
+      })(window.history);
+      """.trimIndent()
 
     /**
      * Maximum number of milliseconds [ClientImpl.shouldOverrideUrlLoading]

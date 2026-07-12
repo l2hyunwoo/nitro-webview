@@ -6,10 +6,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Message
 import android.provider.MediaStore
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.core.content.FileProvider
 import java.io.File
 import java.text.SimpleDateFormat
@@ -105,6 +108,59 @@ open class NitroWebChromeClient(
     activityResolver = ActivityResolver { hostActivity },
   ) {
     this.hostActivity = hostActivity
+  }
+
+  /**
+   * New-window hook. When non-null, `window.open` / `target=_blank` requests
+   * deliver their destination URL here instead of loading — JS decides what
+   * to do. When null, [onCreateWindow] loads the URL in-place in the parent
+   * WebView (react-native-webview default). Wired by the hybrid view.
+   */
+  var onOpenWindow: ((url: String) -> Unit)? = null
+
+  /**
+   * Handle `window.open` / `target=_blank`. Android does not hand the
+   * destination URL to `onCreateWindow` directly, so we use the AOSP-blessed
+   * transport-[Message] idiom: attach a throwaway child WebView whose one-shot
+   * `shouldOverrideUrlLoading` leaks the URL, wire it into the transport
+   * message, and send. The child NEVER actually loads — it exists solely to
+   * surface the URL (`HitTestResult.getExtra()` / `getUrl()` are unreliable
+   * for scripted `window.open`).
+   *
+   * Requires `WebSettings.setSupportMultipleWindows(true)` on the parent
+   * WebView, or this callback never fires.
+   */
+  override fun onCreateWindow(
+    view: WebView,
+    isDialog: Boolean,
+    isUserGesture: Boolean,
+    resultMsg: Message,
+  ): Boolean {
+    val handler = onOpenWindow
+    val child = WebView(view.context)
+    child.webViewClient = object : WebViewClient() {
+      override fun shouldOverrideUrlLoading(
+        subView: WebView,
+        request: WebResourceRequest,
+      ): Boolean {
+        val url = request.url?.toString()
+        if (url != null) {
+          if (handler != null) {
+            handler(url) // fire onOpenWindow
+          } else {
+            view.loadUrl(url) // default: load in the parent WebView in-place
+          }
+        }
+        // Release the throwaway child now that it has served its purpose.
+        // Posted (not called synchronously) so destroy() runs after this
+        // callback unwinds — destroying a WebView mid-dispatch is unsafe.
+        subView.post { subView.destroy() }
+        return true // the child never loads the URL itself
+      }
+    }
+    (resultMsg.obj as WebView.WebViewTransport).webView = child
+    resultMsg.sendToTarget()
+    return true
   }
 
   /** Resolve the effective host Activity for the next chooser invocation. */
