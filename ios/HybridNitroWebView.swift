@@ -115,6 +115,49 @@ final class HybridNitroWebView:
     }
   }
 
+  // MARK: - Settings props
+
+  // Bucket A (mutable-anytime): applied live in didSet on the scrollView /
+  // WKWebView. nil restores the documented default.
+  var scrollEnabled: Bool? {
+    didSet { view.scrollView.isScrollEnabled = scrollEnabled ?? true }
+  }
+  var bounces: Bool? {
+    didSet { view.scrollView.bounces = bounces ?? true }
+  }
+  var allowsBackForwardNavigationGestures: Bool? {
+    didSet {
+      view.allowsBackForwardNavigationGestures =
+        allowsBackForwardNavigationGestures ?? false
+    }
+  }
+
+  /// Consumed in `applySource` when building the next `URLRequest`
+  /// (WKWebView has no global cache switch). Stored here; see
+  /// `Self.cachePolicy(forCacheEnabled:)`.
+  var cacheEnabled: Bool?
+
+  // Bucket B (construction-only) + bucket N (no iOS knob): Nitro pins the
+  // WKWebView for the component's lifetime (the configuration is copied into
+  // the view at init and cannot be swapped), so these have no live effect
+  // after mount. They are declared to satisfy the generated Spec and to keep
+  // the prop surface cross-platform; the value is stored but nothing is
+  // applied. The JSDoc on each prop documents this (react-native-webview
+  // parity: the only way to change a construction-only prop is a JS remount
+  // via a `key` change).
+  var incognito: Bool?
+  var mediaPlaybackRequiresUserAction: Bool?
+  var allowsInlineMediaPlayback: Bool?
+  var sharedCookiesEnabled: Bool?
+  var domStorageEnabled: Bool?
+  var scalesPageToFit: Bool?
+  var thirdPartyCookiesEnabled: Bool?
+
+  /// `javaScriptEnabled` is a WKPreferences value read at view construction;
+  /// WebKit does not honor post-mount changes on the pinned view
+  /// (react-native-webview parity). Stored but not applied.
+  var javaScriptEnabled: Bool?
+
   var injectedJavaScript: String? {
     didSet { applyInjectedJavaScript(injectedJavaScript) }
   }
@@ -207,6 +250,7 @@ final class HybridNitroWebView:
     case .first(let uri):
       guard let url = URL(string: uri.uri) else { return }
       var request = URLRequest(url: url)
+      request.cachePolicy = Self.cachePolicy(forCacheEnabled: cacheEnabled)
       let merged = Self.mergeHeaders(
         defaults: defaultHeaders,
         perRequest: uri.headers
@@ -441,6 +485,19 @@ final class HybridNitroWebView:
     if !canShowMIMEType { return true }
     // Rule 3: render inline.
     return false
+  }
+
+  /// Map the `cacheEnabled` prop to the `URLRequest.cachePolicy` used for
+  /// the next `source`-triggered navigation. `false` bypasses the local
+  /// cache (`.reloadIgnoringLocalCacheData`); `true` or `nil` (unset) uses
+  /// the protocol default (`.useProtocolCachePolicy`). Standalone static so
+  /// it can be exercised by `swift test` on the macOS host without a real
+  /// `WKWebView`.
+  static func cachePolicy(forCacheEnabled cacheEnabled: Bool?)
+    -> URLRequest.CachePolicy {
+    return cacheEnabled == false
+      ? .reloadIgnoringLocalCacheData
+      : .useProtocolCachePolicy
   }
 
   fileprivate func emitLoadStart() {
