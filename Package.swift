@@ -220,5 +220,19 @@ let package = Package(
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewHttpErrorTests"
     ),
+    .testTarget(
+      // Exercises the imperative-method + blob-download helpers:
+      //   1. `cacheDataTypes()` — the cache-only record set clearCache uses
+      //      (disk + memory only, never cookies/localStorage).
+      //   2. `isBlobDownload(response:canShowMIMEType:)` — routes a blob:
+      //      navigation response to WKDownloadDelegate.
+      //   3. `NavigationDelegate.blobDownloadDestination(suggestedFilename:)`
+      //      — the unique, non-existent temp-file path a blob is written to.
+      // Uses probe mirrors because the production class cannot be linked
+      // into this SwiftPM host harness.
+      name: "HybridNitroWebViewImperativeMethodsTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/HybridNitroWebViewImperativeMethodsTests"
+    ),
   ]
 )

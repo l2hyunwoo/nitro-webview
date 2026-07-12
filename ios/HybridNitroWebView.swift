@@ -180,6 +180,49 @@ final class HybridNitroWebView:
   func reload() throws { view.reload() }
   func stopLoading() throws { view.stopLoading() }
 
+  /// Clear the cache-shaped record types from the view's data store. The set
+  /// is deliberately cache-only (`Self.cacheDataTypes()`) — using
+  /// `allWebsiteDataTypes()` would also wipe cookies/localStorage.
+  func clearCache() throws -> Promise<Void> {
+    let promise = Promise<Void>()
+    view.configuration.websiteDataStore.removeData(
+      ofTypes: Self.cacheDataTypes(),
+      modifiedSince: .distantPast
+    ) {
+      promise.resolve(withResult: ())
+    }
+    return promise
+  }
+
+  /// Documented no-op: `WKWebView.backForwardList` is read-only with no
+  /// public prune/clear API. Resolves so the cross-platform `Promise<void>`
+  /// contract still settles (react-native-webview exposes `clearHistory` on
+  /// Android only). See the spec JSDoc.
+  func clearHistory() throws -> Promise<Void> {
+    let promise = Promise<Void>()
+    promise.resolve(withResult: ())
+    return promise
+  }
+
+  func requestFocus() throws -> Promise<Void> {
+    let promise = Promise<Void>()
+    // becomeFirstResponder must run on the main thread. Discard the Bool:
+    // `false` means "already first responder / window not key", not an error.
+    DispatchQueue.main.async {
+      _ = self.view.becomeFirstResponder()
+      promise.resolve(withResult: ())
+    }
+    return promise
+  }
+
+  /// Cache-only website-data record types for `clearCache()`. Standalone
+  /// static helper so host-side XCTest can pin the exact `Set<String>`
+  /// (`{disk, memory}`) without a live `WKWebView` — same rationale as
+  /// `shouldTreatAsDownload`. Deliberately excludes cookies/localStorage.
+  static func cacheDataTypes() -> Set<String> {
+    [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache]
+  }
+
   func evaluateJavaScript(code: String) throws -> Promise<String> {
     let promise = Promise<String>()
     evaluator.evaluate(
@@ -404,6 +447,33 @@ final class HybridNitroWebView:
     /// react-native-webview's iOS lockIdentifier round-trip semantics.
     private var pendingDecisions: [ObjectIdentifier: (WKNavigationActionPolicy) -> Void] = [:]
 
+    /// In-flight blob downloads keyed by `WKDownload` identity. Holds the
+    /// chosen temp-file destination + the download's response so
+    /// `downloadDidFinish` (which receives only the `WKDownload`) can emit
+    /// `onFileDownload` with the local file URL + distilled metadata.
+    fileprivate var pendingDownloads: [ObjectIdentifier: (url: URL, response: URLResponse?)] = [:]
+
+    /// Pick a unique, non-existent temp-file destination for a blob download.
+    /// `WKDownload` requires a path that does NOT already exist, so each
+    /// download gets its own UUID subdirectory — concurrent / repeated
+    /// downloads of the same filename never collide. Returns `nil` when the
+    /// destination directory cannot be created. Standalone static helper so
+    /// host-side XCTest can pin the path shape without a live `WKDownload`.
+    static func blobDownloadDestination(suggestedFilename: String) -> URL? {
+      let dir = FileManager.default.temporaryDirectory
+        .appendingPathComponent("nitro-webview-blob", isDirectory: true)
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+      do {
+        try FileManager.default.createDirectory(
+          at: dir, withIntermediateDirectories: true
+        )
+      } catch {
+        return nil
+      }
+      let name = suggestedFilename.isEmpty ? "download" : suggestedFilename
+      return dir.appendingPathComponent(name)
+    }
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
       owner?.emitLoadStart()
       owner?.emitNavigationState()
@@ -475,6 +545,17 @@ final class HybridNitroWebView:
       decidePolicyFor navigationResponse: WKNavigationResponse,
       decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
     ) {
+      // Blob downloads take the native `WKDownloadDelegate` path: return
+      // `.download` so WebKit streams the bytes to a temp file (no
+      // base64-over-bridge), then emit `onFileDownload` with the local
+      // `file://` URL from `download(_:didFinishDownloading:)`.
+      if HybridNitroWebView.isBlobDownload(
+        response: navigationResponse.response,
+        canShowMIMEType: navigationResponse.canShowMIMEType
+      ) {
+        decisionHandler(.download)
+        return
+      }
       let httpResponse = navigationResponse.response as? HTTPURLResponse
       // HTTP-error (4xx/5xx) detection for the MAIN frame only. Disjoint from
       // `onError` (transport failures). Emitted BEFORE the download branch and
@@ -508,6 +589,17 @@ final class HybridNitroWebView:
           nativeEvent: NitroWebViewRenderProcessGoneNativeEvent(didCrash: nil)
         )
       )
+    }
+
+    /// WebKit hands us the `WKDownload` produced by the `.download` policy
+    /// above. We own the download's lifecycle and pick a temp-file
+    /// destination in `download(_:decideDestinationUsing:...)`.
+    func webView(
+      _ webView: WKWebView,
+      navigationResponse: WKNavigationResponse,
+      didBecome download: WKDownload
+    ) {
+      download.delegate = self
     }
   }
 
@@ -545,6 +637,23 @@ final class HybridNitroWebView:
   ///   * Keeps the decision out of the `WKNavigationDelegate` callback
   ///     so future contributors can extend it (e.g. honor a future
   ///     `download` attribute hint) in one place.
+  /// Whether a navigation response is a `blob:` download that should be
+  /// routed through `WKDownloadDelegate` (temp-file streaming) rather than
+  /// the HTTP `shouldTreatAsDownload` cancel-and-emit path.
+  ///
+  /// True when the response URL scheme is `blob` AND WebKit cannot render it
+  /// inline (`canShowMIMEType == false`) — an inline-renderable blob (e.g. an
+  /// image the page navigates to) should still display, not download.
+  /// Standalone static helper so host-side XCTest can pin the predicate
+  /// without a live `WKWebView` — same rationale as `shouldTreatAsDownload`.
+  static func isBlobDownload(
+    response: URLResponse,
+    canShowMIMEType: Bool
+  ) -> Bool {
+    guard response.url?.scheme?.lowercased() == "blob" else { return false }
+    return !canShowMIMEType
+  }
+
   static func shouldTreatAsDownload(
     response: HTTPURLResponse?,
     canShowMIMEType: Bool
@@ -820,6 +929,67 @@ final class HybridNitroWebView:
       props[.secure] = "TRUE"
     }
     return HTTPCookie(properties: props)
+  }
+
+  /// Emit `onFileDownload` for a blob written to a local temp file by
+  /// `WKDownloadDelegate`. `url` is the local `file://` URL; the rest of the
+  /// metadata is distilled from the download's response the same way an HTTP
+  /// download is (`fileDownload(from:)`), then the URL is overridden to the
+  /// local file so JS reads/saves the on-disk copy.
+  fileprivate func emitBlobFileDownload(
+    localFileURL: URL,
+    response: URLResponse?
+  ) {
+    let base = response.map(Self.fileDownload(from:))
+    let download = FileDownload(
+      url: localFileURL.absoluteString,
+      mimeType: base?.mimeType ?? response?.mimeType,
+      fileName: base?.fileName ?? localFileURL.lastPathComponent,
+      contentLength: base?.contentLength,
+      userAgent: nil
+    )
+    onFileDownload?(FileDownloadEvent(nativeEvent: download))
+  }
+}
+
+// MARK: - WKDownloadDelegate (blob download → temp file)
+
+/// `WKDownloadDelegate` conformance for the navigation delegate. Only blob
+/// downloads reach here (routed via `.download` in `decidePolicyFor
+/// navigationResponse`). WebKit streams the bytes to the temp file we pick in
+/// `decideDestinationUsing`, then `didFinishDownloading` fires and we emit
+/// `onFileDownload` with the local `file://` URL — no base64 crosses the
+/// bridge (iOS 14.5+).
+extension HybridNitroWebView.NavigationDelegate: WKDownloadDelegate {
+  func download(
+    _ download: WKDownload,
+    decideDestinationUsing response: URLResponse,
+    suggestedFilename: String,
+    completionHandler: @escaping (URL?) -> Void
+  ) {
+    let dest = HybridNitroWebView.NavigationDelegate.blobDownloadDestination(
+      suggestedFilename: suggestedFilename
+    )
+    guard let dest else {
+      completionHandler(nil)
+      return
+    }
+    // Stash response + destination — `downloadDidFinish` receives only the
+    // WKDownload, so the finish handler needs both looked up by identity.
+    pendingDownloads[ObjectIdentifier(download)] = (dest, response)
+    completionHandler(dest)
+  }
+
+  func downloadDidFinish(_ download: WKDownload) {
+    guard let entry = pendingDownloads.removeValue(forKey: ObjectIdentifier(download))
+    else { return }
+    owner?.emitBlobFileDownload(localFileURL: entry.url, response: entry.response)
+  }
+
+  func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+    // Drop the stashed entry; a failed blob read surfaces no event (matches
+    // the injected-reader `catch` swallow on Android).
+    pendingDownloads[ObjectIdentifier(download)] = nil
   }
 }
 
