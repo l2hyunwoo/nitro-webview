@@ -13,6 +13,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.ThemedReactContext
@@ -32,6 +34,7 @@ import com.margelo.nitro.nitrowebview.WebViewNavigationState
 import com.margelo.nitro.nitrowebview.WebViewNavigationType
 import com.margelo.nitro.nitrowebview.WebViewSource
 import mozilla.components.support.utils.DownloadUtils
+import org.json.JSONObject
 import java.net.URLDecoder
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -250,6 +253,31 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       // Re-injects on every page load via onPageFinished hook below.
     }
 
+  /**
+   * JS injected before the page's own scripts run, on every main-frame
+   * load. When the device's WebView supports the `DOCUMENT_START_SCRIPT`
+   * feature we register it via `WebViewCompat.addDocumentStartJavaScript`
+   * (the same before-any-page-script guarantee as iOS `.atDocumentStart`);
+   * otherwise it is injected in [ClientImpl.onPageStarted], which is early
+   * enough for shim installation but does not strictly beat a page's first
+   * synchronous inline `<script>`.
+   */
+  override var injectedJavaScriptBeforeContentLoaded: String? = null
+    set(value) {
+      field = value
+      view.post { applyDocumentStartScript() }
+    }
+
+  /**
+   * Handle returned by `WebViewCompat.addDocumentStartJavaScript` for the
+   * currently-registered before-content script. Held so a prop change can
+   * remove the previous registration before adding the new one (otherwise
+   * the scripts would stack across updates). Null on WebViews that lack the
+   * `DOCUMENT_START_SCRIPT` feature — those use the `onPageStarted`
+   * fallback instead.
+   */
+  private var documentStartScriptHandler: androidx.webkit.ScriptHandler? = null
+
   override var onLoadStart: ((event: WebViewLoadEvent) -> Unit)? = null
   override var onLoadEnd: ((event: WebViewLoadEvent) -> Unit)? = null
   override var onNavigationStateChange: ((state: WebViewNavigationState) -> Unit)? = null
@@ -317,6 +345,50 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       )
     }
     return promise
+  }
+
+  /**
+   * Fire-and-forget JS execution — no result surfaced to JS. Hops to the UI
+   * thread like every other WebView-touching method (`evaluateJavascript`
+   * is main-thread-only and the Nitro call can land off-thread).
+   */
+  override fun injectJavaScript(code: String) {
+    view.post { view.evaluateJavascript(code, null) }
+  }
+
+  /**
+   * Deliver a native→web message. Android dispatches a DOM `message` event
+   * on `document` (react-native-webview parity —
+   * `RNCWebViewManagerImpl.kt:335`). The statement is built + escaped by the
+   * companion [postMessageScript] helper, then evaluated fire-and-forget.
+   */
+  override fun postMessage(data: String) {
+    view.post { view.evaluateJavascript(postMessageScript(data), null) }
+  }
+
+  /**
+   * Register (or re-register) the before-content script via
+   * `WebViewCompat.addDocumentStartJavaScript` when the feature is
+   * supported. Removes any previous registration first so prop changes
+   * don't stack scripts. No-op when the feature is unsupported — those
+   * WebViews fall back to injecting in [ClientImpl.onPageStarted].
+   *
+   * Must run on the UI thread (callers hop via `view.post`).
+   */
+  private fun applyDocumentStartScript() {
+    if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+      return
+    }
+    documentStartScriptHandler?.remove()
+    documentStartScriptHandler = null
+    val script = injectedJavaScriptBeforeContentLoaded
+    if (script.isNullOrEmpty()) return
+    // Wrap in an IIFE for scope isolation, matching react-native-webview.
+    documentStartScriptHandler = WebViewCompat.addDocumentStartJavaScript(
+      view,
+      "(function(){\n$script\n})();",
+      setOf("*"),
+    )
   }
 
   // region: Cookie API
@@ -487,6 +559,17 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
 
   private inner class ClientImpl : WebViewClient() {
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+      // Fallback path for WebViews without the DOCUMENT_START_SCRIPT
+      // feature: inject the before-content script here. Supported WebViews
+      // register it via addDocumentStartJavaScript (see
+      // applyDocumentStartScript) and skip this to avoid a double-inject.
+      val before = injectedJavaScriptBeforeContentLoaded
+      if (
+        !before.isNullOrEmpty() &&
+        !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+      ) {
+        view.evaluateJavascript("(function(){\n$before\n})();", null)
+      }
       emitLoadStart()
       emitNavigationState()
     }
@@ -708,6 +791,36 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
 
   companion object {
     private const val BRIDGE_NAME = "ReactNativeWebView"
+
+    /**
+     * Build the native→web `postMessage` delivery statement. Android
+     * dispatches a DOM `message` event on `document`
+     * (`RNCWebViewManagerImpl.kt:335`). Mirror of the TS
+     * `buildPostMessageScript('android', _)` — the pure-TS test in
+     * `src/__tests__/post-message-escaping.test.ts` is the canonical oracle;
+     * this @JvmStatic helper (no WebView dependency) lets JVM unit tests
+     * assert the same emitted shape without Robolectric.
+     */
+    @JvmStatic
+    internal fun postMessageScript(message: String): String {
+      val data = encodeJsStringLiteral(message)
+      return "document.dispatchEvent(new MessageEvent('message',{data:$data}));"
+    }
+
+    /**
+     * Escape a string into a JS *source* string literal (double-quoted,
+     * quotes included). `JSONObject.quote` (bundled in android.jar) handles
+     * quotes, backslashes, newlines, and control chars exactly like
+     * `JSON.stringify` — and, like it, leaves U+2028/U+2029 RAW, which are
+     * illegal *unescaped* inside a JS string literal on pre-ES2019 engines.
+     * Post-escape those two so the emitted statement always parses.
+     */
+    @JvmStatic
+    internal fun encodeJsStringLiteral(message: String): String {
+      return JSONObject.quote(message)
+        .replace(" ", "\\u2028")
+        .replace(" ", "\\u2029")
+    }
 
     /**
      * Maximum number of milliseconds [ClientImpl.shouldOverrideUrlLoading]
