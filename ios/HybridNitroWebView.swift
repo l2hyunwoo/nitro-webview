@@ -136,8 +136,12 @@ final class HybridNitroWebView:
   /// `Self.cachePolicy(forCacheEnabled:)`.
   var cacheEnabled: Bool?
 
-  // Construction-only / no iOS knob: stored but not applied post-mount. See
-  // each prop's JSDoc in `NitroWebView.nitro.ts` for why.
+  // No-op on iOS / no iOS knob: stored but never applied, on any render. See
+  // each prop's JSDoc in `NitroWebView.nitro.ts` for why - Nitro delivers
+  // props strictly after `init()` runs, so the WKWebView-configuration-only
+  // ones (incognito, javaScriptEnabled, mediaPlaybackRequiresUserAction,
+  // allowsInlineMediaPlayback, sharedCookiesEnabled) never have a window in
+  // which their value is known before the view is built.
   var incognito: Bool?
   var mediaPlaybackRequiresUserAction: Bool?
   var allowsInlineMediaPlayback: Bool?
@@ -145,8 +149,6 @@ final class HybridNitroWebView:
   var domStorageEnabled: Bool?
   var scalesPageToFit: Bool?
   var thirdPartyCookiesEnabled: Bool?
-
-  // Construction-only (WKPreferences read at init). Stored but not applied.
   var javaScriptEnabled: Bool?
 
   var injectedJavaScript: String? {

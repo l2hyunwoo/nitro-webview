@@ -167,9 +167,11 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Enable JavaScript execution. Defaults to `true` (the file chooser needs
    * it; react-native-webview also defaults JS on).
    *
-   *   - iOS (WKWebView): `WKPreferences.javaScriptEnabled` at construction.
-   *     Changes after mount are IGNORED (react-native-webview parity -
-   *     WebKit reads the preference when the view is built).
+   *   - iOS (WKWebView): NO-OP. `WKPreferences.javaScriptEnabled` is only
+   *     read when `WKWebView` is constructed, but Nitro delivers props
+   *     strictly after `init()` runs - the view is always built with
+   *     WebKit's default (JS on) before this prop's value is known. There is
+   *     currently no way to honor this prop on iOS, on any render.
    *   - Android (WebSettings): `WebSettings.javaScriptEnabled`, mutable
    *     anytime.
    *
@@ -205,11 +207,14 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Non-persistent (incognito / private browsing) data store: cache and DOM
    * storage live only in memory. Defaults to `false`.
    *
-   *   - iOS (WKWebView): sets `WKWebViewConfiguration.websiteDataStore =
-   *     .nonPersistent()`. This is a construction-only configuration value -
-   *     effective on the first mount and IGNORED if changed after the
-   *     WebView has navigated (react-native-webview parity; the only way to
-   *     flip it is to remount via a `key` change).
+   *   - iOS (WKWebView): NO-OP. `WKWebViewConfiguration.websiteDataStore`
+   *     would need `.nonPersistent()` at construction, but Nitro delivers
+   *     props strictly after `init()` runs - the view is always built with
+   *     the default persistent store before this prop's value is known.
+   *     There is currently no way to honor this prop on iOS, on any render
+   *     (react-native-webview has the same limitation; there is no
+   *     supported way to switch data stores post-init without a full
+   *     remount, which Nitro's view lifecycle does not expose either).
    *   - Android (WebSettings/CookieManager): there is no first-class
    *     incognito mode. Cookies written through the cookie API remain
    *     process-global, so full data isolation is NOT guaranteed on Android.
@@ -252,10 +257,12 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Require a user gesture before HTML5 media can play. Defaults to `true`
    * (react-native-webview parity - block autoplay).
    *
-   *   - iOS (WKWebView):
+   *   - iOS (WKWebView): NO-OP.
    *     `WKWebViewConfiguration.mediaTypesRequiringUserActionForPlayback`
-   *     (`.all` / `[]`) at construction. Construction-only - IGNORED if
-   *     changed after the WebView has navigated.
+   *     is only read at construction, but Nitro delivers props strictly
+   *     after `init()` runs - the view is always built with the default
+   *     (`.all`, gesture required) before this prop's value is known. There
+   *     is currently no way to honor this prop on iOS, on any render.
    *   - Android (WebSettings): `WebSettings.mediaPlaybackRequiresUserGesture`,
    *     mutable anytime.
    */
@@ -265,9 +272,12 @@ export interface NitroWebViewProps extends HybridViewProps {
    * iOS-only. Play HTML5 video inline instead of forcing the native
    * fullscreen player. Defaults to `false` (WKWebView default).
    *
-   *   - iOS (WKWebView): `WKWebViewConfiguration.allowsInlineMediaPlayback`
-   *     at construction. Construction-only - IGNORED if changed after the
-   *     WebView has navigated.
+   *   - iOS (WKWebView): NO-OP.
+   *     `WKWebViewConfiguration.allowsInlineMediaPlayback` is only read at
+   *     construction, but Nitro delivers props strictly after `init()` runs
+   *     - the view is always built with the default (`false`, fullscreen
+   *     player) before this prop's value is known. There is currently no
+   *     way to honor this prop on iOS, on any render.
    *   - Android: no-op (Android WebView already plays video inline).
    */
   allowsInlineMediaPlayback?: boolean
@@ -299,8 +309,11 @@ export interface NitroWebViewProps extends HybridViewProps {
    * login established outside the WebView is visible inside it. Defaults to
    * `false`.
    *
-   *   - iOS (WKWebView): construction-only - IGNORED if changed after the
-   *     WebView has navigated.
+   *   - iOS (WKWebView): NO-OP. Sharing `HTTPCookieStorage` into the data
+   *     store would need to happen at construction, but Nitro delivers
+   *     props strictly after `init()` runs - the view is always built
+   *     before this prop's value is known. There is currently no way to
+   *     honor this prop on iOS, on any render.
    *   - Android: no-op - Android WebView already shares one process-wide
    *     `CookieManager`; there is nothing to opt into.
    */
