@@ -189,15 +189,7 @@ final class HybridNitroWebView:
   /// the shared `NitroWebViewPostMessage` builder, then evaluated
   /// fire-and-forget.
   func postMessage(data: String) throws {
-    view.evaluateJavaScript(Self.postMessageScript(data), completionHandler: nil)
-  }
-
-  /// Swift-side re-export of the shared `buildPostMessageScript('ios', _)`
-  /// builder. Kept as a static (delegating to the standalone
-  /// `NitroWebViewPostMessage`) so `swift test` can assert the emitted
-  /// statement without a `WKWebView`.
-  static func postMessageScript(_ message: String) -> String {
-    NitroWebViewPostMessage.buildStatement(message)
+    view.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
   }
 
   // MARK: - Cookie API

@@ -795,11 +795,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     /**
      * Build the native→web `postMessage` delivery statement. Android
      * dispatches a DOM `message` event on `document`
-     * (`RNCWebViewManagerImpl.kt:335`). Mirror of the TS
-     * `buildPostMessageScript('android', _)` — the pure-TS test in
-     * `src/__tests__/post-message-escaping.test.ts` is the canonical oracle;
-     * this @JvmStatic helper (no WebView dependency) lets JVM unit tests
-     * assert the same emitted shape without Robolectric.
+     * (`RNCWebViewManagerImpl.kt:335`).
      */
     @JvmStatic
     internal fun postMessageScript(message: String): String {
