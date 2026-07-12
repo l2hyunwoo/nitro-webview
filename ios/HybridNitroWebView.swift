@@ -152,7 +152,14 @@ final class HybridNitroWebView:
   var javaScriptEnabled: Bool?
 
   var injectedJavaScript: String? {
-    didSet { applyInjectedJavaScript(injectedJavaScript) }
+    didSet { reinstallUserScripts() }
+  }
+
+  /// JS injected at `.atDocumentStart` (main frame only), before any page
+  /// script runs. Distinct from `injectedJavaScript`, which runs at
+  /// `.atDocumentEnd`. Re-registers all user scripts in order on change.
+  var injectedJavaScriptBeforeContentLoaded: String? {
+    didSet { reinstallUserScripts() }
   }
 
   func goBack() throws { view.goBack() }
@@ -169,6 +176,28 @@ final class HybridNitroWebView:
       reject: { error in promise.reject(withError: error) }
     )
     return promise
+  }
+
+  /// Fire-and-forget JS execution — no result, no completion. Mirrors
+  /// react-native-webview's `injectJavaScript` (`nil` completion handler).
+  func injectJavaScript(code: String) throws {
+    view.evaluateJavaScript(code, completionHandler: nil)
+  }
+
+  /// Deliver a native→web message. iOS dispatches a DOM `message` event on
+  /// `window` (RNCWebViewImpl.m:1113). The statement is built + escaped by
+  /// the shared `NitroWebViewPostMessage` builder, then evaluated
+  /// fire-and-forget.
+  func postMessage(data: String) throws {
+    view.evaluateJavaScript(Self.postMessageScript(data), completionHandler: nil)
+  }
+
+  /// Swift-side re-export of the shared `buildPostMessageScript('ios', _)`
+  /// builder. Kept as a static (delegating to the standalone
+  /// `NitroWebViewPostMessage`) so `swift test` can assert the emitted
+  /// statement without a `WKWebView`.
+  static func postMessageScript(_ message: String) -> String {
+    NitroWebViewPostMessage.buildStatement(message)
   }
 
   // MARK: - Cookie API
@@ -303,24 +332,51 @@ final class HybridNitroWebView:
     return Dictionary(pairs, uniquingKeysWith: { _, new in new })
   }
 
-  private func applyInjectedJavaScript(_ script: String?) {
+  /// Rebuild the `WKUserContentController`'s user-script list in a fixed
+  /// order whenever `injectedJavaScript` or
+  /// `injectedJavaScriptBeforeContentLoaded` changes.
+  ///
+  /// `WKUserScript`s run in registration order within the same injection
+  /// time, so the ordering here is the contract:
+  ///   1. bridge bootstrap  — `.atDocumentStart`, all frames.
+  ///   2. before-content    — `.atDocumentStart`, main frame only. Runs
+  ///      after the bridge (so pages can still call `postMessage`) but
+  ///      before any page script.
+  ///   3. injected (after)  — `.atDocumentEnd`, main frame only.
+  ///
+  /// `removeAllUserScripts()` + re-add on every change keeps the list
+  /// idempotent regardless of the order the two props are set at mount.
+  private func reinstallUserScripts() {
     let controller = view.configuration.userContentController
     controller.removeAllUserScripts()
-    // Re-install the bridge bootstrap that lives on every page.
+
+    // 1. bridge bootstrap — always present.
     controller.addUserScript(WKUserScript(
       source: Self.bridgeBootstrapScript,
       injectionTime: .atDocumentStart,
       forMainFrameOnly: false
     ))
+
+    // 2. before-content — atDocumentStart, main frame only.
+    if let before = injectedJavaScriptBeforeContentLoaded, !before.isEmpty {
+      controller.addUserScript(WKUserScript(
+        source: before,
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: true
+      ))
+    }
+
+    // 3. after-load — atDocumentEnd, main frame only.
     currentInjectedUserScript = nil
-    guard let script, !script.isEmpty else { return }
-    let userScript = WKUserScript(
-      source: script,
-      injectionTime: .atDocumentEnd,
-      forMainFrameOnly: true
-    )
-    controller.addUserScript(userScript)
-    currentInjectedUserScript = userScript
+    if let after = injectedJavaScript, !after.isEmpty {
+      let userScript = WKUserScript(
+        source: after,
+        injectionTime: .atDocumentEnd,
+        forMainFrameOnly: true
+      )
+      controller.addUserScript(userScript)
+      currentInjectedUserScript = userScript
+    }
   }
 
   func dispatchMessage(_ event: NitroWebViewMessageEvent) {
