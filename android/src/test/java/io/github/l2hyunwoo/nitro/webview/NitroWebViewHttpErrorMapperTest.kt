@@ -1,8 +1,6 @@
 package io.github.l2hyunwoo.nitro.webview
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 private data class FakeWebResourceResponse(
@@ -83,33 +81,5 @@ class NitroWebViewHttpErrorMapperTest {
       )
       assertEquals("reasonPhrase must round-trip verbatim (failed for \"$raw\")", raw, event.description)
     }
-  }
-
-  /**
-   * The load-bearing sub-resource-flood guard. `onReceivedHttpError` fires
-   * per failing sub-resource; production drops non-main-frame requests
-   * before mapping. This exercises that filter WITHOUT a live WebView.
-   */
-  @Test
-  fun `httpErrorEventOrNull_dropsSubResource_emitsMainFrame`() {
-    val response = FakeWebResourceResponse(statusCode = 404, reasonPhrase = "Not Found")
-    val request = FakeHttpErrorRequest(url = "https://example.test/page")
-
-    assertNull(
-      "a sub-resource HTTP error must be dropped (isForMainFrame = false)",
-      NitroWebViewHttpErrorMapper.httpErrorEventOrNull(
-        response = response,
-        request = request,
-        isForMainFrame = false,
-      ),
-    )
-
-    val mainFrame = NitroWebViewHttpErrorMapper.httpErrorEventOrNull(
-      response = response,
-      request = request,
-      isForMainFrame = true,
-    )
-    assertNotNull("a main-frame HTTP error must surface", mainFrame)
-    assertEquals(404, mainFrame!!.statusCode)
   }
 }

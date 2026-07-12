@@ -53,20 +53,4 @@ object NitroWebViewHttpErrorMapper {
       description = response.reasonPhrase,
     )
   }
-
-  /**
-   * Lowest-cost guard exercising the main-frame filter WITHOUT a live
-   * WebView: returns `null` for a sub-resource ([isForMainFrame] `false`),
-   * otherwise the mapped event. The production `onReceivedHttpError` drops
-   * sub-resources before ever calling [event]; this helper lets a JVM unit
-   * test assert that drop with a single `assertNull` / `assertNotNull` pair.
-   */
-  @JvmStatic
-  fun httpErrorEventOrNull(
-    response: WebResourceResponseSource,
-    request: WebResourceRequestSource?,
-    isForMainFrame: Boolean,
-    fallbackUrl: String? = null,
-  ): MappedNitroWebViewHttpError? =
-    if (!isForMainFrame) null else event(response, request, fallbackUrl)
 }
