@@ -27,10 +27,10 @@ export interface AndroidNativeBridge {
  * Build the literal JavaScript source string for the injected bridge.
  *
  * The script:
- *   - Defines `window.ReactNativeWebView` (idempotent — preserves any
+ *   - Defines `window.ReactNativeWebView` (idempotent; preserves any
  *     pre-existing object the page author installed).
  *   - Defines `window.ReactNativeWebView.postMessage(data)` (also
- *     idempotent — never overwrites an existing function).
+ *     idempotent; never overwrites an existing function).
  *   - String-coerces `data` before routing.
  *   - Routes to the platform-native handler (WebKit messageHandler on iOS,
  *     `ReactNativeWebViewNative` on Android).
@@ -117,11 +117,11 @@ export function buildPostMessageScript(
  */
 export const BLOB_ENVELOPE_KEY: '__nitro_blob__' = '__nitro_blob__'
 
-/** Fields carried inside a {@linkcode BlobDownloadEnvelope}. */
+/** Blob-download payload demuxed out of a reserved envelope. */
 export interface BlobDownloadPayload {
   /** The original `blob:` URL the download was requested for. */
   url: string
-  /** `"data:<mime>;base64,<...>"` — the blob read to a data URL. */
+  /** `"data:<mime>;base64,<...>"`: the blob read to a data URL. */
   dataUrl: string
   /** MIME type from `Blob.type` (may be empty). */
   mimeType: string
@@ -131,68 +131,11 @@ export interface BlobDownloadPayload {
   size: number
 }
 
-/** Reserved envelope shape wrapping a {@linkcode BlobDownloadPayload}. */
-export interface BlobDownloadEnvelope {
-  [BLOB_ENVELOPE_KEY]: BlobDownloadPayload
-}
-
 /**
- * Build the JS source injected into the page to resolve a `blob:` URL that
- * the native download hook cannot fetch (blobs live only in the web context).
- *
- * Reads the blob in-page via `fetch(blobUrl) → .blob() → FileReader
- * .readAsDataURL` and posts a reserved {@linkcode BlobDownloadEnvelope}
- * through the EXISTING `ReactNativeWebView.postMessage` bridge. The native
- * side demuxes it (see {@linkcode parseBlobEnvelope}) and emits
- * `onFileDownload`. No new bridge name is introduced.
- *
- * `suggestedName` is native-derived (Android: `guessFileName` off the blob
- * URL — usually junk). The page's real download name is not recoverable from
- * a bare `blob:` URL, so callers treat `fileName` as best-effort.
- *
- * This path is Android-only: iOS uses `WKDownloadDelegate` to stream the blob
- * to a temp file natively (no base64-over-bridge).
- */
-export function buildBlobReaderScript(
-  blobUrl: string,
-  suggestedName: string
-): string {
-  // JSON-encode inputs so quotes/backslashes in the URL can't break out of
-  // the source-string literal.
-  const urlLit = JSON.stringify(blobUrl)
-  const nameLit = JSON.stringify(suggestedName)
-  const keyLit = JSON.stringify(BLOB_ENVELOPE_KEY)
-  // IIFE-wrapped; every failure path swallows so the page never throws.
-  return `;(function () {
-  try {
-    fetch(${urlLit}).then(function (r) { return r.blob(); }).then(function (b) {
-      var reader = new FileReader();
-      reader.onloadend = function () {
-        var dataUrl = String(reader.result || '');
-        var envelope = {};
-        envelope[${keyLit}] = {
-          url: ${urlLit},
-          dataUrl: dataUrl,
-          mimeType: b.type || '',
-          fileName: ${nameLit},
-          size: b.size || 0
-        };
-        var br = window.${BRIDGE_NAME};
-        if (br && typeof br.postMessage === 'function') {
-          br.postMessage(JSON.stringify(envelope));
-        }
-      };
-      reader.readAsDataURL(b);
-    })["catch"](function () { /* blob gone / cross-origin: swallow */ });
-  } catch (e) { /* no fetch/FileReader: swallow, no page throw */ }
-})();`
-}
-
-/**
- * Parse a raw `postMessage` string and return the blob payload, or `null`
- * when the string is a normal `onMessage` payload. A cheap prefix peek runs
- * before the `JSON.parse` cost so ordinary payloads are forwarded untouched.
- * This is the single canonical demux, ported verbatim into each native sink.
+ * Spec-of-record demux for the blob-download bridge, kept as the reference the
+ * native Kotlin port (`HybridNitroWebView.parseBlobEnvelope`) must match. Parses
+ * a raw `postMessage` string to a blob payload, or `null` for a normal
+ * `onMessage` payload; a cheap prefix peek runs before the `JSON.parse` cost.
  */
 export function parseBlobEnvelope(raw: string): BlobDownloadPayload | null {
   if (typeof raw !== 'string') return null
@@ -200,7 +143,9 @@ export function parseBlobEnvelope(raw: string): BlobDownloadPayload | null {
   // be ours. A user string that merely contains the key elsewhere is not.
   if (raw.indexOf(`{"${BLOB_ENVELOPE_KEY}"`) !== 0) return null
   try {
-    const obj = JSON.parse(raw) as Partial<BlobDownloadEnvelope>
+    const obj = JSON.parse(raw) as {
+      [BLOB_ENVELOPE_KEY]?: Partial<BlobDownloadPayload>
+    }
     const b = obj?.[BLOB_ENVELOPE_KEY]
     if (!b || typeof b.url !== 'string' || typeof b.dataUrl !== 'string') {
       return null
