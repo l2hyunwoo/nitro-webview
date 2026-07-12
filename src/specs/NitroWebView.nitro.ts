@@ -410,9 +410,15 @@ export interface NitroWebViewProps extends HybridViewProps {
    *     `WebView.setDownloadListener` — every `onDownloadStart` invocation
    *     translates directly into a single `onFileDownload` emission.
    *
-   * The WebView itself never persists the file to disk: JS is solely
-   * responsible for handling the download metadata. Blob URLs (`blob:`)
-   * are explicitly out of scope for this MVP and do not surface an event.
+   * The WebView itself never persists a normal (http/https) download to
+   * disk: JS is solely responsible for handling the download metadata.
+   *
+   * Blob downloads (`blob:`) DO surface an `onFileDownload` event, resolved
+   * to a local reference in `nativeEvent.url` (iOS: a `file://` URL written
+   * natively via `WKDownloadDelegate`; Android: a `data:` URL read in-page
+   * and bridged back). See {@linkcode FileDownload.url} for the platform
+   * distinction. No extra prop is required — a consumer already listening to
+   * `onFileDownload` receives blob downloads for free.
    */
   onFileDownload?: (event: FileDownloadEvent) => void
 
@@ -627,6 +633,55 @@ export interface NitroWebViewMethods extends HybridViewMethods {
    * The promise resolves only after the platform reports completion.
    */
   clearCookies(): Promise<void>
+
+  /**
+   * Clear the WebView's resource cache (in-memory + on-disk fetched
+   * responses). Does NOT clear cookies (use {@linkcode clearCookies}),
+   * localStorage, or the back/forward history.
+   *
+   *   - iOS (WKWebView): removes only the cache-shaped record types from the
+   *     view's `configuration.websiteDataStore` —
+   *     `WKWebsiteDataTypeDiskCache` and `WKWebsiteDataTypeMemoryCache` — via
+   *     `removeData(ofTypes:modifiedSince:)` with `modifiedSince:
+   *     .distantPast`. Cookies and localStorage are left intact because their
+   *     record types are excluded from the set (do NOT use
+   *     `allWebsiteDataTypes()`, which would also wipe them).
+   *   - Android (android.webkit.WebView): `WebView.clearCache(true)` on the
+   *     UI thread (`true` also purges the on-disk cache files, not just the
+   *     RAM cache).
+   *
+   * Resolves once the platform reports the removal is complete.
+   */
+  clearCache(): Promise<void>
+
+  /**
+   * Clear the WebView's back/forward navigation list.
+   *
+   *   - Android (android.webkit.WebView): `WebView.clearHistory()` on the UI
+   *     thread. Clears the list except the current page.
+   *   - iOS (WKWebView): **NO-OP.** WKWebView exposes no public API to mutate
+   *     `backForwardList` (it is read-only with no clear/prune method). This
+   *     method resolves WITHOUT clearing on iOS rather than reloading
+   *     `about:blank` — a reload would change the current URL and drop
+   *     forward entries as a side effect, which is surprising for a "clear
+   *     history" call. Callers needing a pristine stack on iOS should
+   *     navigate to a fresh `source` instead. Mirrors react-native-webview,
+   *     which exposes `clearHistory` on Android only.
+   */
+  clearHistory(): Promise<void>
+
+  /**
+   * Move keyboard/input focus to the WebView so the next key event (or a
+   * focused form field inside the page) receives input without a user tap.
+   *
+   *   - iOS (WKWebView): `becomeFirstResponder()` on the main thread. The
+   *     Promise resolves regardless of the responder's own return value (a
+   *     `false` return just means the view was already first responder or the
+   *     window is not key — not an error).
+   *   - Android (android.webkit.WebView): `WebView.requestFocus()` on the UI
+   *     thread.
+   */
+  requestFocus(): Promise<void>
 }
 
 export type NitroWebView = HybridView<NitroWebViewProps, NitroWebViewMethods>
@@ -665,8 +720,17 @@ export interface Cookie {
  * platform — JS decides what to do with the URL.
  *
  * Field semantics:
- *   - `url`           — Absolute download URL. Required. Always a remote
- *                       URL (http/https). Blob URLs are out of scope.
+ *   - `url`           — Absolute download URL. Required. For a normal
+ *                       download this is the remote URL (http/https). For a
+ *                       `blob:` download the field carries a resolved local
+ *                       reference instead, and the shape differs by platform:
+ *                       iOS delivers a local `file://` URL (the blob is
+ *                       streamed to a temp file natively via
+ *                       `WKDownloadDelegate`), while Android delivers a
+ *                       `data:` URL (the blob is read in-page to a data URL
+ *                       and bridged back). Either form can be `fetch()`-ed /
+ *                       saved by the consumer; the original `blob:` URL is
+ *                       not surfaced because it is dead once the page unloads.
  *   - `mimeType`      — MIME type reported by the platform. Optional;
  *                       absent when neither the navigation response nor the
  *                       Android `DownloadListener` provided one.

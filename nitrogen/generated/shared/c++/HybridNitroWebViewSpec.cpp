@@ -78,6 +78,9 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridMethod("getCookies", &HybridNitroWebViewSpec::getCookies);
       prototype.registerHybridMethod("setCookie", &HybridNitroWebViewSpec::setCookie);
       prototype.registerHybridMethod("clearCookies", &HybridNitroWebViewSpec::clearCookies);
+      prototype.registerHybridMethod("clearCache", &HybridNitroWebViewSpec::clearCache);
+      prototype.registerHybridMethod("clearHistory", &HybridNitroWebViewSpec::clearHistory);
+      prototype.registerHybridMethod("requestFocus", &HybridNitroWebViewSpec::requestFocus);
     });
   }
 
