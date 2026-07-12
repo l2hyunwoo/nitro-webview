@@ -210,5 +210,15 @@ let package = Package(
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewPostMessageTests"
     ),
+    .testTarget(
+      // Exercises `HybridNitroWebView.httpError(from:)` — the 4xx/5xx
+      // main-frame HTTP-error mapper backing `onHttpError`. Uses an
+      // `HttpErrorProbe` that mirrors the production static helper (the
+      // production class cannot be linked into this SwiftPM harness). Covers
+      // 2xx/3xx → nil, 4xx/5xx → mapped, and the 400/599 boundaries.
+      name: "HybridNitroWebViewHttpErrorTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/HybridNitroWebViewHttpErrorTests"
+    ),
   ]
 )
