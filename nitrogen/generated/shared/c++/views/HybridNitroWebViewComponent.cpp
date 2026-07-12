@@ -266,6 +266,36 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.onFileDownload: ") + exc.what());
       }
     }()),
+    onHttpError([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onHttpError", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onHttpError;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onHttpError);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onHttpError: ") + exc.what());
+      }
+    }()),
+    onRenderProcessGone([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onRenderProcessGone", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onRenderProcessGone;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onRenderProcessGone);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onRenderProcessGone: ") + exc.what());
+      }
+    }()),
+    onScroll([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onScroll", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onScroll;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onScroll);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onScroll: ") + exc.what());
+      }
+    }()),
     hybridRef([&]() -> CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("hybridRef", nullptr, nullptr);
@@ -303,6 +333,9 @@ namespace margelo::nitro::nitrowebview::views {
       case hashString("onError"): return true;
       case hashString("onShouldStartLoadWithRequest"): return true;
       case hashString("onFileDownload"): return true;
+      case hashString("onHttpError"): return true;
+      case hashString("onRenderProcessGone"): return true;
+      case hashString("onScroll"): return true;
       case hashString("hybridRef"): return true;
       default: return false;
     }

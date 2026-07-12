@@ -199,6 +199,21 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setOnFileDownload(newViewProps.onFileDownload.value);
     newViewProps.onFileDownload.isDirty = false;
   }
+  // onHttpError: optional
+  if (newViewProps.onHttpError.isDirty) {
+    swiftPart.setOnHttpError(newViewProps.onHttpError.value);
+    newViewProps.onHttpError.isDirty = false;
+  }
+  // onRenderProcessGone: optional
+  if (newViewProps.onRenderProcessGone.isDirty) {
+    swiftPart.setOnRenderProcessGone(newViewProps.onRenderProcessGone.value);
+    newViewProps.onRenderProcessGone.isDirty = false;
+  }
+  // onScroll: optional
+  if (newViewProps.onScroll.isDirty) {
+    swiftPart.setOnScroll(newViewProps.onScroll.value);
+    newViewProps.onScroll.isDirty = false;
+  }
 
   swiftPart.afterUpdate();
 

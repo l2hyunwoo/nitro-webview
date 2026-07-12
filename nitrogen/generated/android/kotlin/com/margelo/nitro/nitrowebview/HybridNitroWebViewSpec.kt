@@ -226,6 +226,48 @@ abstract class HybridNitroWebViewSpec: HybridView() {
     set(value) {
       onFileDownload = value?.let { it }
     }
+  
+  abstract var onHttpError: ((event: NitroWebViewHttpErrorEvent) -> Unit)?
+  
+  private var onHttpError_cxx: Func_void_NitroWebViewHttpErrorEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onHttpError?.let { Func_void_NitroWebViewHttpErrorEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onHttpError = value?.let { it }
+    }
+  
+  abstract var onRenderProcessGone: ((event: NitroWebViewRenderProcessGoneEvent) -> Unit)?
+  
+  private var onRenderProcessGone_cxx: Func_void_NitroWebViewRenderProcessGoneEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onRenderProcessGone?.let { Func_void_NitroWebViewRenderProcessGoneEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onRenderProcessGone = value?.let { it }
+    }
+  
+  abstract var onScroll: ((event: NitroWebViewScrollEvent) -> Unit)?
+  
+  private var onScroll_cxx: Func_void_NitroWebViewScrollEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onScroll?.let { Func_void_NitroWebViewScrollEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onScroll = value?.let { it }
+    }
 
   // Methods
   @DoNotStrip

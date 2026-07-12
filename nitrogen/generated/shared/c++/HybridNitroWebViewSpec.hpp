@@ -29,6 +29,12 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `FileDownloadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
+// Forward declaration of `NitroWebViewHttpErrorEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorEvent; }
+// Forward declaration of `NitroWebViewRenderProcessGoneEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneEvent; }
+// Forward declaration of `NitroWebViewScrollEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollEvent; }
 // Forward declaration of `Cookie` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct Cookie; }
 
@@ -46,6 +52,9 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
 #include "FileDownloadEvent.hpp"
+#include "NitroWebViewHttpErrorEvent.hpp"
+#include "NitroWebViewRenderProcessGoneEvent.hpp"
+#include "NitroWebViewScrollEvent.hpp"
 #include "Cookie.hpp"
 #include <vector>
 
@@ -124,6 +133,12 @@ namespace margelo::nitro::nitrowebview {
       virtual void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) = 0;
       virtual std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() = 0;
       virtual void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) = 0;
+      virtual std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> getOnHttpError() = 0;
+      virtual void setOnHttpError(const std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>& onHttpError) = 0;
+      virtual std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>> getOnRenderProcessGone() = 0;
+      virtual void setOnRenderProcessGone(const std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>& onRenderProcessGone) = 0;
+      virtual std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>> getOnScroll() = 0;
+      virtual void setOnScroll(const std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>& onScroll) = 0;
 
     public:
       // Methods

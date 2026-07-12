@@ -31,6 +31,20 @@ namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `FileDownload` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownload; }
+// Forward declaration of `NitroWebViewHttpErrorEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorEvent; }
+// Forward declaration of `NitroWebViewHttpErrorNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorNativeEvent; }
+// Forward declaration of `NitroWebViewRenderProcessGoneEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneEvent; }
+// Forward declaration of `NitroWebViewRenderProcessGoneNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneNativeEvent; }
+// Forward declaration of `NitroWebViewScrollEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollEvent; }
+// Forward declaration of `NitroWebViewScrollNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollNativeEvent; }
+// Forward declaration of `WebViewPoint` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 // Forward declaration of `Cookie` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct Cookie; }
 
@@ -73,6 +87,23 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "JFileDownloadEvent.hpp"
 #include "FileDownload.hpp"
 #include "JFileDownload.hpp"
+#include "NitroWebViewHttpErrorEvent.hpp"
+#include "JFunc_void_NitroWebViewHttpErrorEvent.hpp"
+#include "JNitroWebViewHttpErrorEvent.hpp"
+#include "NitroWebViewHttpErrorNativeEvent.hpp"
+#include "JNitroWebViewHttpErrorNativeEvent.hpp"
+#include "NitroWebViewRenderProcessGoneEvent.hpp"
+#include "JFunc_void_NitroWebViewRenderProcessGoneEvent.hpp"
+#include "JNitroWebViewRenderProcessGoneEvent.hpp"
+#include "NitroWebViewRenderProcessGoneNativeEvent.hpp"
+#include "JNitroWebViewRenderProcessGoneNativeEvent.hpp"
+#include "NitroWebViewScrollEvent.hpp"
+#include "JFunc_void_NitroWebViewScrollEvent.hpp"
+#include "JNitroWebViewScrollEvent.hpp"
+#include "NitroWebViewScrollNativeEvent.hpp"
+#include "JNitroWebViewScrollNativeEvent.hpp"
+#include "WebViewPoint.hpp"
+#include "JWebViewPoint.hpp"
 #include "Cookie.hpp"
 #include <vector>
 #include "JCookie.hpp"
@@ -392,6 +423,57 @@ namespace margelo::nitro::nitrowebview {
   void JHybridNitroWebViewSpec::setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_FileDownloadEvent::javaobject> /* onFileDownload */)>("setOnFileDownload_cxx");
     method(_javaPart, onFileDownload.has_value() ? JFunc_void_FileDownloadEvent_cxx::fromCpp(onFileDownload.value()) : nullptr);
+  }
+  std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> JHybridNitroWebViewSpec::getOnHttpError() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_NitroWebViewHttpErrorEvent::javaobject>()>("getOnHttpError_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const NitroWebViewHttpErrorEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_NitroWebViewHttpErrorEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_NitroWebViewHttpErrorEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_NitroWebViewHttpErrorEvent, void(NitroWebViewHttpErrorEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnHttpError(const std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>& onHttpError) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_NitroWebViewHttpErrorEvent::javaobject> /* onHttpError */)>("setOnHttpError_cxx");
+    method(_javaPart, onHttpError.has_value() ? JFunc_void_NitroWebViewHttpErrorEvent_cxx::fromCpp(onHttpError.value()) : nullptr);
+  }
+  std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>> JHybridNitroWebViewSpec::getOnRenderProcessGone() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_NitroWebViewRenderProcessGoneEvent::javaobject>()>("getOnRenderProcessGone_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_NitroWebViewRenderProcessGoneEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_NitroWebViewRenderProcessGoneEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_NitroWebViewRenderProcessGoneEvent, void(NitroWebViewRenderProcessGoneEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnRenderProcessGone(const std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>& onRenderProcessGone) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_NitroWebViewRenderProcessGoneEvent::javaobject> /* onRenderProcessGone */)>("setOnRenderProcessGone_cxx");
+    method(_javaPart, onRenderProcessGone.has_value() ? JFunc_void_NitroWebViewRenderProcessGoneEvent_cxx::fromCpp(onRenderProcessGone.value()) : nullptr);
+  }
+  std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>> JHybridNitroWebViewSpec::getOnScroll() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_NitroWebViewScrollEvent::javaobject>()>("getOnScroll_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const NitroWebViewScrollEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_NitroWebViewScrollEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_NitroWebViewScrollEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_NitroWebViewScrollEvent, void(NitroWebViewScrollEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnScroll(const std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>& onScroll) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_NitroWebViewScrollEvent::javaobject> /* onScroll */)>("setOnScroll_cxx");
+    method(_javaPart, onScroll.has_value() ? JFunc_void_NitroWebViewScrollEvent_cxx::fromCpp(onScroll.value()) : nullptr);
   }
 
   // Methods

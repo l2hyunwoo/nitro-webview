@@ -98,6 +98,12 @@ namespace margelo::nitro::nitrowebview {
     void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) override;
     std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() override;
     void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) override;
+    std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> getOnHttpError() override;
+    void setOnHttpError(const std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>& onHttpError) override;
+    std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>> getOnRenderProcessGone() override;
+    void setOnRenderProcessGone(const std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>& onRenderProcessGone) override;
+    std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>> getOnScroll() override;
+    void setOnScroll(const std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>& onScroll) override;
 
   public:
     // Methods

@@ -79,6 +79,30 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>
+  Func_void_NitroWebViewHttpErrorEvent create_Func_void_NitroWebViewHttpErrorEvent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_NitroWebViewHttpErrorEvent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const NitroWebViewHttpErrorEvent& event) mutable -> void {
+      swiftClosure.call(event);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>
+  Func_void_NitroWebViewRenderProcessGoneEvent create_Func_void_NitroWebViewRenderProcessGoneEvent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_NitroWebViewRenderProcessGoneEvent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const NitroWebViewRenderProcessGoneEvent& event) mutable -> void {
+      swiftClosure.call(event);
+    };
+  }
+  
+  // pragma MARK: std::function<void(const NitroWebViewScrollEvent& /* event */)>
+  Func_void_NitroWebViewScrollEvent create_Func_void_NitroWebViewScrollEvent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_NitroWebViewScrollEvent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const NitroWebViewScrollEvent& event) mutable -> void {
+      swiftClosure.call(event);
+    };
+  }
+  
   // pragma MARK: std::function<void(const std::string& /* result */)>
   Func_void_std__string create_Func_void_std__string(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = NitroWebview::Func_void_std__string::fromUnsafe(swiftClosureWrapper);

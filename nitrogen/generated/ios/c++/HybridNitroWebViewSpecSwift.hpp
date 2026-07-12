@@ -36,6 +36,20 @@ namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `FileDownload` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownload; }
+// Forward declaration of `NitroWebViewHttpErrorEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorEvent; }
+// Forward declaration of `NitroWebViewHttpErrorNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorNativeEvent; }
+// Forward declaration of `NitroWebViewRenderProcessGoneEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneEvent; }
+// Forward declaration of `NitroWebViewRenderProcessGoneNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneNativeEvent; }
+// Forward declaration of `NitroWebViewScrollEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollEvent; }
+// Forward declaration of `NitroWebViewScrollNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollNativeEvent; }
+// Forward declaration of `WebViewPoint` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 // Forward declaration of `Cookie` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct Cookie; }
 
@@ -57,6 +71,13 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "WebViewNavigationType.hpp"
 #include "FileDownloadEvent.hpp"
 #include "FileDownload.hpp"
+#include "NitroWebViewHttpErrorEvent.hpp"
+#include "NitroWebViewHttpErrorNativeEvent.hpp"
+#include "NitroWebViewRenderProcessGoneEvent.hpp"
+#include "NitroWebViewRenderProcessGoneNativeEvent.hpp"
+#include "NitroWebViewScrollEvent.hpp"
+#include "NitroWebViewScrollNativeEvent.hpp"
+#include "WebViewPoint.hpp"
 #include "Cookie.hpp"
 #include <vector>
 
@@ -273,6 +294,27 @@ namespace margelo::nitro::nitrowebview {
     }
     inline void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) noexcept override {
       _swiftPart.setOnFileDownload(onFileDownload);
+    }
+    inline std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> getOnHttpError() noexcept override {
+      auto __result = _swiftPart.getOnHttpError();
+      return __result;
+    }
+    inline void setOnHttpError(const std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>& onHttpError) noexcept override {
+      _swiftPart.setOnHttpError(onHttpError);
+    }
+    inline std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>> getOnRenderProcessGone() noexcept override {
+      auto __result = _swiftPart.getOnRenderProcessGone();
+      return __result;
+    }
+    inline void setOnRenderProcessGone(const std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>& onRenderProcessGone) noexcept override {
+      _swiftPart.setOnRenderProcessGone(onRenderProcessGone);
+    }
+    inline std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>> getOnScroll() noexcept override {
+      auto __result = _swiftPart.getOnScroll();
+      return __result;
+    }
+    inline void setOnScroll(const std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>& onScroll) noexcept override {
+      _swiftPart.setOnScroll(onScroll);
     }
 
   public:

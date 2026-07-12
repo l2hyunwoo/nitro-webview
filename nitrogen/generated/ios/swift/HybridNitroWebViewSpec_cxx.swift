@@ -793,6 +793,102 @@ open class HybridNitroWebViewSpec_cxx {
       }()
     }
   }
+  
+  public final var onHttpError: bridge.std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onHttpError {
+          return bridge.create_std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______({ () -> bridge.Func_void_NitroWebViewHttpErrorEvent in
+            let __closureWrapper = Func_void_NitroWebViewHttpErrorEvent(__unwrappedValue)
+            return bridge.create_Func_void_NitroWebViewHttpErrorEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onHttpError = { () -> ((_ event: NitroWebViewHttpErrorEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______(newValue)
+          return { () -> (NitroWebViewHttpErrorEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_NitroWebViewHttpErrorEvent(__unwrapped)
+            return { (__event: NitroWebViewHttpErrorEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
+  public final var onRenderProcessGone: bridge.std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onRenderProcessGone {
+          return bridge.create_std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______({ () -> bridge.Func_void_NitroWebViewRenderProcessGoneEvent in
+            let __closureWrapper = Func_void_NitroWebViewRenderProcessGoneEvent(__unwrappedValue)
+            return bridge.create_Func_void_NitroWebViewRenderProcessGoneEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onRenderProcessGone = { () -> ((_ event: NitroWebViewRenderProcessGoneEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______(newValue)
+          return { () -> (NitroWebViewRenderProcessGoneEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_NitroWebViewRenderProcessGoneEvent(__unwrapped)
+            return { (__event: NitroWebViewRenderProcessGoneEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
+  public final var onScroll: bridge.std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onScroll {
+          return bridge.create_std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______({ () -> bridge.Func_void_NitroWebViewScrollEvent in
+            let __closureWrapper = Func_void_NitroWebViewScrollEvent(__unwrappedValue)
+            return bridge.create_Func_void_NitroWebViewScrollEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onScroll = { () -> ((_ event: NitroWebViewScrollEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______(newValue)
+          return { () -> (NitroWebViewScrollEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_NitroWebViewScrollEvent(__unwrapped)
+            return { (__event: NitroWebViewScrollEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
 
   // Methods
   @inline(__always)
