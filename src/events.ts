@@ -1,6 +1,9 @@
 import type {
   NitroWebViewErrorEvent,
+  NitroWebViewHttpErrorEvent,
   NitroWebViewProps,
+  NitroWebViewRenderProcessGoneEvent,
+  NitroWebViewScrollNativeEvent,
   WebViewNavigationState,
 } from './specs/NitroWebView.nitro'
 
@@ -311,5 +314,190 @@ export function createErrorDispatcher(
     }
 
     onError(event)
+  }
+}
+
+/**
+ * Raw payload the native side hands the JS HTTP-error dispatcher when a
+ * main-frame navigation receives a 4xx/5xx status. Maps directly onto
+ * `NitroWebViewHttpErrorEvent.nativeEvent`, plus a transport-only
+ * `navigationId` used for dedupe.
+ */
+export interface NativeHttpErrorPayload {
+  navigationId: number
+  statusCode: number
+  url: string
+  description: string
+}
+
+export type OnHttpError = NonNullable<NitroWebViewProps['onHttpError']>
+
+export type HttpErrorDispatcher = (payload: NativeHttpErrorPayload) => void
+
+/**
+ * Build a dispatcher that forwards native HTTP-error events to the
+ * user-supplied `onHttpError` callback, firing at most once per navigation
+ * (keyed by `navigationId`) — a redirect chain that re-fires the same
+ * navigation id is coalesced, matching `createErrorDispatcher`.
+ */
+export function createHttpErrorDispatcher(
+  onHttpError: OnHttpError | undefined
+): HttpErrorDispatcher {
+  const dispatched = new Set<number>()
+
+  return function dispatchHttpError(payload: NativeHttpErrorPayload): void {
+    if (payload == null) {
+      throw new TypeError(
+        'NitroWebView: onHttpError native payload is required'
+      )
+    }
+    if (typeof payload.navigationId !== 'number') {
+      throw new TypeError(
+        'NitroWebView: onHttpError native payload must include a numeric `navigationId`'
+      )
+    }
+    if (typeof payload.statusCode !== 'number') {
+      throw new TypeError(
+        'NitroWebView: onHttpError native payload must include a numeric `statusCode`'
+      )
+    }
+    if (typeof payload.url !== 'string') {
+      throw new TypeError(
+        'NitroWebView: onHttpError native payload must include a string `url`'
+      )
+    }
+    if (typeof payload.description !== 'string') {
+      throw new TypeError(
+        'NitroWebView: onHttpError native payload must include a string `description`'
+      )
+    }
+
+    if (dispatched.has(payload.navigationId)) {
+      return
+    }
+    dispatched.add(payload.navigationId)
+
+    if (onHttpError === undefined) {
+      return
+    }
+
+    const event: NitroWebViewHttpErrorEvent = {
+      nativeEvent: {
+        statusCode: payload.statusCode,
+        url: payload.url,
+        description: payload.description,
+      },
+    }
+
+    onHttpError(event)
+  }
+}
+
+/**
+ * Raw payload the native side hands the JS render-process-gone dispatcher.
+ * `didCrash` is Android-only (`undefined` on iOS). `navigationId` is a
+ * transport-only dedupe key.
+ */
+export interface NativeRenderProcessGonePayload {
+  navigationId: number
+  didCrash?: boolean
+}
+
+export type OnRenderProcessGone = NonNullable<
+  NitroWebViewProps['onRenderProcessGone']
+>
+
+export type RenderProcessGoneDispatcher = (
+  payload: NativeRenderProcessGonePayload
+) => void
+
+/**
+ * Build a dispatcher that forwards native render-process-gone events to the
+ * user-supplied `onRenderProcessGone` callback, firing at most once per
+ * navigation (keyed by `navigationId`).
+ */
+export function createRenderProcessGoneDispatcher(
+  onRenderProcessGone: OnRenderProcessGone | undefined
+): RenderProcessGoneDispatcher {
+  const dispatched = new Set<number>()
+
+  return function dispatchRenderProcessGone(
+    payload: NativeRenderProcessGonePayload
+  ): void {
+    if (payload == null) {
+      throw new TypeError(
+        'NitroWebView: onRenderProcessGone native payload is required'
+      )
+    }
+    if (typeof payload.navigationId !== 'number') {
+      throw new TypeError(
+        'NitroWebView: onRenderProcessGone native payload must include a numeric `navigationId`'
+      )
+    }
+    if (
+      payload.didCrash !== undefined &&
+      typeof payload.didCrash !== 'boolean'
+    ) {
+      throw new TypeError(
+        'NitroWebView: onRenderProcessGone native payload `didCrash` must be a boolean or undefined'
+      )
+    }
+
+    if (dispatched.has(payload.navigationId)) {
+      return
+    }
+    dispatched.add(payload.navigationId)
+
+    if (onRenderProcessGone === undefined) {
+      return
+    }
+
+    const event: NitroWebViewRenderProcessGoneEvent = {
+      nativeEvent: { didCrash: payload.didCrash },
+    }
+
+    onRenderProcessGone(event)
+  }
+}
+
+/**
+ * Raw payload the native side hands the JS scroll dispatcher on every scroll
+ * tick. Mirrors `NitroWebViewScrollEvent.nativeEvent`. There is NO
+ * `navigationId` because scroll events are NOT deduped — every tick is a
+ * distinct user-visible event.
+ */
+export type NativeScrollPayload = NitroWebViewScrollNativeEvent
+
+export type OnScroll = NonNullable<NitroWebViewProps['onScroll']>
+
+export type ScrollDispatcher = (payload: NativeScrollPayload) => void
+
+/**
+ * Build a dispatcher that forwards native scroll events to the user-supplied
+ * `onScroll` callback. Unlike every other dispatcher here it does NOT dedupe:
+ * scroll is a high-frequency stream and each tick is delivered verbatim.
+ */
+export function createScrollDispatcher(
+  onScroll: OnScroll | undefined
+): ScrollDispatcher {
+  return function dispatchScroll(payload: NativeScrollPayload): void {
+    if (payload == null) {
+      throw new TypeError('NitroWebView: onScroll native payload is required')
+    }
+    if (
+      payload.contentOffset == null ||
+      typeof payload.contentOffset.x !== 'number' ||
+      typeof payload.contentOffset.y !== 'number'
+    ) {
+      throw new TypeError(
+        'NitroWebView: onScroll native payload must include a `contentOffset` point'
+      )
+    }
+
+    if (onScroll === undefined) {
+      return
+    }
+
+    onScroll({ nativeEvent: payload })
   }
 }
