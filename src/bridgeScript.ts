@@ -109,6 +109,115 @@ export function buildPostMessageScript(
 }
 
 /**
+ * Reserved discriminator key for blob-download payloads posted back through
+ * the existing `ReactNativeWebView.postMessage` bridge. A native message sink
+ * peeks for this key before treating a payload as a normal `onMessage` string
+ * — see {@linkcode parseBlobEnvelope}. Chosen to be collision-proof with a
+ * real string payload (the `{"__nitro_blob__"` prefix).
+ */
+export const BLOB_ENVELOPE_KEY: '__nitro_blob__' = '__nitro_blob__'
+
+/** Fields carried inside a {@linkcode BlobDownloadEnvelope}. */
+export interface BlobDownloadPayload {
+  /** The original `blob:` URL the download was requested for. */
+  url: string
+  /** `"data:<mime>;base64,<...>"` — the blob read to a data URL. */
+  dataUrl: string
+  /** MIME type from `Blob.type` (may be empty). */
+  mimeType: string
+  /** Best-effort suggested file name (native-derived; usually junk). */
+  fileName: string
+  /** Byte length from `Blob.size` (0 when unknown). */
+  size: number
+}
+
+/** Reserved envelope shape wrapping a {@linkcode BlobDownloadPayload}. */
+export interface BlobDownloadEnvelope {
+  [BLOB_ENVELOPE_KEY]: BlobDownloadPayload
+}
+
+/**
+ * Build the JS source injected into the page to resolve a `blob:` URL that
+ * the native download hook cannot fetch (blobs live only in the web context).
+ *
+ * Reads the blob in-page via `fetch(blobUrl) → .blob() → FileReader
+ * .readAsDataURL` and posts a reserved {@linkcode BlobDownloadEnvelope}
+ * through the EXISTING `ReactNativeWebView.postMessage` bridge. The native
+ * side demuxes it (see {@linkcode parseBlobEnvelope}) and emits
+ * `onFileDownload`. No new bridge name is introduced.
+ *
+ * `suggestedName` is native-derived (Android: `guessFileName` off the blob
+ * URL — usually junk). The page's real download name is not recoverable from
+ * a bare `blob:` URL, so callers treat `fileName` as best-effort.
+ *
+ * This path is Android-only: iOS uses `WKDownloadDelegate` to stream the blob
+ * to a temp file natively (no base64-over-bridge).
+ */
+export function buildBlobReaderScript(
+  blobUrl: string,
+  suggestedName: string
+): string {
+  // JSON-encode inputs so quotes/backslashes in the URL can't break out of
+  // the source-string literal.
+  const urlLit = JSON.stringify(blobUrl)
+  const nameLit = JSON.stringify(suggestedName)
+  const keyLit = JSON.stringify(BLOB_ENVELOPE_KEY)
+  // IIFE-wrapped; every failure path swallows so the page never throws.
+  return `;(function () {
+  try {
+    fetch(${urlLit}).then(function (r) { return r.blob(); }).then(function (b) {
+      var reader = new FileReader();
+      reader.onloadend = function () {
+        var dataUrl = String(reader.result || '');
+        var envelope = {};
+        envelope[${keyLit}] = {
+          url: ${urlLit},
+          dataUrl: dataUrl,
+          mimeType: b.type || '',
+          fileName: ${nameLit},
+          size: b.size || 0
+        };
+        var br = window.${BRIDGE_NAME};
+        if (br && typeof br.postMessage === 'function') {
+          br.postMessage(JSON.stringify(envelope));
+        }
+      };
+      reader.readAsDataURL(b);
+    })["catch"](function () { /* blob gone / cross-origin: swallow */ });
+  } catch (e) { /* no fetch/FileReader: swallow, no page throw */ }
+})();`
+}
+
+/**
+ * Parse a raw `postMessage` string and return the blob payload, or `null`
+ * when the string is a normal `onMessage` payload. A cheap prefix peek runs
+ * before the `JSON.parse` cost so ordinary payloads are forwarded untouched.
+ * This is the single canonical demux, ported verbatim into each native sink.
+ */
+export function parseBlobEnvelope(raw: string): BlobDownloadPayload | null {
+  if (typeof raw !== 'string') return null
+  // Prefix peek: only a payload literally starting with the reserved key can
+  // be ours. A user string that merely contains the key elsewhere is not.
+  if (raw.indexOf(`{"${BLOB_ENVELOPE_KEY}"`) !== 0) return null
+  try {
+    const obj = JSON.parse(raw) as Partial<BlobDownloadEnvelope>
+    const b = obj?.[BLOB_ENVELOPE_KEY]
+    if (!b || typeof b.url !== 'string' || typeof b.dataUrl !== 'string') {
+      return null
+    }
+    return {
+      url: b.url,
+      dataUrl: b.dataUrl,
+      mimeType: typeof b.mimeType === 'string' ? b.mimeType : '',
+      fileName: typeof b.fileName === 'string' ? b.fileName : '',
+      size: typeof b.size === 'number' ? b.size : 0,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Sandbox shape for evaluating the iOS bridge script.
  */
 export interface IosBridgeSandbox {
