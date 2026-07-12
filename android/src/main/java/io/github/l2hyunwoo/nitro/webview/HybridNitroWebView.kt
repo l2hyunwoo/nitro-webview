@@ -844,12 +844,8 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * we fall back to the platform's [URLUtil.guessFileName] which is the
    * historic default the AOSP DownloadManager uses.
    *
-   * `blob:` URLs cannot be fetched natively (the bytes live only in the web
-   * context), so they take a JS-inject path instead: a reader script fetches
-   * the blob in-page, reads it to a data URL, and posts a reserved envelope
-   * back through the existing message bridge. [BridgeInterface.postMessage]
-   * demuxes that envelope and emits `onFileDownload` with the data URL. See
-   * [buildBlobReaderScript] / [parseBlobEnvelope] (the canonical TS source).
+   * `blob:` URLs cannot be fetched natively and take a JS-inject path; see
+   * the inline note below and [buildBlobReaderScript] / [parseBlobEnvelope].
    */
   private inner class DownloadListenerImpl : DownloadListener {
     override fun onDownloadStart(
@@ -1232,15 +1228,10 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     )
 
     /**
-     * Build the reader script injected into the page to resolve a `blob:`
-     * URL (its bytes live only in the web context). Kotlin port of
-     * `buildBlobReaderScript` in `src/bridgeScript.ts` — MUST stay behavior-
-     * identical: `fetch(blob) → .blob() → FileReader.readAsDataURL` → post a
-     * reserved envelope through the existing `ReactNativeWebView.postMessage`
-     * bridge. Every failure path swallows so the page never throws.
-     *
-     * `suggestedName` is native-derived (usually junk off the blob URL); the
-     * page's real download name is not recoverable from a bare blob: URL.
+     * Injects the in-page reader that resolves a `blob:` URL to a data URL and
+     * posts a reserved envelope back through the message bridge; the envelope
+     * must match `parseBlobEnvelope`'s contract in `src/bridgeScript.ts`.
+     * `suggestedName` is native-derived (usually junk off the blob URL).
      */
     @JvmStatic
     internal fun buildBlobReaderScript(blobUrl: String, suggestedName: String): String {

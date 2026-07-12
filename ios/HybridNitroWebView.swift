@@ -180,9 +180,8 @@ final class HybridNitroWebView:
   func reload() throws { view.reload() }
   func stopLoading() throws { view.stopLoading() }
 
-  /// Clear the cache-shaped record types from the view's data store. The set
-  /// is deliberately cache-only (`Self.cacheDataTypes()`) — using
-  /// `allWebsiteDataTypes()` would also wipe cookies/localStorage.
+  /// Clear the cache-shaped record types (`Self.cacheDataTypes()`) from the
+  /// view's data store.
   func clearCache() throws -> Promise<Void> {
     let promise = Promise<Void>()
     view.configuration.websiteDataStore.removeData(
@@ -457,8 +456,7 @@ final class HybridNitroWebView:
     /// `WKDownload` requires a path that does NOT already exist, so each
     /// download gets its own UUID subdirectory — concurrent / repeated
     /// downloads of the same filename never collide. Returns `nil` when the
-    /// destination directory cannot be created. Standalone static helper so
-    /// host-side XCTest can pin the path shape without a live `WKDownload`.
+    /// destination directory cannot be created. Static, host-testable.
     static func blobDownloadDestination(suggestedFilename: String) -> URL? {
       let dir = FileManager.default.temporaryDirectory
         .appendingPathComponent("nitro-webview-blob", isDirectory: true)
@@ -637,15 +635,10 @@ final class HybridNitroWebView:
   ///   * Keeps the decision out of the `WKNavigationDelegate` callback
   ///     so future contributors can extend it (e.g. honor a future
   ///     `download` attribute hint) in one place.
-  /// Whether a navigation response is a `blob:` download that should be
-  /// routed through `WKDownloadDelegate` (temp-file streaming) rather than
-  /// the HTTP `shouldTreatAsDownload` cancel-and-emit path.
-  ///
-  /// True when the response URL scheme is `blob` AND WebKit cannot render it
-  /// inline (`canShowMIMEType == false`) — an inline-renderable blob (e.g. an
-  /// image the page navigates to) should still display, not download.
-  /// Standalone static helper so host-side XCTest can pin the predicate
-  /// without a live `WKWebView` — same rationale as `shouldTreatAsDownload`.
+  /// Whether a `blob:` navigation response should route through
+  /// `WKDownloadDelegate` rather than render inline. Requires
+  /// `canShowMIMEType == false`: an inline-renderable blob (e.g. an image the
+  /// page navigates to) should still display, not download. Static, host-testable.
   static func isBlobDownload(
     response: URLResponse,
     canShowMIMEType: Bool
