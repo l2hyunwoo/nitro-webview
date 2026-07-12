@@ -69,6 +69,7 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::optional<bool>> thirdPartyCookiesEnabled;
     CachedProp<std::optional<bool>> sharedCookiesEnabled;
     CachedProp<std::optional<std::string>> injectedJavaScript;
+    CachedProp<std::optional<std::string>> injectedJavaScriptBeforeContentLoaded;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;
     CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;

@@ -218,6 +218,13 @@ namespace margelo::nitro::nitrowebview {
     inline void setInjectedJavaScript(const std::optional<std::string>& injectedJavaScript) noexcept override {
       _swiftPart.setInjectedJavaScript(injectedJavaScript);
     }
+    inline std::optional<std::string> getInjectedJavaScriptBeforeContentLoaded() noexcept override {
+      auto __result = _swiftPart.getInjectedJavaScriptBeforeContentLoaded();
+      return __result;
+    }
+    inline void setInjectedJavaScriptBeforeContentLoaded(const std::optional<std::string>& injectedJavaScriptBeforeContentLoaded) noexcept override {
+      _swiftPart.setInjectedJavaScriptBeforeContentLoaded(injectedJavaScriptBeforeContentLoaded);
+    }
     inline std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() noexcept override {
       auto __result = _swiftPart.getOnLoadStart();
       return __result;
@@ -301,6 +308,18 @@ namespace margelo::nitro::nitrowebview {
       }
       auto __value = std::move(__result.value());
       return __value;
+    }
+    inline void injectJavaScript(const std::string& code) override {
+      auto __result = _swiftPart.injectJavaScript(code);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline void postMessage(const std::string& data) override {
+      auto __result = _swiftPart.postMessage(data);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
     }
     inline std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) override {
       auto __result = _swiftPart.getCookies(url);

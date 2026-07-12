@@ -108,6 +108,8 @@ namespace margelo::nitro::nitrowebview {
       virtual void setSharedCookiesEnabled(std::optional<bool> sharedCookiesEnabled) = 0;
       virtual std::optional<std::string> getInjectedJavaScript() = 0;
       virtual void setInjectedJavaScript(const std::optional<std::string>& injectedJavaScript) = 0;
+      virtual std::optional<std::string> getInjectedJavaScriptBeforeContentLoaded() = 0;
+      virtual void setInjectedJavaScriptBeforeContentLoaded(const std::optional<std::string>& injectedJavaScriptBeforeContentLoaded) = 0;
       virtual std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() = 0;
       virtual void setOnLoadStart(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadStart) = 0;
       virtual std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadEnd() = 0;
@@ -130,6 +132,8 @@ namespace margelo::nitro::nitrowebview {
       virtual void reload() = 0;
       virtual void stopLoading() = 0;
       virtual std::shared_ptr<Promise<std::string>> evaluateJavaScript(const std::string& code) = 0;
+      virtual void injectJavaScript(const std::string& code) = 0;
+      virtual void postMessage(const std::string& data) = 0;
       virtual std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) = 0;
       virtual std::shared_ptr<Promise<void>> setCookie(const std::string& url, const Cookie& cookie) = 0;
       virtual std::shared_ptr<Promise<void>> clearCookies() = 0;

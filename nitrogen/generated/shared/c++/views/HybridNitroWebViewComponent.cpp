@@ -186,6 +186,16 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.injectedJavaScript: ") + exc.what());
       }
     }()),
+    injectedJavaScriptBeforeContentLoaded([&]() -> CachedProp<std::optional<std::string>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("injectedJavaScriptBeforeContentLoaded", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.injectedJavaScriptBeforeContentLoaded;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::string>>::fromRawValue(*runtime, value, sourceProps.injectedJavaScriptBeforeContentLoaded);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.injectedJavaScriptBeforeContentLoaded: ") + exc.what());
+      }
+    }()),
     onLoadStart([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("onLoadStart", nullptr, nullptr);
@@ -285,6 +295,7 @@ namespace margelo::nitro::nitrowebview::views {
       case hashString("thirdPartyCookiesEnabled"): return true;
       case hashString("sharedCookiesEnabled"): return true;
       case hashString("injectedJavaScript"): return true;
+      case hashString("injectedJavaScriptBeforeContentLoaded"): return true;
       case hashString("onLoadStart"): return true;
       case hashString("onLoadEnd"): return true;
       case hashString("onNavigationStateChange"): return true;

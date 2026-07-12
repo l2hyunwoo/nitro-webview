@@ -123,6 +123,12 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @set:Keep
   abstract var injectedJavaScript: String?
   
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
+  abstract var injectedJavaScriptBeforeContentLoaded: String?
+  
   abstract var onLoadStart: ((event: WebViewLoadEvent) -> Unit)?
   
   private var onLoadStart_cxx: Func_void_WebViewLoadEvent?
@@ -241,6 +247,14 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @DoNotStrip
   @Keep
   abstract fun evaluateJavaScript(code: String): Promise<String>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun injectJavaScript(code: String): Unit
+  
+  @DoNotStrip
+  @Keep
+  abstract fun postMessage(data: String): Unit
   
   @DoNotStrip
   @Keep
