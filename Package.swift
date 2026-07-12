@@ -188,5 +188,17 @@ let package = Package(
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewShouldStartTests"
     ),
+    .testTarget(
+      // Exercises `HybridNitroWebView.cachePolicy(forCacheEnabled:)`, the
+      // helper that maps the `cacheEnabled` settings prop to the
+      // `URLRequest.cachePolicy` used for the next source-triggered
+      // navigation (false -> reloadIgnoringLocalCacheData; true / nil ->
+      // useProtocolCachePolicy). Uses a `CachePolicyProbe` that mirrors
+      // the production helper because the hybrid class cannot be linked
+      // into this harness.
+      name: "HybridNitroWebViewCachePolicyTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/HybridNitroWebViewCachePolicyTests"
+    ),
   ]
 )
