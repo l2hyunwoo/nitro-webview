@@ -108,6 +108,18 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `source` | `WebViewSource` | `{ uri, headers? }` or `{ html, baseUrl? }`. Drives navigation. Required. |
 | `defaultHeaders` | `Record<string, string>` | Global HTTP headers attached to every main-frame navigation request. Per-request `source.headers` win on key conflict. |
 | `userAgent` | `string` | Overrides the platform default UA for every request (main-frame + sub-resource). `undefined` / empty restores the WebKit / Chromium default. |
+| `javaScriptEnabled` | `boolean` | Enable JS. Default `true`. Android: mutable. iOS: read at construction, ignored after mount (RNW parity). |
+| `domStorageEnabled` | `boolean` | Enable `localStorage` / `sessionStorage`. Default `true`. Android: mutable. iOS: always on (no-op). |
+| `cacheEnabled` | `boolean` | HTTP cache. Android: `cacheMode` `LOAD_DEFAULT` / `LOAD_NO_CACHE`. iOS: `URLRequest.cachePolicy` on the next `source` load. |
+| `incognito` | `boolean` | Non-persistent store. iOS: `nonPersistent()` data store, construction-only (ignored after mount). Android: no first-class mode; cookies stay process-global. |
+| `scrollEnabled` | `boolean` | iOS-only: `scrollView.isScrollEnabled` (mutable). Android: no-op (RNW does not implement it). |
+| `bounces` | `boolean` | iOS-only: `scrollView.bounces` (mutable). Android: no-op. |
+| `scalesPageToFit` | `boolean` | Android-only: `loadWithOverviewMode` + `useWideViewPort`. iOS: no-op. |
+| `mediaPlaybackRequiresUserAction` | `boolean` | Require a gesture before media plays. Default `true`. Android: mutable. iOS: construction-only (ignored after mount). |
+| `allowsInlineMediaPlayback` | `boolean` | iOS-only: `allowsInlineMediaPlayback`, construction-only (ignored after mount). Android: no-op (inline by default). |
+| `allowsBackForwardNavigationGestures` | `boolean` | iOS-only: back/forward swipe gestures (mutable). Android: no-op. |
+| `thirdPartyCookiesEnabled` | `boolean` | Android-only: `setAcceptThirdPartyCookies` for this WebView (mutable). iOS: no-op. |
+| `sharedCookiesEnabled` | `boolean` | iOS-only: share `HTTPCookieStorage` cookies, construction-only (ignored after mount). Android: no-op (one process-wide store). |
 | `injectedJavaScript` | `string` | Fire-and-forget script run on every page load. |
 | `onLoadStart` | `(event: WebViewLoadEvent) => void` | Fired when the WebView begins loading content. |
 | `onLoadEnd` | `(event: WebViewLoadEvent) => void` | Fired when the WebView finishes loading content. |
