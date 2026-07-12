@@ -131,7 +131,11 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
 | `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Recover by calling `reload()`. |
 | `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
-| `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow/block each navigation before it starts. Returning `false` (or a `Promise` resolving to `false`) cancels silently. |
+| `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow/block each navigation before it starts. Returning `false` (or a `Promise` resolving to `false`) cancels silently. Sub-frame (iframe) navigations surface with `isTopFrame: false` — always on iOS, and on Android only when `interceptSubframeNavigation` is enabled. |
+| `interceptSubframeNavigation` | `boolean` | Opt-in: also intercept sub-frame (iframe) navigations via `onShouldStartLoadWithRequest`, not just the main frame. Default `false`. Android note: each intercepted sub-frame navigation blocks the WebView thread up to 250 ms awaiting the JS decision; on iframe-heavy pages this stacks and risks jank / ANR — hence off by default. No effect on iOS (its `decidePolicyFor` parks asynchronously, so sub-frames already reach the handler). |
+| `onOpenWindow` | `(event: OpenWindowEvent) => void` | Fired for `window.open` / `target=_blank`. The WebView never spawns a second native web view; `nativeEvent.url` carries the requested URL and JS decides what to do. When the prop is unset, the URL loads in-place in the current WebView. Notify-only — the return value does not gate loading. |
+
+SPA route changes (`history.pushState` / `replaceState` / `popstate`) surface via `onNavigationStateChange` — not `onShouldStartLoadWithRequest`, because a pushState already happened and cannot be vetoed.
 
 #### Methods (via `hybridRef`)
 
@@ -177,7 +181,7 @@ interface ShouldStartLoadRequest {
   url: string
   navigationType: WebViewNavigationType
   mainDocumentURL?: string   // iOS only
-  isTopFrame?: boolean       // iOS only
+  isTopFrame?: boolean       // both platforms — false for iframe / sub-frame
   hasTargetFrame?: boolean   // iOS only — false for target=_blank
 }
 
@@ -186,9 +190,19 @@ type WebViewNavigationType =
   | 'reload' | 'formresubmit' | 'other'
 ```
 
-Android leaves the three optional fields `undefined` because `WebViewClient.shouldOverrideUrlLoading` does not expose them, and always reports `navigationType: 'other'`.
+`isTopFrame` is populated on both platforms (`targetFrame?.isMainFrame` on iOS, `WebResourceRequest.isForMainFrame` on Android). `mainDocumentURL` and `hasTargetFrame` remain iOS-only and are `undefined` on Android; Android always reports `navigationType: 'other'`.
 
 The JS callback may be `async` — the bridge transparently awaits any returned thenable before applying the decision.
+
+#### `OpenWindowEvent`
+
+```ts
+interface OpenWindowEvent {
+  nativeEvent: { url: string }
+}
+```
+
+Fired by `onOpenWindow` when the page requests a new window. `url` is the absolute URL the page asked to open (iOS `WKNavigationAction.request.url`; Android the URL observed inside `WebChromeClient.onCreateWindow`).
 
 #### `WebViewNavigationState` & `WebViewLoadEvent`
 
