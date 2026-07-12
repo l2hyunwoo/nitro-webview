@@ -182,14 +182,22 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * written through the cookie API stay process-global (a single
    * `CookieManager` per process), so full data isolation is NOT guaranteed
    * (documented on the prop's JSDoc).
+   *
+   * Turning `incognito` back off restores whatever `domStorageEnabled` /
+   * `cacheEnabled` the consumer explicitly set (or Android's own defaults -
+   * DOM storage on, `LOAD_DEFAULT` - if those props were never set), instead
+   * of leaving the WebView stuck on the incognito values.
    */
   override var incognito: Boolean? = null
     set(value) {
       field = value
-      if (value == true) {
-        view.post {
+      view.post {
+        if (value == true) {
           view.settings.domStorageEnabled = false
           view.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        } else {
+          view.settings.domStorageEnabled = domStorageEnabled ?: true
+          view.settings.cacheMode = cacheEnabled?.let { cacheModeFor(it) } ?: WebSettings.LOAD_DEFAULT
         }
       }
     }
