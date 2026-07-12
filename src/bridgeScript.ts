@@ -71,6 +71,44 @@ ${routeToNative}
 }
 
 /**
+ * Escape a string for safe embedding inside a JavaScript *source* string.
+ *
+ * `JSON.stringify` handles quotes, backslashes, newlines, and control chars,
+ * and produces a valid double-quoted JS string literal for them. BUT it
+ * leaves U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR) RAW: they
+ * are legal in JSON yet illegal *unescaped* inside a JS string literal on
+ * pre-ES2019 engines (older Android System WebView / older iOS JSC will
+ * throw a SyntaxError when the injected statement is parsed). We post-escape
+ * those two code points so the emitted statement always parses.
+ *
+ * Returns a quoted JS string literal (includes the surrounding quotes).
+ */
+export function encodeJsStringLiteral(value: string): string {
+  return JSON.stringify(value)
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
+/**
+ * Build the one-shot JS statement that delivers a native→web message as a
+ * DOM `message` event, matching react-native-webview's drop-in contract.
+ *
+ *   - iOS     → dispatch on `window`   (RNCWebViewImpl.m:1113)
+ *   - Android → dispatch on `document` (RNCWebViewManagerImpl.kt:335)
+ *
+ * `event.data` is `message` verbatim. The statement is self-contained and
+ * fire-and-forget; the caller evaluates it with no completion handler.
+ */
+export function buildPostMessageScript(
+  platform: BridgePlatform,
+  message: string
+): string {
+  const target = platform === 'ios' ? 'window' : 'document'
+  const data = encodeJsStringLiteral(message)
+  return `${target}.dispatchEvent(new MessageEvent('message',{data:${data}}));`
+}
+
+/**
  * Sandbox shape for evaluating the iOS bridge script.
  */
 export interface IosBridgeSandbox {
