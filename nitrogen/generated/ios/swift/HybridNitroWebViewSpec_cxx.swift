@@ -525,6 +525,30 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
+  public final var injectedJavaScriptBeforeContentLoaded: bridge.std__optional_std__string_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__string_ in
+        if let __unwrappedValue = self.__implementation.injectedJavaScriptBeforeContentLoaded {
+          return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.injectedJavaScriptBeforeContentLoaded = { () -> String? in
+        if bridge.has_value_std__optional_std__string_(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__string_(newValue)
+          return String(__unwrapped)
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
   public final var onLoadStart: bridge.std__optional_std__function_void_const_WebViewLoadEvent_____event______ {
     @inline(__always)
     get {
@@ -831,6 +855,28 @@ open class HybridNitroWebViewSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_std__shared_ptr_Promise_std__string___(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func injectJavaScript(code: std.string) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.injectJavaScript(code: String(code))
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func postMessage(data: std.string) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.postMessage(data: String(data))
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
     }
   }
   

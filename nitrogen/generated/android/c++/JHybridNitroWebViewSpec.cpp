@@ -265,6 +265,15 @@ namespace margelo::nitro::nitrowebview {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* injectedJavaScript */)>("setInjectedJavaScript");
     method(_javaPart, injectedJavaScript.has_value() ? jni::make_jstring(injectedJavaScript.value()) : nullptr);
   }
+  std::optional<std::string> JHybridNitroWebViewSpec::getInjectedJavaScriptBeforeContentLoaded() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getInjectedJavaScriptBeforeContentLoaded");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(__result->toStdString()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setInjectedJavaScriptBeforeContentLoaded(const std::optional<std::string>& injectedJavaScriptBeforeContentLoaded) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* injectedJavaScriptBeforeContentLoaded */)>("setInjectedJavaScriptBeforeContentLoaded");
+    method(_javaPart, injectedJavaScriptBeforeContentLoaded.has_value() ? jni::make_jstring(injectedJavaScriptBeforeContentLoaded.value()) : nullptr);
+  }
   std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> JHybridNitroWebViewSpec::getOnLoadStart() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_WebViewLoadEvent::javaobject>()>("getOnLoadStart_cxx");
     auto __result = method(_javaPart);
@@ -417,6 +426,14 @@ namespace margelo::nitro::nitrowebview {
       });
       return __promise;
     }();
+  }
+  void JHybridNitroWebViewSpec::injectJavaScript(const std::string& code) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* code */)>("injectJavaScript");
+    method(_javaPart, jni::make_jstring(code));
+  }
+  void JHybridNitroWebViewSpec::postMessage(const std::string& data) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* data */)>("postMessage");
+    method(_javaPart, jni::make_jstring(data));
   }
   std::shared_ptr<Promise<std::vector<Cookie>>> JHybridNitroWebViewSpec::getCookies(const std::string& url) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* url */)>("getCookies");

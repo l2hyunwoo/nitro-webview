@@ -46,6 +46,8 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridSetter("sharedCookiesEnabled", &HybridNitroWebViewSpec::setSharedCookiesEnabled);
       prototype.registerHybridGetter("injectedJavaScript", &HybridNitroWebViewSpec::getInjectedJavaScript);
       prototype.registerHybridSetter("injectedJavaScript", &HybridNitroWebViewSpec::setInjectedJavaScript);
+      prototype.registerHybridGetter("injectedJavaScriptBeforeContentLoaded", &HybridNitroWebViewSpec::getInjectedJavaScriptBeforeContentLoaded);
+      prototype.registerHybridSetter("injectedJavaScriptBeforeContentLoaded", &HybridNitroWebViewSpec::setInjectedJavaScriptBeforeContentLoaded);
       prototype.registerHybridGetter("onLoadStart", &HybridNitroWebViewSpec::getOnLoadStart);
       prototype.registerHybridSetter("onLoadStart", &HybridNitroWebViewSpec::setOnLoadStart);
       prototype.registerHybridGetter("onLoadEnd", &HybridNitroWebViewSpec::getOnLoadEnd);
@@ -65,6 +67,8 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridMethod("reload", &HybridNitroWebViewSpec::reload);
       prototype.registerHybridMethod("stopLoading", &HybridNitroWebViewSpec::stopLoading);
       prototype.registerHybridMethod("evaluateJavaScript", &HybridNitroWebViewSpec::evaluateJavaScript);
+      prototype.registerHybridMethod("injectJavaScript", &HybridNitroWebViewSpec::injectJavaScript);
+      prototype.registerHybridMethod("postMessage", &HybridNitroWebViewSpec::postMessage);
       prototype.registerHybridMethod("getCookies", &HybridNitroWebViewSpec::getCookies);
       prototype.registerHybridMethod("setCookie", &HybridNitroWebViewSpec::setCookie);
       prototype.registerHybridMethod("clearCookies", &HybridNitroWebViewSpec::clearCookies);

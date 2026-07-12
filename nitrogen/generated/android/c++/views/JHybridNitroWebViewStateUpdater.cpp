@@ -101,6 +101,10 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setInjectedJavaScript(props->injectedJavaScript.value);
     props->injectedJavaScript.isDirty = false;
   }
+  if (props->injectedJavaScriptBeforeContentLoaded.isDirty) {
+    hybridView->setInjectedJavaScriptBeforeContentLoaded(props->injectedJavaScriptBeforeContentLoaded.value);
+    props->injectedJavaScriptBeforeContentLoaded.isDirty = false;
+  }
   if (props->onLoadStart.isDirty) {
     hybridView->setOnLoadStart(props->onLoadStart.value);
     props->onLoadStart.isDirty = false;

@@ -322,6 +322,33 @@ export interface NitroWebViewProps extends HybridViewProps {
   /** JavaScript auto-injected on every page load (fire-and-forget). */
   injectedJavaScript?: string
 
+  /**
+   * JavaScript injected **before** the page's own content/scripts run, on
+   * every main-frame load (fire-and-forget). Use this for shims a page
+   * expects to exist at startup (feature detection, `window` globals).
+   * `injectedJavaScript` (above) runs at document-END instead.
+   *
+   * Timing guarantee (differs by platform — read carefully):
+   *   - iOS (WKWebView): injected as a `WKUserScript` with
+   *     `injectionTime = .atDocumentStart`, `forMainFrameOnly = true`.
+   *     WebKit runs it after the document element exists but BEFORE any
+   *     page script — a hard ordering guarantee.
+   *   - Android (android.webkit.WebView): when the device's WebView supports
+   *     the `DOCUMENT_START_SCRIPT` feature, injected via
+   *     `WebViewCompat.addDocumentStartJavaScript` before `loadUrl` — the
+   *     same before-any-page-script guarantee as iOS. On older WebViews
+   *     lacking that feature it falls back to `WebView.evaluateJavascript`
+   *     inside `WebViewClient.onPageStarted`, which is "early enough" for
+   *     shim installation in practice but is NOT a strict
+   *     before-first-script guarantee — a page whose very first inline
+   *     `<script>` runs synchronously during initial parse can race it.
+   *
+   * Applied to the main frame only on both platforms. Changing this prop
+   * takes effect on the next navigation (it is not re-run against the
+   * currently-loaded page).
+   */
+  injectedJavaScriptBeforeContentLoaded?: string
+
   /** Fired when the WebView begins loading content. */
   onLoadStart?: (event: WebViewLoadEvent) => void
 
@@ -407,6 +434,39 @@ export interface NitroWebViewMethods extends HybridViewMethods {
    * as the empty string.
    */
   evaluateJavaScript(code: string): Promise<string>
+
+  /**
+   * Fire-and-forget JavaScript execution inside the WebView's main frame.
+   * Unlike {@linkcode evaluateJavaScript}, this returns nothing and never
+   * awaits a result — use it when you only need a side effect.
+   *
+   *   - iOS: `WKWebView.evaluateJavaScript(code, completionHandler: nil)`.
+   *   - Android: `WebView.evaluateJavascript(code, null)`.
+   *
+   * `code` runs in the page's JS context at call time; if no page is
+   * loaded yet the call is a no-op. No value, error, or completion signal
+   * is surfaced to JS (react-native-webview `injectJavaScript` parity).
+   */
+  injectJavaScript(code: string): void
+
+  /**
+   * Push a string from native INTO the page. The page receives it as a
+   * DOM `message` event whose `event.data` is `data` verbatim.
+   *
+   * Page-side contract (react-native-webview drop-in — platform-asymmetric,
+   * so register on BOTH targets to be portable):
+   *   - iOS delivers via `window.dispatchEvent(new MessageEvent('message', {data}))`
+   *     → listen with `window.addEventListener('message', e => e.data)`.
+   *   - Android delivers via `document.dispatchEvent(new MessageEvent('message', {data}))`
+   *     → listen with `document.addEventListener('message', e => e.data)`.
+   *
+   * Delivery is fire-and-forget and synchronous-at-eval: it dispatches
+   * once, immediately. A listener the page registers AFTER this call will
+   * NOT receive the message (no buffering / replay). `data` may contain
+   * any characters — quotes, newlines, `</script>`, and unicode are
+   * escaped safely before injection (see native `postMessage` escaping).
+   */
+  postMessage(data: string): void
 
   /**
    * Return every cookie the platform's shared cookie store holds for the

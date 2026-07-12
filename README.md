@@ -120,7 +120,8 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `allowsBackForwardNavigationGestures` | `boolean` | iOS-only: back/forward swipe gestures (mutable). Android: no-op. |
 | `thirdPartyCookiesEnabled` | `boolean` | Android-only: `setAcceptThirdPartyCookies` for this WebView (mutable). iOS: no-op. |
 | `sharedCookiesEnabled` | `boolean` | iOS-only: **no-op** - Nitro delivers props after `WKWebView` init, so sharing `HTTPCookieStorage` is never applied. Android: no-op (one process-wide store). |
-| `injectedJavaScript` | `string` | Fire-and-forget script run on every page load. |
+| `injectedJavaScript` | `string` | Fire-and-forget script run at document-END on every page load. |
+| `injectedJavaScriptBeforeContentLoaded` | `string` | Script run at document-START, before the page's own scripts. iOS: `WKUserScript(.atDocumentStart)` (hard before-any-script guarantee). Android: `WebViewCompat.addDocumentStartJavaScript` when the WebView supports `DOCUMENT_START_SCRIPT`, else `evaluateJavascript` in `onPageStarted` (early, but not a strict before-first-script guarantee). Main frame only. |
 | `onLoadStart` | `(event: WebViewLoadEvent) => void` | Fired when the WebView begins loading content. |
 | `onLoadEnd` | `(event: WebViewLoadEvent) => void` | Fired when the WebView finishes loading content. |
 | `onNavigationStateChange` | `(state: WebViewNavigationState) => void` | URL / title / `canGoBack` / `canGoForward` / `loading`. |
@@ -140,6 +141,8 @@ The hybrid ref captured by `hybridRef={callback((r) => ref.current = r)}` expose
 | `reload()` | `void` | Reload the current page. |
 | `stopLoading()` | `void` | Stop the current load. |
 | `evaluateJavaScript(code)` | `Promise<string>` | Result is the serialized string evaluation. iOS uses `String(describing:)`; Android uses the JSON-encoded `ValueCallback<String>` result. Undefined/nil surfaces as `''`. |
+| `injectJavaScript(code)` | `void` | Fire-and-forget execution — no result awaited. Use for side effects only. No-op if no page is loaded. |
+| `postMessage(data)` | `void` | Push a string into the page as a DOM `message` event (`event.data === data`). Listen on **both** targets for portability: `window.addEventListener('message', ...)` (iOS) and `document.addEventListener('message', ...)` (Android). Dispatched once, no buffering. `data` is escaped safely (quotes, newlines, `</script>`, unicode). |
 | `getCookies(url)` | `Promise<Cookie[]>` | iOS returns the full attribute set. Android `CookieManager` only exposes `name` and `value` on read — other fields are left `undefined`. |
 | `setCookie(url, cookie)` | `Promise<void>` | `Cookie = { name, value, domain?, path?, expires?, secure?, httpOnly? }`. `expires` is milliseconds since epoch (`Date.now()`-compatible). |
 | `clearCookies()` | `Promise<void>` | Bulk clear via `WKWebsiteDataStore` (iOS) / `CookieManager.removeAllCookies` (Android). The promise resolves only after the platform reports completion. |

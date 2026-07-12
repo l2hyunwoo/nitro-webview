@@ -20,6 +20,7 @@
     "thirdPartyCookiesEnabled": true,
     "sharedCookiesEnabled": true,
     "injectedJavaScript": true,
+    "injectedJavaScriptBeforeContentLoaded": true,
     "onLoadStart": true,
     "onLoadEnd": true,
     "onNavigationStateChange": true,

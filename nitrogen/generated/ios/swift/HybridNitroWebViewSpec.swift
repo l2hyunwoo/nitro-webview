@@ -26,6 +26,7 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   var thirdPartyCookiesEnabled: Bool? { get set }
   var sharedCookiesEnabled: Bool? { get set }
   var injectedJavaScript: String? { get set }
+  var injectedJavaScriptBeforeContentLoaded: String? { get set }
   var onLoadStart: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onLoadEnd: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onNavigationStateChange: ((_ state: WebViewNavigationState) -> Void)? { get set }
@@ -40,6 +41,8 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   func reload() throws -> Void
   func stopLoading() throws -> Void
   func evaluateJavaScript(code: String) throws -> Promise<String>
+  func injectJavaScript(code: String) throws -> Void
+  func postMessage(data: String) throws -> Void
   func getCookies(url: String) throws -> Promise<[Cookie]>
   func setCookie(url: String, cookie: Cookie) throws -> Promise<Void>
   func clearCookies() throws -> Promise<Void>

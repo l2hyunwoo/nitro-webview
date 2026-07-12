@@ -83,6 +83,8 @@ export {
   ANDROID_NATIVE_BRIDGE_NAME,
   BRIDGE_NAME,
   buildBridgeScript,
+  buildPostMessageScript,
+  encodeJsStringLiteral,
   evaluateBridgeScript,
 } from './bridgeScript'
 export type {

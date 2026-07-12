@@ -159,6 +159,11 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setInjectedJavaScript(newViewProps.injectedJavaScript.value);
     newViewProps.injectedJavaScript.isDirty = false;
   }
+  // injectedJavaScriptBeforeContentLoaded: optional
+  if (newViewProps.injectedJavaScriptBeforeContentLoaded.isDirty) {
+    swiftPart.setInjectedJavaScriptBeforeContentLoaded(newViewProps.injectedJavaScriptBeforeContentLoaded.value);
+    newViewProps.injectedJavaScriptBeforeContentLoaded.isDirty = false;
+  }
   // onLoadStart: optional
   if (newViewProps.onLoadStart.isDirty) {
     swiftPart.setOnLoadStart(newViewProps.onLoadStart.value);

@@ -153,6 +153,13 @@ dependencies {
   // File-upload pathway: AndroidX FileProvider for camera capture URIs.
   implementation "androidx.core:core-ktx:1.13.1"
 
+  // Document-start JS injection: WebViewCompat.addDocumentStartJavaScript
+  // (gated on the DOCUMENT_START_SCRIPT feature) gives the same
+  // before-any-page-script guarantee as iOS `.atDocumentStart`, with an
+  // onPageStarted fallback on older WebViews. react-native-webview depends
+  // on the same artifact.
+  implementation "androidx.webkit:webkit:1.14.0"
+
   // File-download pathway: Mozilla Android Components' DownloadUtils
   // provides `guessFileName(url, contentDisposition, mimeType)`.
   implementation "org.mozilla.components:support-utils:127.0.2"
