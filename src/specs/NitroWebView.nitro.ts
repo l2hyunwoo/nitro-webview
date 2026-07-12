@@ -58,7 +58,20 @@ export interface ShouldStartLoadRequest {
   navigationType: WebViewNavigationType
   /** iOS-only: main-document URL associated with the navigation. */
   mainDocumentURL?: string
-  /** iOS-only: true when the navigation targets the main frame. */
+  /**
+   * True when the navigation targets the main frame; false for iframe /
+   * sub-frame navigations (which now also surface to this handler).
+   *
+   *   - iOS (WKWebView): derived from `targetFrame?.isMainFrame`. Sub-frame
+   *     navigations always reach the handler.
+   *   - Android (WebViewClient): derived from
+   *     `WebResourceRequest.isForMainFrame`. Sub-frame navigations only
+   *     reach the handler when
+   *     {@linkcode NitroWebViewProps.interceptSubframeNavigation} is `true`
+   *     (main-frame navigations always do).
+   *
+   * Previously always `undefined`; now populated on both platforms.
+   */
   isTopFrame?: boolean
   /**
    * iOS-only: true when the navigation has a target frame (false for
@@ -390,11 +403,62 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Blocked navigations are silently cancelled — no new event is emitted
    * (`onError` stays scoped to network / SSL failures).
    *
-   * Out of scope for the MVP: `history.pushState` interception, iframe
-   * navigation, `target=_blank` / new-window handling, and per-request
-   * `originWhitelist` override.
+   * Sub-frame (iframe) navigations surface here with `isTopFrame: false`;
+   * on Android that only happens when
+   * {@linkcode NitroWebViewProps.interceptSubframeNavigation} is `true`
+   * (main-frame navigations always surface). SPA `history.pushState` /
+   * `replaceState` route changes do NOT surface here — a pushState is not a
+   * navigation the platform can veto, so it surfaces via
+   * {@linkcode NitroWebViewProps.onNavigationStateChange} instead.
+   * `target=_blank` / `window.open` surfaces via
+   * {@linkcode NitroWebViewProps.onOpenWindow}.
+   *
+   * Out of scope for the MVP: per-request `originWhitelist` override.
    */
   onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean
+
+  /**
+   * Opt-in: intercept sub-frame (iframe) navigations through
+   * {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest} too, not just
+   * main-frame navigations. Default `false`.
+   *
+   * Android note: each intercepted sub-frame navigation blocks the WebView
+   * (UI) thread up to 250 ms awaiting the JS decision (see
+   * `onShouldStartLoadWithRequest`). On an iframe-heavy page these blocks
+   * stack serially and risk jank / ANR — which is why sub-frame
+   * interception is off by default on Android. Main-frame navigation is
+   * unaffected by this flag and is always intercepted.
+   *
+   * iOS has no such cost: `decidePolicyFor` parks its decision handler
+   * asynchronously per navigation action, so sub-frame navigations already
+   * reach the handler and this flag has no effect there.
+   */
+  interceptSubframeNavigation?: boolean
+
+  /**
+   * Fired when the page requests a new window — `window.open(...)` or a
+   * `<a target="_blank">` / `target="_new"` link activation.
+   *
+   * The WebView NEVER spawns a second native web view. `nativeEvent.url`
+   * carries the URL the page asked to open; JS decides what to do with it
+   * (open the system browser, load it in-place via a `source` update, or
+   * ignore it).
+   *
+   * Default behavior when the prop is UNSET (react-native-webview parity):
+   *   - iOS: the request is loaded in the current WebView (a `_blank`
+   *     link's new-window request collapses into an in-place navigation);
+   *     no second `WKWebView` is created.
+   *   - Android: `onCreateWindow` loads the destination in the current
+   *     WebView.
+   *
+   * When the prop IS set, the in-place fallback is suppressed on both
+   * platforms — the event fires and nothing loads unless JS acts. The
+   * callback is notify-only; its return value does not gate loading (the
+   * native window-creation callbacks are synchronous and cannot await a JS
+   * Promise, unlike `onShouldStartLoadWithRequest`). To load the URL
+   * in-place, JS updates `source`.
+   */
+  onOpenWindow?: (event: OpenWindowEvent) => void
 
   /**
    * Fired when the WebView detects a navigation that should be treated as a
@@ -760,4 +824,27 @@ export interface FileDownload {
  */
 export interface FileDownloadEvent {
   nativeEvent: FileDownload
+}
+
+/**
+ * Inner payload of an {@linkcode OpenWindowEvent}.
+ *
+ * Field mapping:
+ *   - `url` — Absolute URL the page asked to open in a new window.
+ *     iOS: `WKNavigationAction.request.url.absoluteString` (from
+ *     `webView(_:createWebViewWith:for:windowFeatures:)` or the
+ *     new-window branch of `decidePolicyForNavigationAction`).
+ *     Android: the URL observed by a throwaway child-WebView's
+ *     `shouldOverrideUrlLoading` inside `WebChromeClient.onCreateWindow`.
+ */
+export interface OpenWindowNativeEvent {
+  url: string
+}
+
+/**
+ * React-Native-style event wrapper for {@linkcode OpenWindowNativeEvent}.
+ * Surfaced to JS via the {@linkcode NitroWebViewProps.onOpenWindow} prop.
+ */
+export interface OpenWindowEvent {
+  nativeEvent: OpenWindowNativeEvent
 }

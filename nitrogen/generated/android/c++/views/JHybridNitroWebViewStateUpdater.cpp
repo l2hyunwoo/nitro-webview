@@ -129,6 +129,14 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setOnShouldStartLoadWithRequest(props->onShouldStartLoadWithRequest.value);
     props->onShouldStartLoadWithRequest.isDirty = false;
   }
+  if (props->interceptSubframeNavigation.isDirty) {
+    hybridView->setInterceptSubframeNavigation(props->interceptSubframeNavigation.value);
+    props->interceptSubframeNavigation.isDirty = false;
+  }
+  if (props->onOpenWindow.isDirty) {
+    hybridView->setOnOpenWindow(props->onOpenWindow.value);
+    props->onOpenWindow.isDirty = false;
+  }
   if (props->onFileDownload.isDirty) {
     hybridView->setOnFileDownload(props->onFileDownload.value);
     props->onFileDownload.isDirty = false;

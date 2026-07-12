@@ -22,18 +22,10 @@ namespace margelo::nitro::nitrowebview { class HybridNitroWebViewSpec; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
-// Forward declaration of `NitroWebViewHttpErrorEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorEvent; }
-// Forward declaration of `NitroWebViewHttpErrorNativeEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorNativeEvent; }
-// Forward declaration of `NitroWebViewRenderProcessGoneEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneEvent; }
-// Forward declaration of `NitroWebViewRenderProcessGoneNativeEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneNativeEvent; }
-// Forward declaration of `NitroWebViewScrollEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollEvent; }
-// Forward declaration of `NitroWebViewScrollNativeEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollNativeEvent; }
+// Forward declaration of `OpenWindowEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowEvent; }
+// Forward declaration of `OpenWindowNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowNativeEvent; }
 // Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `UriSource` to properly resolve imports.
@@ -48,8 +40,6 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 // Forward declaration of `WebViewNavigationType` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
-// Forward declaration of `WebViewPoint` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridNitroWebViewSpec_cxx` to properly resolve imports.
@@ -63,12 +53,8 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include "HybridNitroWebViewSpec.hpp"
 #include "NitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
-#include "NitroWebViewHttpErrorEvent.hpp"
-#include "NitroWebViewHttpErrorNativeEvent.hpp"
-#include "NitroWebViewRenderProcessGoneEvent.hpp"
-#include "NitroWebViewRenderProcessGoneNativeEvent.hpp"
-#include "NitroWebViewScrollEvent.hpp"
-#include "NitroWebViewScrollNativeEvent.hpp"
+#include "OpenWindowEvent.hpp"
+#include "OpenWindowNativeEvent.hpp"
 #include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
@@ -76,7 +62,6 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include "WebViewMessageNativeEvent.hpp"
 #include "WebViewNavigationState.hpp"
 #include "WebViewNavigationType.hpp"
-#include "WebViewPoint.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
@@ -436,6 +421,43 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.value();
   }
   
+  // pragma MARK: std::function<void(const OpenWindowEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const OpenWindowEvent&)>`.
+   */
+  using Func_void_OpenWindowEvent = std::function<void(const OpenWindowEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const OpenWindowEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_OpenWindowEvent_Wrapper final {
+  public:
+    explicit Func_void_OpenWindowEvent_Wrapper(std::function<void(const OpenWindowEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const OpenWindowEvent& /* event */)>>(std::move(func))) {}
+    inline void call(OpenWindowEvent event) const noexcept {
+      _function->operator()(event);
+    }
+  private:
+    std::unique_ptr<std::function<void(const OpenWindowEvent& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_OpenWindowEvent create_Func_void_OpenWindowEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_OpenWindowEvent_Wrapper wrap_Func_void_OpenWindowEvent(Func_void_OpenWindowEvent value) noexcept {
+    return Func_void_OpenWindowEvent_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<std::function<void(const OpenWindowEvent& /* event */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(const OpenWindowEvent& / * event * /)>>`.
+   */
+  using std__optional_std__function_void_const_OpenWindowEvent_____event______ = std::optional<std::function<void(const OpenWindowEvent& /* event */)>>;
+  inline std::optional<std::function<void(const OpenWindowEvent& /* event */)>> create_std__optional_std__function_void_const_OpenWindowEvent_____event______(const std::function<void(const OpenWindowEvent& /* event */)>& value) noexcept {
+    return std::optional<std::function<void(const OpenWindowEvent& /* event */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_const_OpenWindowEvent_____event______(const std::optional<std::function<void(const OpenWindowEvent& /* event */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(const OpenWindowEvent& /* event */)> get_std__optional_std__function_void_const_OpenWindowEvent_____event______(const std::optional<std::function<void(const OpenWindowEvent& /* event */)>>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::optional<double>
   /**
    * Specialized version of `std::optional<double>`.
@@ -485,132 +507,6 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.has_value();
   }
   inline std::function<void(const FileDownloadEvent& /* event */)> get_std__optional_std__function_void_const_FileDownloadEvent_____event______(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>
-  /**
-   * Specialized version of `std::function<void(const NitroWebViewHttpErrorEvent&)>`.
-   */
-  using Func_void_NitroWebViewHttpErrorEvent = std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>;
-  /**
-   * Wrapper class for a `std::function<void(const NitroWebViewHttpErrorEvent& / * event * /)>`, this can be used from Swift.
-   */
-  class Func_void_NitroWebViewHttpErrorEvent_Wrapper final {
-  public:
-    explicit Func_void_NitroWebViewHttpErrorEvent_Wrapper(std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>(std::move(func))) {}
-    inline void call(NitroWebViewHttpErrorEvent event) const noexcept {
-      _function->operator()(event);
-    }
-  private:
-    std::unique_ptr<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_NitroWebViewHttpErrorEvent create_Func_void_NitroWebViewHttpErrorEvent(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_NitroWebViewHttpErrorEvent_Wrapper wrap_Func_void_NitroWebViewHttpErrorEvent(Func_void_NitroWebViewHttpErrorEvent value) noexcept {
-    return Func_void_NitroWebViewHttpErrorEvent_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const NitroWebViewHttpErrorEvent& / * event * /)>>`.
-   */
-  using std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______ = std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>;
-  inline std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> create_std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______(const std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>& value) noexcept {
-    return std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______(const std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const NitroWebViewHttpErrorEvent& /* event */)> get_std__optional_std__function_void_const_NitroWebViewHttpErrorEvent_____event______(const std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>
-  /**
-   * Specialized version of `std::function<void(const NitroWebViewRenderProcessGoneEvent&)>`.
-   */
-  using Func_void_NitroWebViewRenderProcessGoneEvent = std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>;
-  /**
-   * Wrapper class for a `std::function<void(const NitroWebViewRenderProcessGoneEvent& / * event * /)>`, this can be used from Swift.
-   */
-  class Func_void_NitroWebViewRenderProcessGoneEvent_Wrapper final {
-  public:
-    explicit Func_void_NitroWebViewRenderProcessGoneEvent_Wrapper(std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>(std::move(func))) {}
-    inline void call(NitroWebViewRenderProcessGoneEvent event) const noexcept {
-      _function->operator()(event);
-    }
-  private:
-    std::unique_ptr<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_NitroWebViewRenderProcessGoneEvent create_Func_void_NitroWebViewRenderProcessGoneEvent(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_NitroWebViewRenderProcessGoneEvent_Wrapper wrap_Func_void_NitroWebViewRenderProcessGoneEvent(Func_void_NitroWebViewRenderProcessGoneEvent value) noexcept {
-    return Func_void_NitroWebViewRenderProcessGoneEvent_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& / * event * /)>>`.
-   */
-  using std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______ = std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>;
-  inline std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>> create_std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______(const std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>& value) noexcept {
-    return std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______(const std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)> get_std__optional_std__function_void_const_NitroWebViewRenderProcessGoneEvent_____event______(const std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::optional<WebViewPoint>
-  /**
-   * Specialized version of `std::optional<WebViewPoint>`.
-   */
-  using std__optional_WebViewPoint_ = std::optional<WebViewPoint>;
-  inline std::optional<WebViewPoint> create_std__optional_WebViewPoint_(const WebViewPoint& value) noexcept {
-    return std::optional<WebViewPoint>(value);
-  }
-  inline bool has_value_std__optional_WebViewPoint_(const std::optional<WebViewPoint>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline WebViewPoint get_std__optional_WebViewPoint_(const std::optional<WebViewPoint>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::function<void(const NitroWebViewScrollEvent& /* event */)>
-  /**
-   * Specialized version of `std::function<void(const NitroWebViewScrollEvent&)>`.
-   */
-  using Func_void_NitroWebViewScrollEvent = std::function<void(const NitroWebViewScrollEvent& /* event */)>;
-  /**
-   * Wrapper class for a `std::function<void(const NitroWebViewScrollEvent& / * event * /)>`, this can be used from Swift.
-   */
-  class Func_void_NitroWebViewScrollEvent_Wrapper final {
-  public:
-    explicit Func_void_NitroWebViewScrollEvent_Wrapper(std::function<void(const NitroWebViewScrollEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const NitroWebViewScrollEvent& /* event */)>>(std::move(func))) {}
-    inline void call(NitroWebViewScrollEvent event) const noexcept {
-      _function->operator()(event);
-    }
-  private:
-    std::unique_ptr<std::function<void(const NitroWebViewScrollEvent& /* event */)>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void_NitroWebViewScrollEvent create_Func_void_NitroWebViewScrollEvent(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_NitroWebViewScrollEvent_Wrapper wrap_Func_void_NitroWebViewScrollEvent(Func_void_NitroWebViewScrollEvent value) noexcept {
-    return Func_void_NitroWebViewScrollEvent_Wrapper(std::move(value));
-  }
-  
-  // pragma MARK: std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>
-  /**
-   * Specialized version of `std::optional<std::function<void(const NitroWebViewScrollEvent& / * event * /)>>`.
-   */
-  using std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______ = std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>;
-  inline std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>> create_std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______(const std::function<void(const NitroWebViewScrollEvent& /* event */)>& value) noexcept {
-    return std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______(const std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(const NitroWebViewScrollEvent& /* event */)> get_std__optional_std__function_void_const_NitroWebViewScrollEvent_____event______(const std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>& optional) noexcept {
     return optional.value();
   }
   

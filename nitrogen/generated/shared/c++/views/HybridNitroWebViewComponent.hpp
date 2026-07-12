@@ -29,6 +29,7 @@
 #include "NitroWebViewErrorEvent.hpp"
 #include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
+#include "OpenWindowEvent.hpp"
 #include "FileDownloadEvent.hpp"
 #include "NitroWebViewHttpErrorEvent.hpp"
 #include "NitroWebViewRenderProcessGoneEvent.hpp"
@@ -79,6 +80,8 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
     CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
     CachedProp<std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>> onShouldStartLoadWithRequest;
+    CachedProp<std::optional<bool>> interceptSubframeNavigation;
+    CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>> onOpenWindow;
     CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;
     CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>> onHttpError;
     CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>> onRenderProcessGone;

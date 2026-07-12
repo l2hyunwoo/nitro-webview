@@ -762,6 +762,62 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
+  public final var interceptSubframeNavigation: bridge.std__optional_bool_ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_bool_ in
+        if let __unwrappedValue = self.__implementation.interceptSubframeNavigation {
+          return bridge.create_std__optional_bool_(__unwrappedValue)
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.interceptSubframeNavigation = { () -> Bool? in
+        if bridge.has_value_std__optional_bool_(newValue) {
+          let __unwrapped = bridge.get_std__optional_bool_(newValue)
+          return __unwrapped
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
+  public final var onOpenWindow: bridge.std__optional_std__function_void_const_OpenWindowEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_OpenWindowEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onOpenWindow {
+          return bridge.create_std__optional_std__function_void_const_OpenWindowEvent_____event______({ () -> bridge.Func_void_OpenWindowEvent in
+            let __closureWrapper = Func_void_OpenWindowEvent(__unwrappedValue)
+            return bridge.create_Func_void_OpenWindowEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onOpenWindow = { () -> ((_ event: OpenWindowEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_OpenWindowEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_OpenWindowEvent_____event______(newValue)
+          return { () -> (OpenWindowEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_OpenWindowEvent(__unwrapped)
+            return { (__event: OpenWindowEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
   public final var onFileDownload: bridge.std__optional_std__function_void_const_FileDownloadEvent_____event______ {
     @inline(__always)
     get {

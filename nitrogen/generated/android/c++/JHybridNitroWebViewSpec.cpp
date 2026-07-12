@@ -27,6 +27,10 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `WebViewNavigationType` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
+// Forward declaration of `OpenWindowEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowEvent; }
+// Forward declaration of `OpenWindowNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowNativeEvent; }
 // Forward declaration of `FileDownloadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `FileDownload` to properly resolve imports.
@@ -82,6 +86,11 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "JShouldStartLoadRequest.hpp"
 #include "WebViewNavigationType.hpp"
 #include "JWebViewNavigationType.hpp"
+#include "OpenWindowEvent.hpp"
+#include "JFunc_void_OpenWindowEvent.hpp"
+#include "JOpenWindowEvent.hpp"
+#include "OpenWindowNativeEvent.hpp"
+#include "JOpenWindowNativeEvent.hpp"
 #include "FileDownloadEvent.hpp"
 #include "JFunc_void_FileDownloadEvent.hpp"
 #include "JFileDownloadEvent.hpp"
@@ -406,6 +415,32 @@ namespace margelo::nitro::nitrowebview {
   void JHybridNitroWebViewSpec::setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest::javaobject> /* onShouldStartLoadWithRequest */)>("setOnShouldStartLoadWithRequest_cxx");
     method(_javaPart, onShouldStartLoadWithRequest.has_value() ? JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::fromCpp(onShouldStartLoadWithRequest.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getInterceptSubframeNavigation() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getInterceptSubframeNavigation");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setInterceptSubframeNavigation(std::optional<bool> interceptSubframeNavigation) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* interceptSubframeNavigation */)>("setInterceptSubframeNavigation");
+    method(_javaPart, interceptSubframeNavigation.has_value() ? jni::JBoolean::valueOf(interceptSubframeNavigation.value()) : nullptr);
+  }
+  std::optional<std::function<void(const OpenWindowEvent& /* event */)>> JHybridNitroWebViewSpec::getOnOpenWindow() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_OpenWindowEvent::javaobject>()>("getOnOpenWindow_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const OpenWindowEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_OpenWindowEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_OpenWindowEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_OpenWindowEvent, void(OpenWindowEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnOpenWindow(const std::optional<std::function<void(const OpenWindowEvent& /* event */)>>& onOpenWindow) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_OpenWindowEvent::javaobject> /* onOpenWindow */)>("setOnOpenWindow_cxx");
+    method(_javaPart, onOpenWindow.has_value() ? JFunc_void_OpenWindowEvent_cxx::fromCpp(onOpenWindow.value()) : nullptr);
   }
   std::optional<std::function<void(const FileDownloadEvent& /* event */)>> JHybridNitroWebViewSpec::getOnFileDownload() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_FileDownloadEvent::javaobject>()>("getOnFileDownload_cxx");

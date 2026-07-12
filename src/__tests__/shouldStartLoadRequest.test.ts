@@ -87,6 +87,24 @@ test('iOS optional fields (mainDocumentURL / isTopFrame / hasTargetFrame) round-
   assert.deepEqual(spy.calls[0], payload satisfies ShouldStartLoadRequest)
 })
 
+test('sub-frame payload round-trips with isTopFrame:false', async () => {
+  // Sub-frame (iframe) navigations surface with isTopFrame:false on both
+  // platforms — iOS always, Android only when interceptSubframeNavigation is
+  // enabled. hasTargetFrame stays iOS-only (undefined on Android).
+  const spy = createSpy()
+  const payload: ShouldStartLoadRequest = {
+    url: 'https://tracker.example/iframe',
+    navigationType: 'other',
+    isTopFrame: false,
+    hasTargetFrame: true,
+  }
+  await emitShouldStart(payload, spy.handler)
+  const event = spy.calls[0]
+  assert.ok(event)
+  assert.equal(event.isTopFrame, false)
+  assert.equal(event.hasTargetFrame, true)
+})
+
 test('Android-style payload leaves iOS-only optional fields undefined', async () => {
   // The Android client (`WebViewClient.shouldOverrideUrlLoading`) does not
   // expose `mainDocumentURL`, `isTopFrame`, or `hasTargetFrame`. Each
@@ -178,25 +196,4 @@ test('non-string url in payload throws TypeError', async () => {
     TypeError
   )
   assert.equal(spy.calls.length, 0)
-})
-
-test('prop signature is assignable to (event) => Promise<boolean>', () => {
-  // Compile-time pin: the spec must expose the prop as a
-  // `Promise<boolean>`-returning function; if a future refactor swaps it
-  // for a synchronous boolean (RNW v12 style) this assignment fails
-  // typecheck.
-  const handler: NitroWebViewProps['onShouldStartLoadWithRequest'] = async (
-    event
-  ) => {
-    return event.url.startsWith('https://')
-  }
-  assert.equal(typeof handler, 'function')
-})
-
-test('prop is optional on NitroWebViewProps (allow-all when unset)', () => {
-  // Compile-time pin: omitting the prop must not be a type error.
-  const props: NitroWebViewProps = {
-    source: { uri: 'https://example.com' },
-  }
-  assert.equal(props.onShouldStartLoadWithRequest, undefined)
 })

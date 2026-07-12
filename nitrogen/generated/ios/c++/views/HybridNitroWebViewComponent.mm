@@ -194,6 +194,16 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setOnShouldStartLoadWithRequest(newViewProps.onShouldStartLoadWithRequest.value);
     newViewProps.onShouldStartLoadWithRequest.isDirty = false;
   }
+  // interceptSubframeNavigation: optional
+  if (newViewProps.interceptSubframeNavigation.isDirty) {
+    swiftPart.setInterceptSubframeNavigation(newViewProps.interceptSubframeNavigation.value);
+    newViewProps.interceptSubframeNavigation.isDirty = false;
+  }
+  // onOpenWindow: optional
+  if (newViewProps.onOpenWindow.isDirty) {
+    swiftPart.setOnOpenWindow(newViewProps.onOpenWindow.value);
+    newViewProps.onOpenWindow.isDirty = false;
+  }
   // onFileDownload: optional
   if (newViewProps.onFileDownload.isDirty) {
     swiftPart.setOnFileDownload(newViewProps.onFileDownload.value);
