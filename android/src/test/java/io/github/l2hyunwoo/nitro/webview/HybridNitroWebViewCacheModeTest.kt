@@ -2,7 +2,6 @@ package io.github.l2hyunwoo.nitro.webview
 
 import android.webkit.WebSettings
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -35,14 +34,6 @@ class HybridNitroWebViewCacheModeTest {
   fun `cacheModeFor_false_isLoadNoCache`() {
     assertEquals(
       WebSettings.LOAD_NO_CACHE,
-      HybridNitroWebView.cacheModeFor(false),
-    )
-  }
-
-  @Test
-  fun `cacheModeFor_enabledAndDisabled_mapToDistinctModes`() {
-    assertNotEquals(
-      HybridNitroWebView.cacheModeFor(true),
       HybridNitroWebView.cacheModeFor(false),
     )
   }
