@@ -40,6 +40,11 @@ let package = Package(
       sources: [
         "NitroWebViewSourceHandler.swift",
         "NitroWebViewMessageHandler.swift",
+        // Second WKScriptMessageHandler for the SPA history shim. Like the
+        // message handler it is Nitro-free (Foundation/WebKit only), so it
+        // compiles into this host harness and its stringify seam is tested
+        // by NitroWebViewHistoryHandlerTests.
+        "NitroWebViewHistoryHandler.swift",
         "NitroWebViewErrorMapper.swift",
         "NitroWebViewEvaluateJavaScriptHandler.swift",
         // Extracted from `HybridNitroWebView` so it can be exercised on
@@ -70,6 +75,14 @@ let package = Package(
       name: "NitroWebViewErrorMapperTests",
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/NitroWebViewErrorMapperTests"
+    ),
+    .testTarget(
+      // Exercises the SPA history handler's dispatcher seam: a received
+      // nav-type string is forwarded to the NavStateDispatcher, and the
+      // body stringify coerces non-String bodies defensively.
+      name: "NitroWebViewHistoryHandlerTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/NitroWebViewHistoryHandlerTests"
     ),
     .testTarget(
       name: "NitroWebViewEvaluateJavaScriptHandlerTests",

@@ -4,13 +4,15 @@ import WebKit
 
 final class HybridNitroWebView:
   HybridNitroWebViewSpec,
-  NitroWebViewMessageDispatcher
+  NitroWebViewMessageDispatcher,
+  NitroWebViewNavStateDispatcher
 {
   let view: WKWebView
 
   private let sourceHandler = NitroWebViewSourceHandler()
   private let evaluator = NitroWebViewEvaluateJavaScriptHandler()
   private let messageHandler = NitroWebViewMessageHandler()
+  private let historyHandler = NitroWebViewHistoryHandler()
   private let navigationDelegate: NavigationDelegate
   private let uiDelegate: UIDelegate
   private let scrollDelegate: ScrollDelegate
@@ -33,6 +35,18 @@ final class HybridNitroWebView:
   /// stays parked in `pendingDecisions` until the Promise resolves
   /// (mirroring react-native-webview's iOS behavior).
   var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest) -> Promise<Bool>)?
+
+  /// Opt-in flag for sub-frame navigation interception. On iOS this has no
+  /// effect: `decidePolicyFor` already parks its decision handler
+  /// asynchronously per navigation action, so sub-frame navigations already
+  /// reach `onShouldStartLoadWithRequest` regardless. The property is stored
+  /// only to satisfy the shared spec (Android reads it).
+  var interceptSubframeNavigation: Bool?
+
+  /// Fired when the page requests a new window (`window.open` /
+  /// `target=_blank`). The WebView never creates a second `WKWebView`; JS
+  /// decides what to do with the URL. See `emitOpenWindow`.
+  var onOpenWindow: ((OpenWindowEvent) -> Void)?
 
   override init() {
     let configuration = WKWebViewConfiguration()
@@ -59,11 +73,21 @@ final class HybridNitroWebView:
     // WebKit directly. No public TS API is exposed — behavior is fully
     // driven by the HTML input attributes (react-native-webview parity).
     view.uiDelegate = uiDelegate
+    uiDelegate.owner = self
     messageHandler.dispatcher = self
+    historyHandler.dispatcher = self
     let controller = configuration.userContentController
     controller.add(
       messageHandler,
       name: NitroWebViewMessageHandler.scriptMessageHandlerName
+    )
+    // Second, DISTINCT script message handler for the SPA history shim. A
+    // route change (pushState/replaceState/popstate) posts here — never the
+    // ReactNativeWebView message sink — so it can never be mistaken for an
+    // onMessage payload.
+    controller.add(
+      historyHandler,
+      name: NitroWebViewHistoryHandler.scriptMessageHandlerName
     )
     // Defines window.ReactNativeWebView.postMessage so web pages can call
     // it without knowing about WKWebView's webkit.messageHandlers bridge.
@@ -71,6 +95,14 @@ final class HybridNitroWebView:
       source: Self.bridgeBootstrapScript,
       injectionTime: .atDocumentStart,
       forMainFrameOnly: false
+    ))
+    // Hooks history.pushState/replaceState/popstate at document-start (main
+    // frame — SPA routing is a main-frame concern) so route changes surface
+    // via onNavigationStateChange.
+    controller.addUserScript(WKUserScript(
+      source: Self.historyShimScript,
+      injectionTime: .atDocumentStart,
+      forMainFrameOnly: true
     ))
   }
 
@@ -94,10 +126,42 @@ final class HybridNitroWebView:
   })();
   """
 
+  /// SPA history-API shim. Ships the same body `buildHistoryShimScript('ios')`
+  /// produces in `bridgeScript.ts` (which is the source of truth exercised by
+  /// the node:test suite). Hooks pushState/replaceState/popstate and posts the
+  /// nav-type to the dedicated `ReactNativeHistoryShim` sink. Idempotent via
+  /// `window.__nitroHistoryShimInstalled`.
+  private static let historyShimScript: String = """
+  ;(function (history) {
+    if (window.__nitroHistoryShimInstalled) { return; }
+    window.__nitroHistoryShimInstalled = true;
+    function notify(__type) {
+      window.setTimeout(function () {
+        var __wk = window.webkit;
+        if (__wk && __wk.messageHandlers && __wk.messageHandlers.ReactNativeHistoryShim) {
+          __wk.messageHandlers.ReactNativeHistoryShim.postMessage(__type);
+        }
+      }, 0);
+    }
+    function shim(f) {
+      return function () {
+        notify('other');
+        return f.apply(history, arguments);
+      };
+    }
+    history.pushState = shim(history.pushState);
+    history.replaceState = shim(history.replaceState);
+    window.addEventListener('popstate', function () { notify('backforward'); });
+  })(window.history);
+  """
+
   func onDropView() {
     let controller = view.configuration.userContentController
     controller.removeScriptMessageHandler(
       forName: NitroWebViewMessageHandler.scriptMessageHandlerName
+    )
+    controller.removeScriptMessageHandler(
+      forName: NitroWebViewHistoryHandler.scriptMessageHandlerName
     )
     controller.removeAllUserScripts()
     view.navigationDelegate = nil
@@ -105,7 +169,9 @@ final class HybridNitroWebView:
     view.scrollView.delegate = nil
     navigationDelegate.owner = nil
     scrollDelegate.owner = nil
+    uiDelegate.owner = nil
     messageHandler.dispatcher = nil
+    historyHandler.dispatcher = nil
   }
 
   var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil)) {
@@ -344,13 +410,21 @@ final class HybridNitroWebView:
   /// `WKUserScript`s run in registration order within the same injection
   /// time, so the ordering here is the contract:
   ///   1. bridge bootstrap  — `.atDocumentStart`, all frames.
-  ///   2. before-content    — `.atDocumentStart`, main frame only. Runs
-  ///      after the bridge (so pages can still call `postMessage`) but
-  ///      before any page script.
-  ///   3. injected (after)  — `.atDocumentEnd`, main frame only.
+  ///   2. history shim      — `.atDocumentStart`, main frame only. Wraps
+  ///      `history.pushState`/`replaceState` before any consumer script
+  ///      (including `injectedJavaScriptBeforeContentLoaded`) can observe
+  ///      or interfere with the History API.
+  ///   3. before-content    — `.atDocumentStart`, main frame only. Runs
+  ///      after the bridge and history shim (so pages can still call
+  ///      `postMessage`) but before any page script.
+  ///   4. injected (after)  — `.atDocumentEnd`, main frame only.
   ///
   /// `removeAllUserScripts()` + re-add on every change keeps the list
-  /// idempotent regardless of the order the two props are set at mount.
+  /// idempotent regardless of the order the props are set at mount. The
+  /// history shim is re-installed unconditionally here — without it, it
+  /// would be silently lost whenever `injectedJavaScript` or
+  /// `injectedJavaScriptBeforeContentLoaded` changes (both drive this
+  /// method via `didSet`).
   private func reinstallUserScripts() {
     let controller = view.configuration.userContentController
     controller.removeAllUserScripts()
@@ -362,7 +436,15 @@ final class HybridNitroWebView:
       forMainFrameOnly: false
     ))
 
-    // 2. before-content — atDocumentStart, main frame only.
+    // 2. history shim — always present, main frame only. Must run before
+    // any consumer-provided script gets a chance to touch history.*.
+    controller.addUserScript(WKUserScript(
+      source: Self.historyShimScript,
+      injectionTime: .atDocumentStart,
+      forMainFrameOnly: true
+    ))
+
+    // 3. before-content — atDocumentStart, main frame only.
     if let before = injectedJavaScriptBeforeContentLoaded, !before.isEmpty {
       controller.addUserScript(WKUserScript(
         source: before,
@@ -371,7 +453,7 @@ final class HybridNitroWebView:
       ))
     }
 
-    // 3. after-load — atDocumentEnd, main frame only.
+    // 4. after-load — atDocumentEnd, main frame only.
     currentInjectedUserScript = nil
     if let after = injectedJavaScript, !after.isEmpty {
       let userScript = WKUserScript(
@@ -392,6 +474,22 @@ final class HybridNitroWebView:
       )
     )
     onMessage?(payload)
+  }
+
+  /// A SPA route change (pushState/replaceState/popstate) fired. There is no
+  /// load lifecycle to report — just emit a fresh nav-state snapshot so JS
+  /// sees the new URL via `onNavigationStateChange`. Deliberately routes to
+  /// nav-state, NOT `onMessage` (different channel) and NOT
+  /// `onShouldStartLoadWithRequest` (a pushState already happened and cannot
+  /// be vetoed).
+  func dispatchHistoryNav(navType: String) {
+    emitNavigationState()
+  }
+
+  fileprivate func emitOpenWindow(targetUrl: String) {
+    onOpenWindow?(
+      OpenWindowEvent(nativeEvent: OpenWindowNativeEvent(url: targetUrl))
+    )
   }
 
   fileprivate final class NavigationDelegate: NSObject, WKNavigationDelegate {
@@ -423,6 +521,20 @@ final class HybridNitroWebView:
       decidePolicyFor navigationAction: WKNavigationAction,
       decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
+      // New-window handling must run BEFORE the should-start parking below.
+      // A `target=_blank` / `window.open` with no target frame that is
+      // cancelled here never reaches `createWebViewWith`, so onOpenWindow has
+      // to fire from this spot too (react-native-webview parity). When
+      // onOpenWindow is unset, fall through to the normal path so the default
+      // in-place load still happens.
+      if let owner = owner,
+         owner.onOpenWindow != nil,
+         navigationAction.targetFrame == nil {
+        let url = navigationAction.request.url?.absoluteString ?? ""
+        owner.emitOpenWindow(targetUrl: url)
+        decisionHandler(.cancel)
+        return
+      }
       guard let owner = owner, owner.onShouldStartLoadWithRequest != nil else {
         decisionHandler(.allow)
         return
@@ -850,7 +962,33 @@ final class HybridNitroWebView:
 /// `HybridNitroWebViewFileUploadIntrospectionTests` enforces this: the
 /// selector `runOpenPanelWith:initiatedByFrame:completionHandler:` must
 /// NOT be implemented on this class.
-fileprivate final class UIDelegate: NSObject, WKUIDelegate {}
+///
+/// `createWebViewWith:for:windowFeatures:` (added below for `onOpenWindow`)
+/// is a DIFFERENT, iOS-valid `WKUIDelegate` selector and coexists with the
+/// file-upload gate — react-native-webview ships both on one delegate. It is
+/// unrelated to the forbidden macOS `runOpenPanelWith` selector.
+fileprivate final class UIDelegate: NSObject, WKUIDelegate {
+  weak var owner: HybridNitroWebView?
+
+  /// `window.open` / `target=_blank` surface here (with `targetFrame == nil`).
+  /// We NEVER create a second `WKWebView`: when `onOpenWindow` is set we emit
+  /// the event and return nil; otherwise we load the request in-place in the
+  /// current WebView (react-native-webview default).
+  func webView(
+    _ webView: WKWebView,
+    createWebViewWith configuration: WKWebViewConfiguration,
+    for navigationAction: WKNavigationAction,
+    windowFeatures: WKWindowFeatures
+  ) -> WKWebView? {
+    let url = navigationAction.request.url?.absoluteString ?? ""
+    if let owner = owner, owner.onOpenWindow != nil {
+      owner.emitOpenWindow(targetUrl: url)
+    } else {
+      webView.load(navigationAction.request)
+    }
+    return nil
+  }
+}
 
 // MARK: - HTTP-error value type
 
