@@ -87,6 +87,24 @@ test('iOS optional fields (mainDocumentURL / isTopFrame / hasTargetFrame) round-
   assert.deepEqual(spy.calls[0], payload satisfies ShouldStartLoadRequest)
 })
 
+test('sub-frame payload round-trips with isTopFrame:false', async () => {
+  // Sub-frame (iframe) navigations surface with isTopFrame:false on both
+  // platforms — iOS always, Android only when interceptSubframeNavigation is
+  // enabled. hasTargetFrame stays iOS-only (undefined on Android).
+  const spy = createSpy()
+  const payload: ShouldStartLoadRequest = {
+    url: 'https://tracker.example/iframe',
+    navigationType: 'other',
+    isTopFrame: false,
+    hasTargetFrame: true,
+  }
+  await emitShouldStart(payload, spy.handler)
+  const event = spy.calls[0]
+  assert.ok(event)
+  assert.equal(event.isTopFrame, false)
+  assert.equal(event.hasTargetFrame, true)
+})
+
 test('Android-style payload leaves iOS-only optional fields undefined', async () => {
   // The Android client (`WebViewClient.shouldOverrideUrlLoading`) does not
   // expose `mainDocumentURL`, `isTopFrame`, or `hasTargetFrame`. Each

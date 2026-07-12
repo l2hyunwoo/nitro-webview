@@ -147,3 +147,132 @@ export function evaluateBridgeScript<
   const evaluate = new Function('window', source) as (window: S) => void
   evaluate(sandbox)
 }
+
+/**
+ * WKScriptMessageHandler name for the SPA history shim on iOS — DELIBERATELY
+ * separate from {@linkcode BRIDGE_NAME}. iOS registers a second
+ * `WKScriptMessageHandler` under this name so a history event can NEVER be
+ * mistaken for a user `onMessage`. Mirrors react-native-webview's
+ * `ReactNativeHistoryShim`.
+ */
+export const HISTORY_SHIM_NAME: 'ReactNativeHistoryShim' =
+  'ReactNativeHistoryShim'
+
+/**
+ * Android `@JavascriptInterface` name for the SPA history shim — the Android
+ * analogue of {@linkcode HISTORY_SHIM_NAME}, distinct from
+ * {@linkcode ANDROID_NATIVE_BRIDGE_NAME} so the history sink is a separate
+ * channel from the page `postMessage` bridge.
+ */
+export const ANDROID_HISTORY_SHIM_NAME: 'ReactNativeHistoryShimNative' =
+  'ReactNativeHistoryShimNative'
+
+/**
+ * Navigation-type discriminator the history shim reports. A subset of
+ * `WebViewNavigationType`: `pushState`/`replaceState` map to `'other'`,
+ * `popstate` maps to `'backforward'`.
+ */
+export type HistoryNavType = 'other' | 'backforward'
+
+/**
+ * Build the literal JavaScript source string for the injected SPA
+ * history-API shim.
+ *
+ * The script hooks `history.pushState`, `history.replaceState`, and the
+ * `popstate` event, and on each posts the mapped nav-type to the DEDICATED
+ * history sink (never the `ReactNativeWebView` message bridge). The URL is
+ * intentionally NOT sent — native reads `webView.url` live at receipt (it is
+ * already up to date because `pushState` mutates the URL synchronously before
+ * we notify). A `setTimeout(0)` defers the post so the URL is settled first.
+ *
+ * Guarded idempotent (`window.__nitroHistoryShimInstalled`) — matching the
+ * bridge script's idempotency guarantee — so re-injection on every page load
+ * (Android `onPageStarted` / iframe re-inject) never double-wraps
+ * `pushState`, which would otherwise fire N notifications per call.
+ */
+export function buildHistoryShimScript(platform: BridgePlatform): string {
+  const post =
+    platform === 'ios'
+      ? `
+        var __wk = window.webkit;
+        if (__wk && __wk.messageHandlers && __wk.messageHandlers.${HISTORY_SHIM_NAME}) {
+          __wk.messageHandlers.${HISTORY_SHIM_NAME}.postMessage(__type);
+        }`
+      : `
+        var __n = window.${ANDROID_HISTORY_SHIM_NAME};
+        if (__n && typeof __n.postMessage === 'function') {
+          __n.postMessage(__type);
+        }`
+
+  // IIFE-wrapped so helper locals never leak onto `window`.
+  return `;(function (history) {
+  if (window.__nitroHistoryShimInstalled) { return; }
+  window.__nitroHistoryShimInstalled = true;
+  function notify(__type) {
+    // window.setTimeout(0): let the URL settle before native reads
+    // webView.url. Referenced via window (aliased in the sandbox) so the
+    // shim is evaluable the same way the bridge script is.
+    window.setTimeout(function () {${post}
+    }, 0);
+  }
+  function shim(f) {
+    return function () {
+      notify('other');
+      return f.apply(history, arguments);
+    };
+  }
+  history.pushState = shim(history.pushState);
+  history.replaceState = shim(history.replaceState);
+  window.addEventListener('popstate', function () { notify('backforward'); });
+})(window.history);`
+}
+
+/** Sink the history shim posts nav-type strings to. */
+export interface HistorySink {
+  postMessage(type: string): void
+}
+
+/**
+ * Structural subset of the DOM `History` interface the shim reassigns.
+ * Declared locally so the sandbox types do not require the DOM lib.
+ */
+export interface ShimmableHistory {
+  pushState(data: unknown, unused: string, url?: string | null): void
+  replaceState(data: unknown, unused: string, url?: string | null): void
+}
+
+/** Sandbox shape for evaluating the iOS history shim. */
+export interface IosHistorySandbox {
+  webkit?: {
+    messageHandlers?: {
+      [HISTORY_SHIM_NAME]?: HistorySink
+    }
+  }
+  history: ShimmableHistory
+  addEventListener(type: string, cb: () => void): void
+  __nitroHistoryShimInstalled?: boolean
+  setTimeout(cb: () => void, ms: number): void
+}
+
+/** Sandbox shape for evaluating the Android history shim. */
+export interface AndroidHistorySandbox {
+  [ANDROID_HISTORY_SHIM_NAME]?: HistorySink
+  history: ShimmableHistory
+  addEventListener(type: string, cb: () => void): void
+  __nitroHistoryShimInstalled?: boolean
+  setTimeout(cb: () => void, ms: number): void
+}
+
+/**
+ * Evaluate the history shim for `platform` against `sandbox`. `window` is
+ * aliased to `sandbox` inside the script so the install mutates the sandbox
+ * rather than the host's globals (matching {@linkcode evaluateBridgeScript}).
+ */
+export function evaluateHistoryShim<
+  S extends IosHistorySandbox | AndroidHistorySandbox,
+>(platform: BridgePlatform, sandbox: S): void {
+  const source = buildHistoryShimScript(platform)
+  // eslint-disable-next-line no-new-func
+  const evaluate = new Function('window', source) as (window: S) => void
+  evaluate(sandbox)
+}
