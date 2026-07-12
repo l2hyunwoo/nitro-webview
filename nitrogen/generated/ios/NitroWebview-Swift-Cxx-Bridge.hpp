@@ -158,6 +158,21 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return std__variant_UriSource__HtmlSource_(value);
   }
   
+  // pragma MARK: std::optional<bool>
+  /**
+   * Specialized version of `std::optional<bool>`.
+   */
+  using std__optional_bool_ = std::optional<bool>;
+  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
+    return std::optional<bool>(value);
+  }
+  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
+    return optional.value();
+  }
+  
   // pragma MARK: std::function<void(const WebViewLoadEvent& /* event */)>
   /**
    * Specialized version of `std::function<void(const WebViewLoadEvent&)>`.
@@ -303,21 +318,6 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.has_value();
   }
   inline std::function<void(const NitroWebViewErrorEvent& /* event */)> get_std__optional_std__function_void_const_NitroWebViewErrorEvent_____event______(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::optional<bool>
-  /**
-   * Specialized version of `std::optional<bool>`.
-   */
-  using std__optional_bool_ = std::optional<bool>;
-  inline std::optional<bool> create_std__optional_bool_(const bool& value) noexcept {
-    return std::optional<bool>(value);
-  }
-  inline bool has_value_std__optional_bool_(const std::optional<bool>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline bool get_std__optional_bool_(const std::optional<bool>& optional) noexcept {
     return optional.value();
   }
   

@@ -13,6 +13,18 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   var source: WebViewSource { get set }
   var defaultHeaders: Dictionary<String, String>? { get set }
   var userAgent: String? { get set }
+  var javaScriptEnabled: Bool? { get set }
+  var domStorageEnabled: Bool? { get set }
+  var cacheEnabled: Bool? { get set }
+  var incognito: Bool? { get set }
+  var scrollEnabled: Bool? { get set }
+  var bounces: Bool? { get set }
+  var scalesPageToFit: Bool? { get set }
+  var mediaPlaybackRequiresUserAction: Bool? { get set }
+  var allowsInlineMediaPlayback: Bool? { get set }
+  var allowsBackForwardNavigationGestures: Bool? { get set }
+  var thirdPartyCookiesEnabled: Bool? { get set }
+  var sharedCookiesEnabled: Bool? { get set }
   var injectedJavaScript: String? { get set }
   var onLoadStart: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onLoadEnd: ((_ event: WebViewLoadEvent) -> Void)? { get set }

@@ -127,6 +127,90 @@ namespace margelo::nitro::nitrowebview {
     inline void setUserAgent(const std::optional<std::string>& userAgent) noexcept override {
       _swiftPart.setUserAgent(userAgent);
     }
+    inline std::optional<bool> getJavaScriptEnabled() noexcept override {
+      auto __result = _swiftPart.getJavaScriptEnabled();
+      return __result;
+    }
+    inline void setJavaScriptEnabled(std::optional<bool> javaScriptEnabled) noexcept override {
+      _swiftPart.setJavaScriptEnabled(javaScriptEnabled);
+    }
+    inline std::optional<bool> getDomStorageEnabled() noexcept override {
+      auto __result = _swiftPart.getDomStorageEnabled();
+      return __result;
+    }
+    inline void setDomStorageEnabled(std::optional<bool> domStorageEnabled) noexcept override {
+      _swiftPart.setDomStorageEnabled(domStorageEnabled);
+    }
+    inline std::optional<bool> getCacheEnabled() noexcept override {
+      auto __result = _swiftPart.getCacheEnabled();
+      return __result;
+    }
+    inline void setCacheEnabled(std::optional<bool> cacheEnabled) noexcept override {
+      _swiftPart.setCacheEnabled(cacheEnabled);
+    }
+    inline std::optional<bool> getIncognito() noexcept override {
+      auto __result = _swiftPart.getIncognito();
+      return __result;
+    }
+    inline void setIncognito(std::optional<bool> incognito) noexcept override {
+      _swiftPart.setIncognito(incognito);
+    }
+    inline std::optional<bool> getScrollEnabled() noexcept override {
+      auto __result = _swiftPart.getScrollEnabled();
+      return __result;
+    }
+    inline void setScrollEnabled(std::optional<bool> scrollEnabled) noexcept override {
+      _swiftPart.setScrollEnabled(scrollEnabled);
+    }
+    inline std::optional<bool> getBounces() noexcept override {
+      auto __result = _swiftPart.getBounces();
+      return __result;
+    }
+    inline void setBounces(std::optional<bool> bounces) noexcept override {
+      _swiftPart.setBounces(bounces);
+    }
+    inline std::optional<bool> getScalesPageToFit() noexcept override {
+      auto __result = _swiftPart.getScalesPageToFit();
+      return __result;
+    }
+    inline void setScalesPageToFit(std::optional<bool> scalesPageToFit) noexcept override {
+      _swiftPart.setScalesPageToFit(scalesPageToFit);
+    }
+    inline std::optional<bool> getMediaPlaybackRequiresUserAction() noexcept override {
+      auto __result = _swiftPart.getMediaPlaybackRequiresUserAction();
+      return __result;
+    }
+    inline void setMediaPlaybackRequiresUserAction(std::optional<bool> mediaPlaybackRequiresUserAction) noexcept override {
+      _swiftPart.setMediaPlaybackRequiresUserAction(mediaPlaybackRequiresUserAction);
+    }
+    inline std::optional<bool> getAllowsInlineMediaPlayback() noexcept override {
+      auto __result = _swiftPart.getAllowsInlineMediaPlayback();
+      return __result;
+    }
+    inline void setAllowsInlineMediaPlayback(std::optional<bool> allowsInlineMediaPlayback) noexcept override {
+      _swiftPart.setAllowsInlineMediaPlayback(allowsInlineMediaPlayback);
+    }
+    inline std::optional<bool> getAllowsBackForwardNavigationGestures() noexcept override {
+      auto __result = _swiftPart.getAllowsBackForwardNavigationGestures();
+      return __result;
+    }
+    inline void setAllowsBackForwardNavigationGestures(std::optional<bool> allowsBackForwardNavigationGestures) noexcept override {
+      _swiftPart.setAllowsBackForwardNavigationGestures(allowsBackForwardNavigationGestures);
+    }
+    inline std::optional<bool> getThirdPartyCookiesEnabled() noexcept override {
+      auto __result = _swiftPart.getThirdPartyCookiesEnabled();
+      return __result;
+    }
+    inline void setThirdPartyCookiesEnabled(std::optional<bool> thirdPartyCookiesEnabled) noexcept override {
+      _swiftPart.setThirdPartyCookiesEnabled(thirdPartyCookiesEnabled);
+    }
+    inline std::optional<bool> getSharedCookiesEnabled() noexcept override {
+      auto __result = _swiftPart.getSharedCookiesEnabled();
+      return __result;
+    }
+    inline void setSharedCookiesEnabled(std::optional<bool> sharedCookiesEnabled) noexcept override {
+      _swiftPart.setSharedCookiesEnabled(sharedCookiesEnabled);
+    }
     inline std::optional<std::string> getInjectedJavaScript() noexcept override {
       auto __result = _swiftPart.getInjectedJavaScript();
       return __result;

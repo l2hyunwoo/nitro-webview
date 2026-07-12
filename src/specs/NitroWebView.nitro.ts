@@ -163,6 +163,149 @@ export interface NitroWebViewProps extends HybridViewProps {
    */
   userAgent?: string
 
+  /**
+   * Enable JavaScript execution. Defaults to `true` (the file chooser needs
+   * it; react-native-webview also defaults JS on).
+   *
+   *   - iOS (WKWebView): `WKPreferences.javaScriptEnabled` at construction.
+   *     Changes after mount are IGNORED (react-native-webview parity -
+   *     WebKit reads the preference when the view is built).
+   *   - Android (WebSettings): `WebSettings.javaScriptEnabled`, mutable
+   *     anytime.
+   *
+   * Turning JS off disables the `window.ReactNativeWebView` message bridge,
+   * `injectedJavaScript`, and the `<input type="file">` chooser.
+   */
+  javaScriptEnabled?: boolean
+
+  /**
+   * Enable DOM storage (`localStorage` / `sessionStorage`). Defaults to
+   * `true`.
+   *
+   *   - Android (WebSettings): `WebSettings.domStorageEnabled`, mutable.
+   *   - iOS (WKWebView): always on, no toggle - accepted for cross-platform
+   *     source parity and ignored (no-op).
+   */
+  domStorageEnabled?: boolean
+
+  /**
+   * Enable the HTTP resource cache.
+   *
+   *   - Android (WebSettings): `true` → `WebSettings.cacheMode =
+   *     LOAD_DEFAULT`; `false` → `LOAD_NO_CACHE`. Mutable anytime.
+   *   - iOS (WKWebView): consumed as `URLRequest.cachePolicy` on the next
+   *     `source`-triggered navigation - `false` uses
+   *     `.reloadIgnoringLocalCacheData`, otherwise `.useProtocolCachePolicy`.
+   *     WKWebView has no global cache switch, so this only affects
+   *     `source`-initiated loads.
+   */
+  cacheEnabled?: boolean
+
+  /**
+   * Non-persistent (incognito / private browsing) data store: cache and DOM
+   * storage live only in memory. Defaults to `false`.
+   *
+   *   - iOS (WKWebView): sets `WKWebViewConfiguration.websiteDataStore =
+   *     .nonPersistent()`. This is a construction-only configuration value -
+   *     effective on the first mount and IGNORED if changed after the
+   *     WebView has navigated (react-native-webview parity; the only way to
+   *     flip it is to remount via a `key` change).
+   *   - Android (WebSettings/CookieManager): there is no first-class
+   *     incognito mode. Cookies written through the cookie API remain
+   *     process-global, so full data isolation is NOT guaranteed on Android.
+   */
+  incognito?: boolean
+
+  /**
+   * iOS-only. Enable user scrolling of the WebView contents. Defaults to
+   * `true`.
+   *
+   *   - iOS (WKWebView): `webView.scrollView.isScrollEnabled`, mutable.
+   *   - Android: no-op. react-native-webview does not implement scroll
+   *     disabling on Android (an `OnTouchListener` that ate touch-move
+   *     events would regress link taps / the file chooser), so this prop is
+   *     accepted for source parity and ignored there.
+   */
+  scrollEnabled?: boolean
+
+  /**
+   * iOS-only. Control the bounce (rubber-band) effect when scrolling past
+   * the content edges. Defaults to `true`.
+   *
+   *   - iOS (WKWebView): `webView.scrollView.bounces`, mutable.
+   *   - Android: no-op (Android WebView uses overscroll glow, not bounce).
+   */
+  bounces?: boolean
+
+  /**
+   * Android-only. Legacy overview-mode / wide-viewport scaling. Defaults to
+   * `false`.
+   *
+   *   - Android (WebSettings): sets both `WebSettings.loadWithOverviewMode`
+   *     and `WebSettings.useWideViewPort` to the prop value.
+   *   - iOS (WKWebView): no-op - WKWebView honors the page's own
+   *     `<meta name="viewport">` and exposes no global scale toggle.
+   */
+  scalesPageToFit?: boolean
+
+  /**
+   * Require a user gesture before HTML5 media can play. Defaults to `true`
+   * (react-native-webview parity - block autoplay).
+   *
+   *   - iOS (WKWebView):
+   *     `WKWebViewConfiguration.mediaTypesRequiringUserActionForPlayback`
+   *     (`.all` / `[]`) at construction. Construction-only - IGNORED if
+   *     changed after the WebView has navigated.
+   *   - Android (WebSettings): `WebSettings.mediaPlaybackRequiresUserGesture`,
+   *     mutable anytime.
+   */
+  mediaPlaybackRequiresUserAction?: boolean
+
+  /**
+   * iOS-only. Play HTML5 video inline instead of forcing the native
+   * fullscreen player. Defaults to `false` (WKWebView default).
+   *
+   *   - iOS (WKWebView): `WKWebViewConfiguration.allowsInlineMediaPlayback`
+   *     at construction. Construction-only - IGNORED if changed after the
+   *     WebView has navigated.
+   *   - Android: no-op (Android WebView already plays video inline).
+   */
+  allowsInlineMediaPlayback?: boolean
+
+  /**
+   * iOS-only. Enable the horizontal swipe gestures that navigate
+   * back/forward in history. Defaults to `false` (WKWebView default).
+   *
+   *   - iOS (WKWebView): `webView.allowsBackForwardNavigationGestures`,
+   *     mutable anytime.
+   *   - Android: no-op (no system back/forward swipe on Android WebView).
+   */
+  allowsBackForwardNavigationGestures?: boolean
+
+  /**
+   * Android-only. Accept third-party (cross-site) cookies for this WebView.
+   *
+   *   - Android (CookieManager): `CookieManager.setAcceptThirdPartyCookies(
+   *     webView, value)` - scoped to THIS WebView, mutable anytime.
+   *   - iOS (WKWebView): no-op - the third-party cookie policy is governed
+   *     by the website data store / Intelligent Tracking Prevention, not a
+   *     per-WebView boolean.
+   */
+  thirdPartyCookiesEnabled?: boolean
+
+  /**
+   * iOS-only. Share the app-wide `HTTPCookieStorage` cookies (those set by
+   * `NSURLSession`) into the WebView's data store at construction, so a
+   * login established outside the WebView is visible inside it. Defaults to
+   * `false`.
+   *
+   *   - iOS (WKWebView): construction-only - IGNORED if changed after the
+   *     WebView has navigated.
+   *   - Android: no-op - Android WebView already shares one process-wide
+   *     `CookieManager`; there is nothing to opt into.
+   */
+  sharedCookiesEnabled?: boolean
+
   /** JavaScript auto-injected on every page load (fire-and-forget). */
   injectedJavaScript?: string
 

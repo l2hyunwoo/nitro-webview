@@ -148,6 +148,114 @@ namespace margelo::nitro::nitrowebview {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* userAgent */)>("setUserAgent");
     method(_javaPart, userAgent.has_value() ? jni::make_jstring(userAgent.value()) : nullptr);
   }
+  std::optional<bool> JHybridNitroWebViewSpec::getJavaScriptEnabled() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getJavaScriptEnabled");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setJavaScriptEnabled(std::optional<bool> javaScriptEnabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* javaScriptEnabled */)>("setJavaScriptEnabled");
+    method(_javaPart, javaScriptEnabled.has_value() ? jni::JBoolean::valueOf(javaScriptEnabled.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getDomStorageEnabled() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getDomStorageEnabled");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setDomStorageEnabled(std::optional<bool> domStorageEnabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* domStorageEnabled */)>("setDomStorageEnabled");
+    method(_javaPart, domStorageEnabled.has_value() ? jni::JBoolean::valueOf(domStorageEnabled.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getCacheEnabled() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getCacheEnabled");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setCacheEnabled(std::optional<bool> cacheEnabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* cacheEnabled */)>("setCacheEnabled");
+    method(_javaPart, cacheEnabled.has_value() ? jni::JBoolean::valueOf(cacheEnabled.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getIncognito() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getIncognito");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setIncognito(std::optional<bool> incognito) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* incognito */)>("setIncognito");
+    method(_javaPart, incognito.has_value() ? jni::JBoolean::valueOf(incognito.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getScrollEnabled() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getScrollEnabled");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setScrollEnabled(std::optional<bool> scrollEnabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* scrollEnabled */)>("setScrollEnabled");
+    method(_javaPart, scrollEnabled.has_value() ? jni::JBoolean::valueOf(scrollEnabled.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getBounces() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getBounces");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setBounces(std::optional<bool> bounces) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* bounces */)>("setBounces");
+    method(_javaPart, bounces.has_value() ? jni::JBoolean::valueOf(bounces.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getScalesPageToFit() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getScalesPageToFit");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setScalesPageToFit(std::optional<bool> scalesPageToFit) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* scalesPageToFit */)>("setScalesPageToFit");
+    method(_javaPart, scalesPageToFit.has_value() ? jni::JBoolean::valueOf(scalesPageToFit.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getMediaPlaybackRequiresUserAction() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getMediaPlaybackRequiresUserAction");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setMediaPlaybackRequiresUserAction(std::optional<bool> mediaPlaybackRequiresUserAction) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* mediaPlaybackRequiresUserAction */)>("setMediaPlaybackRequiresUserAction");
+    method(_javaPart, mediaPlaybackRequiresUserAction.has_value() ? jni::JBoolean::valueOf(mediaPlaybackRequiresUserAction.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getAllowsInlineMediaPlayback() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getAllowsInlineMediaPlayback");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setAllowsInlineMediaPlayback(std::optional<bool> allowsInlineMediaPlayback) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* allowsInlineMediaPlayback */)>("setAllowsInlineMediaPlayback");
+    method(_javaPart, allowsInlineMediaPlayback.has_value() ? jni::JBoolean::valueOf(allowsInlineMediaPlayback.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getAllowsBackForwardNavigationGestures() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getAllowsBackForwardNavigationGestures");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setAllowsBackForwardNavigationGestures(std::optional<bool> allowsBackForwardNavigationGestures) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* allowsBackForwardNavigationGestures */)>("setAllowsBackForwardNavigationGestures");
+    method(_javaPart, allowsBackForwardNavigationGestures.has_value() ? jni::JBoolean::valueOf(allowsBackForwardNavigationGestures.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getThirdPartyCookiesEnabled() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getThirdPartyCookiesEnabled");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setThirdPartyCookiesEnabled(std::optional<bool> thirdPartyCookiesEnabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* thirdPartyCookiesEnabled */)>("setThirdPartyCookiesEnabled");
+    method(_javaPart, thirdPartyCookiesEnabled.has_value() ? jni::JBoolean::valueOf(thirdPartyCookiesEnabled.value()) : nullptr);
+  }
+  std::optional<bool> JHybridNitroWebViewSpec::getSharedCookiesEnabled() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getSharedCookiesEnabled");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional(static_cast<bool>(__result->value())) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setSharedCookiesEnabled(std::optional<bool> sharedCookiesEnabled) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JBoolean> /* sharedCookiesEnabled */)>("setSharedCookiesEnabled");
+    method(_javaPart, sharedCookiesEnabled.has_value() ? jni::JBoolean::valueOf(sharedCookiesEnabled.value()) : nullptr);
+  }
   std::optional<std::string> JHybridNitroWebViewSpec::getInjectedJavaScript() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JString>()>("getInjectedJavaScript");
     auto __result = method(_javaPart);
