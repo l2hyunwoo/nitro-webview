@@ -127,7 +127,7 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onNavigationStateChange` | `(state: WebViewNavigationState) => void` | URL / title / `canGoBack` / `canGoForward` / `loading`. |
 | `onMessage` | `(event: WebViewMessageEvent) => void` | Fires when the page calls `window.ReactNativeWebView.postMessage(...)`. |
 | `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation failure (network, SSL). |
-| `onFileDownload` | `(event: FileDownloadEvent) => void` | Native intercepts a download and surfaces `{ url, mimeType?, fileName?, contentLength?, userAgent? }`. Storage is the JS layer's responsibility. |
+| `onFileDownload` | `(event: FileDownloadEvent) => void` | Native intercepts a download and surfaces `{ url, mimeType?, fileName?, contentLength?, userAgent? }`. Storage is the JS layer's responsibility. Also fires for `blob:` downloads, with `url` resolved to a local `file://` (iOS) / `data:` (Android) URL — see [`FileDownload`](#filedownload--filedownloadevent). |
 | `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
 | `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Recover by calling `reload()`. |
 | `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
@@ -149,6 +149,9 @@ The hybrid ref captured by `hybridRef={callback((r) => ref.current = r)}` expose
 | `getCookies(url)` | `Promise<Cookie[]>` | iOS returns the full attribute set. Android `CookieManager` only exposes `name` and `value` on read — other fields are left `undefined`. |
 | `setCookie(url, cookie)` | `Promise<void>` | `Cookie = { name, value, domain?, path?, expires?, secure?, httpOnly? }`. `expires` is milliseconds since epoch (`Date.now()`-compatible). |
 | `clearCookies()` | `Promise<void>` | Bulk clear via `WKWebsiteDataStore` (iOS) / `CookieManager.removeAllCookies` (Android). The promise resolves only after the platform reports completion. |
+| `clearCache()` | `Promise<void>` | Clear the disk + memory resource cache only (NOT cookies/localStorage/history). iOS scopes `removeData` to `{DiskCache, MemoryCache}`; Android calls `clearCache(true)`. |
+| `clearHistory()` | `Promise<void>` | Clear back/forward history. Android: `WebView.clearHistory()`. **iOS: no-op** — `WKWebView.backForwardList` is read-only with no public prune API (resolves without clearing; navigate to a fresh `source` for a pristine stack). |
+| `requestFocus()` | `Promise<void>` | Move input focus to the WebView. iOS `becomeFirstResponder()`; Android `requestFocus()`. Resolves regardless of the responder's own return value. |
 
 ### Types
 
@@ -254,7 +257,8 @@ interface Cookie {
 
 ```ts
 interface FileDownload {
-  url: string             // always http/https — blob: URLs are out of scope
+  url: string             // normal download: remote http/https URL.
+                          // blob download: a resolved LOCAL reference (see below).
   mimeType?: string
   fileName?: string       // iOS: URLResponse.suggestedFilename
                           // Android: DownloadUtils.guessFileName (Content-Disposition)
@@ -266,6 +270,22 @@ interface FileDownloadEvent {
   nativeEvent: FileDownload
 }
 ```
+
+**Blob downloads (`blob:`) — deliberately platform-asymmetric.** A `blob:`
+URL is not fetchable natively (its bytes live only in the web context), so the
+two platforms resolve it differently and `onFileDownload.nativeEvent.url`
+carries a **local** reference instead of the `blob:` URL:
+
+- **iOS** streams the blob to a temp file natively via `WKDownloadDelegate`
+  (iOS 14.5+) — `url` is a local `file://` URL. No bytes cross the JS bridge.
+- **Android** has no `WKDownloadDelegate` equivalent, so it injects a reader
+  that resolves the blob in-page (`fetch → FileReader.readAsDataURL`) and
+  bridges it back — `url` is a `data:` URL (base64). This is O(fileSize) in
+  memory; fine for the common blob (generated CSV/PDF/image, a few MB), but a
+  very large blob will strain the bridge.
+
+Either way a consumer already listening to `onFileDownload` receives blob
+downloads for free (no extra prop) and can `fetch()`/save `url` uniformly.
 
 ### Origin whitelist helpers
 
