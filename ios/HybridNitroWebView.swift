@@ -13,6 +13,7 @@ final class HybridNitroWebView:
   private let messageHandler = NitroWebViewMessageHandler()
   private let navigationDelegate: NavigationDelegate
   private let uiDelegate: UIDelegate
+  private let scrollDelegate: ScrollDelegate
   private var currentInjectedUserScript: WKUserScript?
 
   var onLoadStart: ((WebViewLoadEvent) -> Void)?
@@ -21,6 +22,9 @@ final class HybridNitroWebView:
   var onMessage: ((WebViewMessageEvent) -> Void)?
   var onError: ((NitroWebViewErrorEvent) -> Void)?
   var onFileDownload: ((FileDownloadEvent) -> Void)?
+  var onHttpError: ((NitroWebViewHttpErrorEvent) -> Void)?
+  var onRenderProcessGone: ((NitroWebViewRenderProcessGoneEvent) -> Void)?
+  var onScroll: ((NitroWebViewScrollEvent) -> Void)?
   /// JS-side navigation-interception hook. When non-nil, every main-frame
   /// navigation surfaces a `ShouldStartLoadRequest` payload to JS via
   /// `dispatchShouldStart`; the Promise's boolean result decides whether
@@ -35,10 +39,17 @@ final class HybridNitroWebView:
     self.view = WKWebView(frame: .zero, configuration: configuration)
     self.navigationDelegate = NavigationDelegate()
     self.uiDelegate = UIDelegate()
+    self.scrollDelegate = ScrollDelegate()
     super.init()
 
     navigationDelegate.owner = self
     view.navigationDelegate = navigationDelegate
+    // Claim the scrollView delegate to surface `onScroll`. WKWebView does
+    // NOT rely on its scrollView delegate internally — momentum, bounce, and
+    // zoom are driven by gesture recognizers, not this delegate — so claiming
+    // it is safe (react-native-webview does exactly this in production).
+    scrollDelegate.owner = self
+    view.scrollView.delegate = scrollDelegate
     // Binding any `WKUIDelegate` is what enables WebKit's built-in
     // `<input type="file">` chooser (camera / photo library / document
     // picker). The delegate itself does not need to implement any picker
@@ -91,7 +102,9 @@ final class HybridNitroWebView:
     controller.removeAllUserScripts()
     view.navigationDelegate = nil
     view.uiDelegate = nil
+    view.scrollView.delegate = nil
     navigationDelegate.owner = nil
+    scrollDelegate.owner = nil
     messageHandler.dispatcher = nil
   }
 
@@ -463,6 +476,15 @@ final class HybridNitroWebView:
       decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
     ) {
       let httpResponse = navigationResponse.response as? HTTPURLResponse
+      // HTTP-error (4xx/5xx) detection for the MAIN frame only. Disjoint from
+      // `onError` (transport failures). Emitted BEFORE the download branch and
+      // WITHOUT returning early: a server-rendered 404 body must still display,
+      // so the navigation continues to the download/allow decision below.
+      if navigationResponse.isForMainFrame,
+         let http = httpResponse,
+         let mapped = HybridNitroWebView.httpError(from: http) {
+        owner?.emitHttpError(mapped)
+      }
       let isDownload = HybridNitroWebView.shouldTreatAsDownload(
         response: httpResponse,
         canShowMIMEType: navigationResponse.canShowMIMEType
@@ -473,6 +495,19 @@ final class HybridNitroWebView:
       }
       owner?.emitFileDownload(for: navigationResponse.response)
       decisionHandler(.cancel)
+    }
+
+    /// The web content process terminated (crash or OS reclaim) leaving a
+    /// blank page. WebKit calls this on the main thread, so we emit directly
+    /// with no thread hop. `didCrash` is always `nil` — WebKit exposes no
+    /// crash-vs-reclaim discriminator on iOS. JS typically responds by
+    /// calling `reload()` (the same WKWebView instance is reusable).
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+      owner?.onRenderProcessGone?(
+        NitroWebViewRenderProcessGoneEvent(
+          nativeEvent: NitroWebViewRenderProcessGoneNativeEvent(didCrash: nil)
+        )
+      )
     }
   }
 
@@ -564,6 +599,46 @@ final class HybridNitroWebView:
       )
     )
     onError?(payload)
+  }
+
+  /// Map an `HTTPURLResponse` to a [MappedHttpError] when the status is a
+  /// 4xx/5xx error, otherwise `nil` (a 2xx/3xx response is not an error).
+  /// Standalone + static so it can be exercised by host-side XCTest with a
+  /// hand-built `HTTPURLResponse` — no `WKWebView` needed. Deliberately NOT
+  /// folded into `NitroWebViewErrorMapper`: an HTTP error carries a
+  /// `statusCode` but no `NSError` code/domain (Stamp coupling avoided).
+  static func httpError(from response: HTTPURLResponse) -> MappedHttpError? {
+    guard (400...599).contains(response.statusCode) else { return nil }
+    return MappedHttpError(
+      statusCode: response.statusCode,
+      url: response.url?.absoluteString ?? "",
+      description: HTTPURLResponse.localizedString(forStatusCode: response.statusCode)
+    )
+  }
+
+  fileprivate func emitHttpError(_ mapped: MappedHttpError) {
+    onHttpError?(
+      NitroWebViewHttpErrorEvent(
+        nativeEvent: NitroWebViewHttpErrorNativeEvent(
+          statusCode: Double(mapped.statusCode),
+          url: mapped.url,
+          description: mapped.description
+        )
+      )
+    )
+  }
+
+  /// Build the cross-platform scroll payload from a `UIScrollView`. Takes a
+  /// bare `UIScrollView` (not the WebView) so it can be unit-tested on the
+  /// host with a plain scroll view. iOS populates every field.
+  static func scrollEvent(from sv: UIScrollView) -> NitroWebViewScrollNativeEvent {
+    NitroWebViewScrollNativeEvent(
+      contentOffset: WebViewPoint(x: Double(sv.contentOffset.x), y: Double(sv.contentOffset.y)),
+      contentSize: WebViewPoint(x: Double(sv.contentSize.width), y: Double(sv.contentSize.height)),
+      contentInset: WebViewPoint(x: Double(sv.contentInset.left), y: Double(sv.contentInset.top)),
+      layoutMeasurement: WebViewPoint(x: Double(sv.bounds.width), y: Double(sv.bounds.height)),
+      zoomScale: Double(sv.zoomScale)
+    )
   }
 
   private func snapshotNavigationState() -> WebViewNavigationState {
@@ -776,3 +851,34 @@ final class HybridNitroWebView:
 /// selector `runOpenPanelWith:initiatedByFrame:completionHandler:` must
 /// NOT be implemented on this class.
 fileprivate final class UIDelegate: NSObject, WKUIDelegate {}
+
+// MARK: - HTTP-error value type
+
+/// Result of mapping an `HTTPURLResponse` 4xx/5xx status into the
+/// cross-platform `onHttpError` payload fields. `Equatable` so host-side
+/// XCTest can assert per-field equality against a hand-built response.
+struct MappedHttpError: Equatable {
+  let statusCode: Int
+  let url: String
+  let description: String
+}
+
+// MARK: - UIScrollViewDelegate (scroll stream)
+
+/// Dedicated `UIScrollViewDelegate` claimed on `WKWebView.scrollView` to
+/// surface `onScroll`. Kept as a separate `NSObject` subclass (same reason
+/// as `UIDelegate`) rather than adopting `UIScrollViewDelegate` on the
+/// hybrid class. No scroll-driving delegate method is implemented — only the
+/// read-only `scrollViewDidScroll` observation — so claiming the delegate
+/// does not interfere with WKWebView's own scroll behavior.
+fileprivate final class ScrollDelegate: NSObject, UIScrollViewDelegate {
+  weak var owner: HybridNitroWebView?
+
+  func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    owner?.onScroll?(
+      NitroWebViewScrollEvent(
+        nativeEvent: HybridNitroWebView.scrollEvent(from: scrollView)
+      )
+    )
+  }
+}

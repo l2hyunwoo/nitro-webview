@@ -30,6 +30,9 @@
 #include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
 #include "FileDownloadEvent.hpp"
+#include "NitroWebViewHttpErrorEvent.hpp"
+#include "NitroWebViewRenderProcessGoneEvent.hpp"
+#include "NitroWebViewScrollEvent.hpp"
 #include <memory>
 #include "HybridNitroWebViewSpec.hpp"
 
@@ -77,6 +80,9 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
     CachedProp<std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>> onShouldStartLoadWithRequest;
     CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;
+    CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>> onHttpError;
+    CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>> onRenderProcessGone;
+    CachedProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>> onScroll;
     CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> hybridRef;
 
   private:

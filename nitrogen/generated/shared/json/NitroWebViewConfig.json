@@ -28,6 +28,9 @@
     "onError": true,
     "onShouldStartLoadWithRequest": true,
     "onFileDownload": true,
+    "onHttpError": true,
+    "onRenderProcessGone": true,
+    "onScroll": true,
     "hybridRef": true
   }
 }

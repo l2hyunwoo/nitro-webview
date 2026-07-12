@@ -133,6 +133,18 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setOnFileDownload(props->onFileDownload.value);
     props->onFileDownload.isDirty = false;
   }
+  if (props->onHttpError.isDirty) {
+    hybridView->setOnHttpError(props->onHttpError.value);
+    props->onHttpError.isDirty = false;
+  }
+  if (props->onRenderProcessGone.isDirty) {
+    hybridView->setOnRenderProcessGone(props->onRenderProcessGone.value);
+    props->onRenderProcessGone.isDirty = false;
+  }
+  if (props->onScroll.isDirty) {
+    hybridView->setOnScroll(props->onScroll.value);
+    props->onScroll.isDirty = false;
+  }
 
   // Update hybridRef if it changed
   if (props->hybridRef.isDirty) {

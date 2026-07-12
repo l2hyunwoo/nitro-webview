@@ -415,6 +415,126 @@ export interface NitroWebViewProps extends HybridViewProps {
    * are explicitly out of scope for this MVP and do not surface an event.
    */
   onFileDownload?: (event: FileDownloadEvent) => void
+
+  /**
+   * Fired when the WebView receives an HTTP error status (4xx/5xx) for a
+   * **main-frame** navigation. Sub-resource failures (images, scripts,
+   * iframes) never surface here — Android's `onReceivedHttpError` fires per
+   * sub-resource and is filtered to main-frame only.
+   *
+   * Disjoint from {@linkcode onError}: `onError` covers transport-level
+   * failures (DNS/TLS/reset/timeout) which carry no HTTP status, while
+   * `onHttpError` covers HTTP status codes from a response the server did
+   * send. The two are mutually exclusive by construction.
+   *
+   *   - iOS (WKWebView): read from `HTTPURLResponse.statusCode` inside
+   *     `decidePolicyFor navigationResponse`. A server-rendered 404 body
+   *     still displays — the event fires but the navigation is not
+   *     cancelled.
+   *   - Android (WebViewClient): `onReceivedHttpError`, filtered to
+   *     `request.isForMainFrame`.
+   *
+   * May fire more than once per navigation (redirect hops); it is NOT
+   * deduped natively and does not suppress `onLoadEnd` / `onPageFinished`.
+   */
+  onHttpError?: (event: NitroWebViewHttpErrorEvent) => void
+
+  /**
+   * Fired when the WebView's renderer process is gone — a crash or an OS
+   * reclaim leaving a blank page with no built-in recovery. JS typically
+   * responds by calling {@linkcode NitroWebViewMethods.reload} or remounting.
+   *
+   *   - Android (`onRenderProcessGone`, API 26+): `nativeEvent.didCrash`
+   *     mirrors `RenderProcessGoneDetail.didCrash()` (`false` = the OS
+   *     reclaimed the renderer to free memory, not a crash). The native side
+   *     unconditionally returns `true` so the host app survives. API < 26
+   *     never emits.
+   *   - iOS (`webViewWebContentProcessDidTerminate`): `nativeEvent.didCrash`
+   *     is always `undefined` — WebKit exposes no crash-vs-reclaim
+   *     discriminator. Fires on the main thread.
+   */
+  onRenderProcessGone?: (event: NitroWebViewRenderProcessGoneEvent) => void
+
+  /**
+   * Fired continuously as the WebView scrolls. High-frequency and NOT
+   * throttled natively (react-native-webview parity) — throttle in JS if
+   * needed. NOT deduped: every scroll tick is a distinct event.
+   *
+   *   - iOS (`UIScrollViewDelegate.scrollViewDidScroll`): all fields
+   *     populated (`contentOffset`, `contentSize`, `contentInset`,
+   *     `layoutMeasurement`, `zoomScale`).
+   *   - Android (`View.OnScrollChangeListener`): only `contentOffset` is
+   *     populated; `contentSize` is a zero point and the iOS-only fields
+   *     are `undefined`. Android's `computeVerticalScrollRange()` /
+   *     `computeHorizontalScrollRange()` are protected and unreachable from
+   *     the listener lambda without subclassing `WebView`, which this
+   *     library avoids everywhere.
+   */
+  onScroll?: (event: NitroWebViewScrollEvent) => void
+}
+
+/** A 2D point exchanged across the JS/native boundary (scroll geometry). */
+export interface WebViewPoint {
+  x: number
+  y: number
+}
+
+/**
+ * Inner payload of {@linkcode NitroWebViewHttpErrorEvent}.
+ *
+ * Field mapping:
+ *   - `statusCode`  — `HTTPURLResponse.statusCode` (iOS) /
+ *                     `WebResourceResponse.getStatusCode()` (Android).
+ *   - `url`         — Failing URL. `navigationResponse.response.url` (iOS) /
+ *                     `WebResourceRequest.getUrl()` (Android).
+ *   - `description` — Human-readable reason. `HTTPURLResponse
+ *                     .localizedString(forStatusCode:)` (iOS) /
+ *                     `WebResourceResponse.getReasonPhrase()` (Android).
+ */
+export interface NitroWebViewHttpErrorNativeEvent {
+  statusCode: number
+  url: string
+  description: string
+}
+
+export interface NitroWebViewHttpErrorEvent {
+  nativeEvent: NitroWebViewHttpErrorNativeEvent
+}
+
+/**
+ * Inner payload of {@linkcode NitroWebViewRenderProcessGoneEvent}.
+ * `didCrash` is Android-only (`RenderProcessGoneDetail.didCrash()`); it is
+ * always `undefined` on iOS.
+ */
+export interface NitroWebViewRenderProcessGoneNativeEvent {
+  didCrash?: boolean
+}
+
+export interface NitroWebViewRenderProcessGoneEvent {
+  nativeEvent: NitroWebViewRenderProcessGoneNativeEvent
+}
+
+/**
+ * Inner payload of {@linkcode NitroWebViewScrollEvent}.
+ *
+ *   - `contentOffset`     — current scroll position (both platforms).
+ *   - `contentSize`       — scrollable content size. iOS: real value.
+ *                           Android: zero point (unreachable without
+ *                           subclassing WebView).
+ *   - `contentInset`      — iOS-only; `undefined` on Android.
+ *   - `layoutMeasurement` — iOS-only viewport size; `undefined` on Android.
+ *   - `zoomScale`         — iOS-only; `undefined` on Android.
+ */
+export interface NitroWebViewScrollNativeEvent {
+  contentOffset: WebViewPoint
+  contentSize: WebViewPoint
+  contentInset?: WebViewPoint
+  layoutMeasurement?: WebViewPoint
+  zoomScale?: number
+}
+
+export interface NitroWebViewScrollEvent {
+  nativeEvent: NitroWebViewScrollNativeEvent
 }
 
 export interface NitroWebViewMethods extends HybridViewMethods {

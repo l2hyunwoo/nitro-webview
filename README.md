@@ -128,6 +128,9 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onMessage` | `(event: WebViewMessageEvent) => void` | Fires when the page calls `window.ReactNativeWebView.postMessage(...)`. |
 | `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation failure (network, SSL). |
 | `onFileDownload` | `(event: FileDownloadEvent) => void` | Native intercepts a download and surfaces `{ url, mimeType?, fileName?, contentLength?, userAgent? }`. Storage is the JS layer's responsibility. |
+| `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
+| `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Recover by calling `reload()`. |
+| `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
 | `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow/block each navigation before it starts. Returning `false` (or a `Promise` resolving to `false`) cancels silently. |
 
 #### Methods (via `hybridRef`)
