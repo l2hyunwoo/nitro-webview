@@ -115,6 +115,42 @@ final class HybridNitroWebView:
     }
   }
 
+  // MARK: - Settings props
+
+  // Applied live in didSet; nil restores the documented default.
+  var scrollEnabled: Bool? {
+    didSet { view.scrollView.isScrollEnabled = scrollEnabled ?? true }
+  }
+  var bounces: Bool? {
+    didSet { view.scrollView.bounces = bounces ?? true }
+  }
+  var allowsBackForwardNavigationGestures: Bool? {
+    didSet {
+      view.allowsBackForwardNavigationGestures =
+        allowsBackForwardNavigationGestures ?? false
+    }
+  }
+
+  /// Consumed in `applySource` when building the next `URLRequest`
+  /// (WKWebView has no global cache switch). Stored here; see
+  /// `Self.cachePolicy(forCacheEnabled:)`.
+  var cacheEnabled: Bool?
+
+  // No-op on iOS / no iOS knob: stored but never applied, on any render. See
+  // each prop's JSDoc in `NitroWebView.nitro.ts` for why - Nitro delivers
+  // props strictly after `init()` runs, so the WKWebView-configuration-only
+  // ones (incognito, javaScriptEnabled, mediaPlaybackRequiresUserAction,
+  // allowsInlineMediaPlayback, sharedCookiesEnabled) never have a window in
+  // which their value is known before the view is built.
+  var incognito: Bool?
+  var mediaPlaybackRequiresUserAction: Bool?
+  var allowsInlineMediaPlayback: Bool?
+  var sharedCookiesEnabled: Bool?
+  var domStorageEnabled: Bool?
+  var scalesPageToFit: Bool?
+  var thirdPartyCookiesEnabled: Bool?
+  var javaScriptEnabled: Bool?
+
   var injectedJavaScript: String? {
     didSet { applyInjectedJavaScript(injectedJavaScript) }
   }
@@ -207,6 +243,7 @@ final class HybridNitroWebView:
     case .first(let uri):
       guard let url = URL(string: uri.uri) else { return }
       var request = URLRequest(url: url)
+      request.cachePolicy = Self.cachePolicy(forCacheEnabled: cacheEnabled)
       let merged = Self.mergeHeaders(
         defaults: defaultHeaders,
         perRequest: uri.headers
@@ -441,6 +478,19 @@ final class HybridNitroWebView:
     if !canShowMIMEType { return true }
     // Rule 3: render inline.
     return false
+  }
+
+  /// Map the `cacheEnabled` prop to the `URLRequest.cachePolicy` used for
+  /// the next `source`-triggered navigation. `false` bypasses the local
+  /// cache (`.reloadIgnoringLocalCacheData`); `true` or `nil` (unset) uses
+  /// the protocol default (`.useProtocolCachePolicy`). Standalone static so
+  /// it can be exercised by `swift test` on the macOS host without a real
+  /// `WKWebView`.
+  static func cachePolicy(forCacheEnabled cacheEnabled: Bool?)
+    -> URLRequest.CachePolicy {
+    return cacheEnabled == false
+      ? .reloadIgnoringLocalCacheData
+      : .useProtocolCachePolicy
   }
 
   fileprivate func emitLoadStart() {

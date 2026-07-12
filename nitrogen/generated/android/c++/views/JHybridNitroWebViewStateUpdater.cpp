@@ -49,6 +49,54 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setUserAgent(props->userAgent.value);
     props->userAgent.isDirty = false;
   }
+  if (props->javaScriptEnabled.isDirty) {
+    hybridView->setJavaScriptEnabled(props->javaScriptEnabled.value);
+    props->javaScriptEnabled.isDirty = false;
+  }
+  if (props->domStorageEnabled.isDirty) {
+    hybridView->setDomStorageEnabled(props->domStorageEnabled.value);
+    props->domStorageEnabled.isDirty = false;
+  }
+  if (props->cacheEnabled.isDirty) {
+    hybridView->setCacheEnabled(props->cacheEnabled.value);
+    props->cacheEnabled.isDirty = false;
+  }
+  if (props->incognito.isDirty) {
+    hybridView->setIncognito(props->incognito.value);
+    props->incognito.isDirty = false;
+  }
+  if (props->scrollEnabled.isDirty) {
+    hybridView->setScrollEnabled(props->scrollEnabled.value);
+    props->scrollEnabled.isDirty = false;
+  }
+  if (props->bounces.isDirty) {
+    hybridView->setBounces(props->bounces.value);
+    props->bounces.isDirty = false;
+  }
+  if (props->scalesPageToFit.isDirty) {
+    hybridView->setScalesPageToFit(props->scalesPageToFit.value);
+    props->scalesPageToFit.isDirty = false;
+  }
+  if (props->mediaPlaybackRequiresUserAction.isDirty) {
+    hybridView->setMediaPlaybackRequiresUserAction(props->mediaPlaybackRequiresUserAction.value);
+    props->mediaPlaybackRequiresUserAction.isDirty = false;
+  }
+  if (props->allowsInlineMediaPlayback.isDirty) {
+    hybridView->setAllowsInlineMediaPlayback(props->allowsInlineMediaPlayback.value);
+    props->allowsInlineMediaPlayback.isDirty = false;
+  }
+  if (props->allowsBackForwardNavigationGestures.isDirty) {
+    hybridView->setAllowsBackForwardNavigationGestures(props->allowsBackForwardNavigationGestures.value);
+    props->allowsBackForwardNavigationGestures.isDirty = false;
+  }
+  if (props->thirdPartyCookiesEnabled.isDirty) {
+    hybridView->setThirdPartyCookiesEnabled(props->thirdPartyCookiesEnabled.value);
+    props->thirdPartyCookiesEnabled.isDirty = false;
+  }
+  if (props->sharedCookiesEnabled.isDirty) {
+    hybridView->setSharedCookiesEnabled(props->sharedCookiesEnabled.value);
+    props->sharedCookiesEnabled.isDirty = false;
+  }
   if (props->injectedJavaScript.isDirty) {
     hybridView->setInjectedJavaScript(props->injectedJavaScript.value);
     props->injectedJavaScript.isDirty = false;

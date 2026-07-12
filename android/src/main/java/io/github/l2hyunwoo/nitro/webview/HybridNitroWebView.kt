@@ -10,6 +10,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.facebook.react.bridge.ActivityEventListener
@@ -37,6 +38,11 @@ import java.net.URLDecoder
 class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec() {
 
   override val view: WebView = WebView(context).also { wv ->
+    // Baseline defaults. Android WebView ships JavaScript and DOM storage
+    // OFF; without JS the `<input type="file">` chooser never reaches the
+    // WebChromeClient (Chromium routes the picker through its renderer,
+    // dormant when JS is off) and the injected message bridge is dead. These
+    // stay ON by default; the prop setters below override them on demand.
     wv.settings.javaScriptEnabled = true
     wv.settings.domStorageEnabled = true
     // Required for `<input type="file">` to open the file chooser via the
@@ -145,6 +151,99 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       }
     }
 
+  // region: Settings props
+  //
+  // Every Android WebSettings / CookieManager setter is mutable at any time,
+  // but WebSettings is not thread-safe, so each mutation hops to the UI
+  // thread via `view.post { }` (same convention as `userAgent`). Props are
+  // nullable: `null` (prop unset) leaves the platform default untouched.
+
+  override var javaScriptEnabled: Boolean? = null
+    set(value) {
+      field = value
+      if (value != null) view.post { view.settings.javaScriptEnabled = value }
+    }
+
+  override var domStorageEnabled: Boolean? = null
+    set(value) {
+      field = value
+      if (value != null) view.post { view.settings.domStorageEnabled = value }
+    }
+
+  override var cacheEnabled: Boolean? = null
+    set(value) {
+      field = value
+      if (value != null) view.post { view.settings.cacheMode = cacheModeFor(value) }
+    }
+
+  /**
+   * There is no first-class incognito mode on Android. Approximate it by
+   * disabling DOM storage and the disk cache for this WebView. Cookies
+   * written through the cookie API stay process-global (a single
+   * `CookieManager` per process), so full data isolation is NOT guaranteed
+   * (documented on the prop's JSDoc).
+   *
+   * Turning `incognito` back off restores whatever `domStorageEnabled` /
+   * `cacheEnabled` the consumer explicitly set (or Android's own defaults -
+   * DOM storage on, `LOAD_DEFAULT` - if those props were never set), instead
+   * of leaving the WebView stuck on the incognito values.
+   */
+  override var incognito: Boolean? = null
+    set(value) {
+      field = value
+      view.post {
+        if (value == true) {
+          view.settings.domStorageEnabled = false
+          view.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        } else {
+          view.settings.domStorageEnabled = domStorageEnabled ?: true
+          view.settings.cacheMode = cacheEnabled?.let { cacheModeFor(it) } ?: WebSettings.LOAD_DEFAULT
+        }
+      }
+    }
+
+  override var mediaPlaybackRequiresUserAction: Boolean? = null
+    set(value) {
+      field = value
+      if (value != null) {
+        view.post { view.settings.mediaPlaybackRequiresUserGesture = value }
+      }
+    }
+
+  override var scalesPageToFit: Boolean? = null
+    set(value) {
+      field = value
+      if (value != null) {
+        view.post {
+          view.settings.loadWithOverviewMode = value
+          view.settings.useWideViewPort = value
+        }
+      }
+    }
+
+  override var thirdPartyCookiesEnabled: Boolean? = null
+    set(value) {
+      field = value
+      if (value != null) {
+        view.post {
+          CookieManager.getInstance().setAcceptThirdPartyCookies(view, value)
+        }
+      }
+    }
+
+  // iOS-only props (react-native-webview parity): no Android equivalent, so
+  // these store the value and apply nothing. `scrollEnabled` is included
+  // here because react-native-webview does not implement scroll disabling on
+  // Android (an OnTouchListener eating ACTION_MOVE would regress link taps /
+  // the file chooser / shouldOverrideUrlLoading).
+  override var scrollEnabled: Boolean? = null
+  override var bounces: Boolean? = null
+  override var allowsInlineMediaPlayback: Boolean? = null
+  override var allowsBackForwardNavigationGestures: Boolean? = null
+  override var sharedCookiesEnabled: Boolean? = null
+
+  // endregion
+
   override var injectedJavaScript: String? = null
     set(value) {
       field = value
@@ -178,14 +277,6 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   )? = null
 
   init {
-    // Android WebView defaults are extremely conservative — JavaScript is
-    // disabled and DOM storage is off. Without JS, `<input type="file">`
-    // taps never reach the WebChromeClient (Chromium routes the picker
-    // through its renderer process, which is dormant when JS is off). Turn
-    // on the minimal surface our injected bridge and the four MVP features
-    // depend on.
-    view.settings.javaScriptEnabled = true
-    view.settings.domStorageEnabled = true
     view.webViewClient = ClientImpl()
     view.webChromeClient = webChromeClient
     view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
@@ -788,6 +879,16 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         fallback(url, contentDisposition, mimetype)
       }
     }
+
+    /**
+     * Map the `cacheEnabled` prop to a `WebSettings.cacheMode` constant:
+     * `true` -> `LOAD_DEFAULT` (use the HTTP cache normally); `false` ->
+     * `LOAD_NO_CACHE` (always hit the network). Extracted so the boolean ->
+     * constant mapping can be unit-tested without a real `WebView`.
+     */
+    @JvmStatic
+    internal fun cacheModeFor(enabled: Boolean): Int =
+      if (enabled) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_NO_CACHE
 
     /**
      * Merge `defaults` and `perRequest` headers with per-request taking

@@ -188,5 +188,12 @@ let package = Package(
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewShouldStartTests"
     ),
+    .testTarget(
+      // cacheEnabled -> URLRequest.cachePolicy mapping; see the test file
+      // header for the mirror-probe rationale.
+      name: "HybridNitroWebViewCachePolicyTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/HybridNitroWebViewCachePolicyTests"
+    ),
   ]
 )

@@ -94,6 +94,66 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setUserAgent(newViewProps.userAgent.value);
     newViewProps.userAgent.isDirty = false;
   }
+  // javaScriptEnabled: optional
+  if (newViewProps.javaScriptEnabled.isDirty) {
+    swiftPart.setJavaScriptEnabled(newViewProps.javaScriptEnabled.value);
+    newViewProps.javaScriptEnabled.isDirty = false;
+  }
+  // domStorageEnabled: optional
+  if (newViewProps.domStorageEnabled.isDirty) {
+    swiftPart.setDomStorageEnabled(newViewProps.domStorageEnabled.value);
+    newViewProps.domStorageEnabled.isDirty = false;
+  }
+  // cacheEnabled: optional
+  if (newViewProps.cacheEnabled.isDirty) {
+    swiftPart.setCacheEnabled(newViewProps.cacheEnabled.value);
+    newViewProps.cacheEnabled.isDirty = false;
+  }
+  // incognito: optional
+  if (newViewProps.incognito.isDirty) {
+    swiftPart.setIncognito(newViewProps.incognito.value);
+    newViewProps.incognito.isDirty = false;
+  }
+  // scrollEnabled: optional
+  if (newViewProps.scrollEnabled.isDirty) {
+    swiftPart.setScrollEnabled(newViewProps.scrollEnabled.value);
+    newViewProps.scrollEnabled.isDirty = false;
+  }
+  // bounces: optional
+  if (newViewProps.bounces.isDirty) {
+    swiftPart.setBounces(newViewProps.bounces.value);
+    newViewProps.bounces.isDirty = false;
+  }
+  // scalesPageToFit: optional
+  if (newViewProps.scalesPageToFit.isDirty) {
+    swiftPart.setScalesPageToFit(newViewProps.scalesPageToFit.value);
+    newViewProps.scalesPageToFit.isDirty = false;
+  }
+  // mediaPlaybackRequiresUserAction: optional
+  if (newViewProps.mediaPlaybackRequiresUserAction.isDirty) {
+    swiftPart.setMediaPlaybackRequiresUserAction(newViewProps.mediaPlaybackRequiresUserAction.value);
+    newViewProps.mediaPlaybackRequiresUserAction.isDirty = false;
+  }
+  // allowsInlineMediaPlayback: optional
+  if (newViewProps.allowsInlineMediaPlayback.isDirty) {
+    swiftPart.setAllowsInlineMediaPlayback(newViewProps.allowsInlineMediaPlayback.value);
+    newViewProps.allowsInlineMediaPlayback.isDirty = false;
+  }
+  // allowsBackForwardNavigationGestures: optional
+  if (newViewProps.allowsBackForwardNavigationGestures.isDirty) {
+    swiftPart.setAllowsBackForwardNavigationGestures(newViewProps.allowsBackForwardNavigationGestures.value);
+    newViewProps.allowsBackForwardNavigationGestures.isDirty = false;
+  }
+  // thirdPartyCookiesEnabled: optional
+  if (newViewProps.thirdPartyCookiesEnabled.isDirty) {
+    swiftPart.setThirdPartyCookiesEnabled(newViewProps.thirdPartyCookiesEnabled.value);
+    newViewProps.thirdPartyCookiesEnabled.isDirty = false;
+  }
+  // sharedCookiesEnabled: optional
+  if (newViewProps.sharedCookiesEnabled.isDirty) {
+    swiftPart.setSharedCookiesEnabled(newViewProps.sharedCookiesEnabled.value);
+    newViewProps.sharedCookiesEnabled.isDirty = false;
+  }
   // injectedJavaScript: optional
   if (newViewProps.injectedJavaScript.isDirty) {
     swiftPart.setInjectedJavaScript(newViewProps.injectedJavaScript.value);

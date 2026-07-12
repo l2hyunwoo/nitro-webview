@@ -56,6 +56,126 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.userAgent: ") + exc.what());
       }
     }()),
+    javaScriptEnabled([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("javaScriptEnabled", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.javaScriptEnabled;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.javaScriptEnabled);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.javaScriptEnabled: ") + exc.what());
+      }
+    }()),
+    domStorageEnabled([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("domStorageEnabled", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.domStorageEnabled;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.domStorageEnabled);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.domStorageEnabled: ") + exc.what());
+      }
+    }()),
+    cacheEnabled([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("cacheEnabled", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.cacheEnabled;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.cacheEnabled);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.cacheEnabled: ") + exc.what());
+      }
+    }()),
+    incognito([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("incognito", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.incognito;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.incognito);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.incognito: ") + exc.what());
+      }
+    }()),
+    scrollEnabled([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("scrollEnabled", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.scrollEnabled;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.scrollEnabled);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.scrollEnabled: ") + exc.what());
+      }
+    }()),
+    bounces([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("bounces", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.bounces;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.bounces);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.bounces: ") + exc.what());
+      }
+    }()),
+    scalesPageToFit([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("scalesPageToFit", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.scalesPageToFit;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.scalesPageToFit);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.scalesPageToFit: ") + exc.what());
+      }
+    }()),
+    mediaPlaybackRequiresUserAction([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("mediaPlaybackRequiresUserAction", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.mediaPlaybackRequiresUserAction;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.mediaPlaybackRequiresUserAction);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.mediaPlaybackRequiresUserAction: ") + exc.what());
+      }
+    }()),
+    allowsInlineMediaPlayback([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("allowsInlineMediaPlayback", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.allowsInlineMediaPlayback;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.allowsInlineMediaPlayback);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.allowsInlineMediaPlayback: ") + exc.what());
+      }
+    }()),
+    allowsBackForwardNavigationGestures([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("allowsBackForwardNavigationGestures", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.allowsBackForwardNavigationGestures;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.allowsBackForwardNavigationGestures);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.allowsBackForwardNavigationGestures: ") + exc.what());
+      }
+    }()),
+    thirdPartyCookiesEnabled([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("thirdPartyCookiesEnabled", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.thirdPartyCookiesEnabled;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.thirdPartyCookiesEnabled);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.thirdPartyCookiesEnabled: ") + exc.what());
+      }
+    }()),
+    sharedCookiesEnabled([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("sharedCookiesEnabled", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.sharedCookiesEnabled;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.sharedCookiesEnabled);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.sharedCookiesEnabled: ") + exc.what());
+      }
+    }()),
     injectedJavaScript([&]() -> CachedProp<std::optional<std::string>> {
       try {
         const react::RawValue* rawValue = rawProps.at("injectedJavaScript", nullptr, nullptr);
@@ -152,6 +272,18 @@ namespace margelo::nitro::nitrowebview::views {
       case hashString("source"): return true;
       case hashString("defaultHeaders"): return true;
       case hashString("userAgent"): return true;
+      case hashString("javaScriptEnabled"): return true;
+      case hashString("domStorageEnabled"): return true;
+      case hashString("cacheEnabled"): return true;
+      case hashString("incognito"): return true;
+      case hashString("scrollEnabled"): return true;
+      case hashString("bounces"): return true;
+      case hashString("scalesPageToFit"): return true;
+      case hashString("mediaPlaybackRequiresUserAction"): return true;
+      case hashString("allowsInlineMediaPlayback"): return true;
+      case hashString("allowsBackForwardNavigationGestures"): return true;
+      case hashString("thirdPartyCookiesEnabled"): return true;
+      case hashString("sharedCookiesEnabled"): return true;
       case hashString("injectedJavaScript"): return true;
       case hashString("onLoadStart"): return true;
       case hashString("onLoadEnd"): return true;

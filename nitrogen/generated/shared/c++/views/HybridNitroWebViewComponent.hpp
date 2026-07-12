@@ -56,6 +56,18 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::variant<UriSource, HtmlSource>> source;
     CachedProp<std::optional<std::unordered_map<std::string, std::string>>> defaultHeaders;
     CachedProp<std::optional<std::string>> userAgent;
+    CachedProp<std::optional<bool>> javaScriptEnabled;
+    CachedProp<std::optional<bool>> domStorageEnabled;
+    CachedProp<std::optional<bool>> cacheEnabled;
+    CachedProp<std::optional<bool>> incognito;
+    CachedProp<std::optional<bool>> scrollEnabled;
+    CachedProp<std::optional<bool>> bounces;
+    CachedProp<std::optional<bool>> scalesPageToFit;
+    CachedProp<std::optional<bool>> mediaPlaybackRequiresUserAction;
+    CachedProp<std::optional<bool>> allowsInlineMediaPlayback;
+    CachedProp<std::optional<bool>> allowsBackForwardNavigationGestures;
+    CachedProp<std::optional<bool>> thirdPartyCookiesEnabled;
+    CachedProp<std::optional<bool>> sharedCookiesEnabled;
     CachedProp<std::optional<std::string>> injectedJavaScript;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;
