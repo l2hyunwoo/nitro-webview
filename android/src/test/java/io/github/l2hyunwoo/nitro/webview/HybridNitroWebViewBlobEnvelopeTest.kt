@@ -79,7 +79,10 @@ class HybridNitroWebViewBlobEnvelopeTest {
   @Test
   fun `buildBlobReaderScript_embedsBridgeAndReservedKey`() {
     val js = HybridNitroWebView.buildBlobReaderScript("blob:https://x/abc", "report.pdf")
-    assertTrue("must fetch the blob url", js.contains("blob:https://x/abc"))
+    // org.json.JSONObject.quote escapes '/' as '\/' per the JSON spec (both
+    // are valid inside a JS string literal and decode to the same character;
+    // only the SOURCE representation differs from the raw URL).
+    assertTrue("must fetch the blob url", js.contains("blob:https:\\/\\/x\\/abc"))
     assertTrue("must read as data url", js.contains("readAsDataURL"))
     assertTrue("must post the reserved key", js.contains("__nitro_blob__"))
     assertTrue(
@@ -91,10 +94,11 @@ class HybridNitroWebViewBlobEnvelopeTest {
   @Test
   fun `buildBlobReaderScript_jsonEncodesInputs_soQuotesCannotBreakOut`() {
     // A URL/name with quotes+backslashes must be JSON-encoded so it cannot
-    // terminate the source-string literal.
+    // terminate the source-string literal. '/' is also escaped as '\/' by
+    // org.json.JSONObject.quote (see the sibling test above).
     val js = HybridNitroWebView.buildBlobReaderScript("""blob:https://x/a"b\c""", """n"a\me""")
     // The raw unescaped forms must NOT appear verbatim; the escaped forms must.
-    assertTrue(js.contains("""blob:https://x/a\"b\\c"""))
+    assertTrue(js.contains("""blob:https:\/\/x\/a\"b\\c"""))
     assertTrue(js.contains("""n\"a\\me"""))
   }
 }
