@@ -33,6 +33,8 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   var onMessage: ((_ event: WebViewMessageEvent) -> Void)? { get set }
   var onError: ((_ event: NitroWebViewErrorEvent) -> Void)? { get set }
   var onShouldStartLoadWithRequest: ((_ event: ShouldStartLoadRequest) -> Promise<Bool>)? { get set }
+  var interceptSubframeNavigation: Bool? { get set }
+  var onOpenWindow: ((_ event: OpenWindowEvent) -> Void)? { get set }
   var onFileDownload: ((_ event: FileDownloadEvent) -> Void)? { get set }
   var onHttpError: ((_ event: NitroWebViewHttpErrorEvent) -> Void)? { get set }
   var onRenderProcessGone: ((_ event: NitroWebViewRenderProcessGoneEvent) -> Void)? { get set }

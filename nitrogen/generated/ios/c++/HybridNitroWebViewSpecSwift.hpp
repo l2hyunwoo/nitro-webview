@@ -32,6 +32,10 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `WebViewNavigationType` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
+// Forward declaration of `OpenWindowEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowEvent; }
+// Forward declaration of `OpenWindowNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowNativeEvent; }
 // Forward declaration of `FileDownloadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct FileDownloadEvent; }
 // Forward declaration of `FileDownload` to properly resolve imports.
@@ -69,6 +73,8 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
 #include "WebViewNavigationType.hpp"
+#include "OpenWindowEvent.hpp"
+#include "OpenWindowNativeEvent.hpp"
 #include "FileDownloadEvent.hpp"
 #include "FileDownload.hpp"
 #include "NitroWebViewHttpErrorEvent.hpp"
@@ -287,6 +293,20 @@ namespace margelo::nitro::nitrowebview {
     }
     inline void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) noexcept override {
       _swiftPart.setOnShouldStartLoadWithRequest(onShouldStartLoadWithRequest);
+    }
+    inline std::optional<bool> getInterceptSubframeNavigation() noexcept override {
+      auto __result = _swiftPart.getInterceptSubframeNavigation();
+      return __result;
+    }
+    inline void setInterceptSubframeNavigation(std::optional<bool> interceptSubframeNavigation) noexcept override {
+      _swiftPart.setInterceptSubframeNavigation(interceptSubframeNavigation);
+    }
+    inline std::optional<std::function<void(const OpenWindowEvent& /* event */)>> getOnOpenWindow() noexcept override {
+      auto __result = _swiftPart.getOnOpenWindow();
+      return __result;
+    }
+    inline void setOnOpenWindow(const std::optional<std::function<void(const OpenWindowEvent& /* event */)>>& onOpenWindow) noexcept override {
+      _swiftPart.setOnOpenWindow(onOpenWindow);
     }
     inline std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() noexcept override {
       auto __result = _swiftPart.getOnFileDownload();

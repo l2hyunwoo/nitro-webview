@@ -60,6 +60,10 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridSetter("onError", &HybridNitroWebViewSpec::setOnError);
       prototype.registerHybridGetter("onShouldStartLoadWithRequest", &HybridNitroWebViewSpec::getOnShouldStartLoadWithRequest);
       prototype.registerHybridSetter("onShouldStartLoadWithRequest", &HybridNitroWebViewSpec::setOnShouldStartLoadWithRequest);
+      prototype.registerHybridGetter("interceptSubframeNavigation", &HybridNitroWebViewSpec::getInterceptSubframeNavigation);
+      prototype.registerHybridSetter("interceptSubframeNavigation", &HybridNitroWebViewSpec::setInterceptSubframeNavigation);
+      prototype.registerHybridGetter("onOpenWindow", &HybridNitroWebViewSpec::getOnOpenWindow);
+      prototype.registerHybridSetter("onOpenWindow", &HybridNitroWebViewSpec::setOnOpenWindow);
       prototype.registerHybridGetter("onFileDownload", &HybridNitroWebViewSpec::getOnFileDownload);
       prototype.registerHybridSetter("onFileDownload", &HybridNitroWebViewSpec::setOnFileDownload);
       prototype.registerHybridGetter("onHttpError", &HybridNitroWebViewSpec::getOnHttpError);

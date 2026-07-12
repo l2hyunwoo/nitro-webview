@@ -27,6 +27,8 @@
     "onMessage": true,
     "onError": true,
     "onShouldStartLoadWithRequest": true,
+    "interceptSubframeNavigation": true,
+    "onOpenWindow": true,
     "onFileDownload": true,
     "onHttpError": true,
     "onRenderProcessGone": true,

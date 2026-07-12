@@ -213,6 +213,26 @@ abstract class HybridNitroWebViewSpec: HybridView() {
       onShouldStartLoadWithRequest = value?.let { it }
     }
   
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
+  abstract var interceptSubframeNavigation: Boolean?
+  
+  abstract var onOpenWindow: ((event: OpenWindowEvent) -> Unit)?
+  
+  private var onOpenWindow_cxx: Func_void_OpenWindowEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onOpenWindow?.let { Func_void_OpenWindowEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onOpenWindow = value?.let { it }
+    }
+  
   abstract var onFileDownload: ((event: FileDownloadEvent) -> Unit)?
   
   private var onFileDownload_cxx: Func_void_FileDownloadEvent?

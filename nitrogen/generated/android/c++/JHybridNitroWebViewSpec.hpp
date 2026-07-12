@@ -96,6 +96,10 @@ namespace margelo::nitro::nitrowebview {
     void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) override;
     std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> getOnShouldStartLoadWithRequest() override;
     void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) override;
+    std::optional<bool> getInterceptSubframeNavigation() override;
+    void setInterceptSubframeNavigation(std::optional<bool> interceptSubframeNavigation) override;
+    std::optional<std::function<void(const OpenWindowEvent& /* event */)>> getOnOpenWindow() override;
+    void setOnOpenWindow(const std::optional<std::function<void(const OpenWindowEvent& /* event */)>>& onOpenWindow) override;
     std::optional<std::function<void(const FileDownloadEvent& /* event */)>> getOnFileDownload() override;
     void setOnFileDownload(const std::optional<std::function<void(const FileDownloadEvent& /* event */)>>& onFileDownload) override;
     std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>> getOnHttpError() override;

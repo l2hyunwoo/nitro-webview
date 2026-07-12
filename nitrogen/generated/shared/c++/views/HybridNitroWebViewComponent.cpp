@@ -256,6 +256,26 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.onShouldStartLoadWithRequest: ") + exc.what());
       }
     }()),
+    interceptSubframeNavigation([&]() -> CachedProp<std::optional<bool>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("interceptSubframeNavigation", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.interceptSubframeNavigation;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.interceptSubframeNavigation);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.interceptSubframeNavigation: ") + exc.what());
+      }
+    }()),
+    onOpenWindow([&]() -> CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onOpenWindow", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onOpenWindow;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onOpenWindow);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onOpenWindow: ") + exc.what());
+      }
+    }()),
     onFileDownload([&]() -> CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("onFileDownload", nullptr, nullptr);
@@ -332,6 +352,8 @@ namespace margelo::nitro::nitrowebview::views {
       case hashString("onMessage"): return true;
       case hashString("onError"): return true;
       case hashString("onShouldStartLoadWithRequest"): return true;
+      case hashString("interceptSubframeNavigation"): return true;
+      case hashString("onOpenWindow"): return true;
       case hashString("onFileDownload"): return true;
       case hashString("onHttpError"): return true;
       case hashString("onRenderProcessGone"): return true;

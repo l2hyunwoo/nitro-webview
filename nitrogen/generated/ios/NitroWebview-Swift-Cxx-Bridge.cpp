@@ -71,6 +71,14 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     };
   }
   
+  // pragma MARK: std::function<void(const OpenWindowEvent& /* event */)>
+  Func_void_OpenWindowEvent create_Func_void_OpenWindowEvent(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_OpenWindowEvent::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const OpenWindowEvent& event) mutable -> void {
+      swiftClosure.call(event);
+    };
+  }
+  
   // pragma MARK: std::function<void(const FileDownloadEvent& /* event */)>
   Func_void_FileDownloadEvent create_Func_void_FileDownloadEvent(void* NON_NULL swiftClosureWrapper) noexcept {
     auto swiftClosure = NitroWebview::Func_void_FileDownloadEvent::fromUnsafe(swiftClosureWrapper);

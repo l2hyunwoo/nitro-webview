@@ -22,18 +22,10 @@ namespace margelo::nitro::nitrowebview { class HybridNitroWebViewSpec; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 // Forward declaration of `NitroWebViewErrorNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
-// Forward declaration of `NitroWebViewHttpErrorEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorEvent; }
-// Forward declaration of `NitroWebViewHttpErrorNativeEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewHttpErrorNativeEvent; }
-// Forward declaration of `NitroWebViewRenderProcessGoneEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneEvent; }
-// Forward declaration of `NitroWebViewRenderProcessGoneNativeEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewRenderProcessGoneNativeEvent; }
-// Forward declaration of `NitroWebViewScrollEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollEvent; }
-// Forward declaration of `NitroWebViewScrollNativeEvent` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollNativeEvent; }
+// Forward declaration of `OpenWindowEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowEvent; }
+// Forward declaration of `OpenWindowNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct OpenWindowNativeEvent; }
 // Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `UriSource` to properly resolve imports.
@@ -48,8 +40,6 @@ namespace margelo::nitro::nitrowebview { struct WebViewMessageNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 // Forward declaration of `WebViewNavigationType` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
-// Forward declaration of `WebViewPoint` to properly resolve imports.
-namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 
 // Include C++ defined types
 #include "Cookie.hpp"
@@ -59,12 +49,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 #include "HybridNitroWebViewSpec.hpp"
 #include "NitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
-#include "NitroWebViewHttpErrorEvent.hpp"
-#include "NitroWebViewHttpErrorNativeEvent.hpp"
-#include "NitroWebViewRenderProcessGoneEvent.hpp"
-#include "NitroWebViewRenderProcessGoneNativeEvent.hpp"
-#include "NitroWebViewScrollEvent.hpp"
-#include "NitroWebViewScrollNativeEvent.hpp"
+#include "OpenWindowEvent.hpp"
+#include "OpenWindowNativeEvent.hpp"
 #include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
@@ -72,7 +58,6 @@ namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 #include "WebViewMessageNativeEvent.hpp"
 #include "WebViewNavigationState.hpp"
 #include "WebViewNavigationType.hpp"
-#include "WebViewPoint.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
