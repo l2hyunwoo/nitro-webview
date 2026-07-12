@@ -4,15 +4,19 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.URLUtil
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.annotation.RequiresApi
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.facebook.react.bridge.ActivityEventListener
@@ -25,7 +29,14 @@ import com.margelo.nitro.nitrowebview.FileDownloadEvent
 import com.margelo.nitro.nitrowebview.HybridNitroWebViewSpec
 import com.margelo.nitro.nitrowebview.NitroWebViewErrorEvent
 import com.margelo.nitro.nitrowebview.NitroWebViewErrorNativeEvent
+import com.margelo.nitro.nitrowebview.NitroWebViewHttpErrorEvent
+import com.margelo.nitro.nitrowebview.NitroWebViewHttpErrorNativeEvent
+import com.margelo.nitro.nitrowebview.NitroWebViewRenderProcessGoneEvent
+import com.margelo.nitro.nitrowebview.NitroWebViewRenderProcessGoneNativeEvent
+import com.margelo.nitro.nitrowebview.NitroWebViewScrollEvent
+import com.margelo.nitro.nitrowebview.NitroWebViewScrollNativeEvent
 import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
+import com.margelo.nitro.nitrowebview.WebViewPoint
 import com.margelo.nitro.nitrowebview.UriSource
 import com.margelo.nitro.nitrowebview.WebViewLoadEvent
 import com.margelo.nitro.nitrowebview.WebViewMessageEvent
@@ -284,6 +295,9 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var onMessage: ((event: WebViewMessageEvent) -> Unit)? = null
   override var onError: ((event: NitroWebViewErrorEvent) -> Unit)? = null
   override var onFileDownload: ((event: FileDownloadEvent) -> Unit)? = null
+  override var onHttpError: ((event: NitroWebViewHttpErrorEvent) -> Unit)? = null
+  override var onRenderProcessGone: ((event: NitroWebViewRenderProcessGoneEvent) -> Unit)? = null
+  override var onScroll: ((event: NitroWebViewScrollEvent) -> Unit)? = null
 
   /**
    * JS-side navigation-interception hook. When non-null, every
@@ -316,6 +330,24 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     // onActivityResult to every registered listener, so the consumer app's
     // MainActivity does not need any manual wiring.
     reactContext.addActivityEventListener(activityEventListener)
+    // Scroll stream. `View.setOnScrollChangeListener` (API 23+) delivers the
+    // scroll offset directly; `contentSize` stays a zero point because
+    // `computeVerticalScrollRange()` / `computeHorizontalScrollRange()` are
+    // protected on View and only reachable by subclassing WebView, which this
+    // library avoids everywhere. NOT throttled and NOT deduped (RNW parity).
+    view.setOnScrollChangeListener { _, scrollX, scrollY, _, _ ->
+      onScroll?.invoke(
+        NitroWebViewScrollEvent(
+          NitroWebViewScrollNativeEvent(
+            contentOffset = WebViewPoint(scrollX.toDouble(), scrollY.toDouble()),
+            contentSize = WebViewPoint(0.0, 0.0),
+            contentInset = null,
+            layoutMeasurement = null,
+            zoomScale = null,
+          ),
+        ),
+      )
+    }
   }
 
   override fun goBack() {
@@ -466,6 +498,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     webChromeClient.hostActivity = null
     view.webChromeClient = null
     view.removeJavascriptInterface(BRIDGE_NAME)
+    view.setOnScrollChangeListener(null)
     view.stopLoading()
     // Deregister the activity-result forwarder so this WebView can be GC'd
     // cleanly and no stale chooser callbacks fire after teardown.
@@ -546,6 +579,27 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       ),
     )
     onError?.invoke(payload)
+  }
+
+  private fun emitHttpError(
+    response: WebResourceResponseSource,
+    request: WebResourceRequestSource?,
+    fallbackUrl: String?,
+  ) {
+    val mapped = NitroWebViewHttpErrorMapper.event(
+      response = response,
+      request = request,
+      fallbackUrl = fallbackUrl,
+    )
+    onHttpError?.invoke(
+      NitroWebViewHttpErrorEvent(
+        NitroWebViewHttpErrorNativeEvent(
+          statusCode = mapped.statusCode.toDouble(),
+          url = mapped.url,
+          description = mapped.description,
+        ),
+      ),
+    )
   }
 
   private fun snapshotNavigationState(): WebViewNavigationState =
@@ -637,6 +691,48 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         emitLoadEnd()
         emitNavigationState()
       }
+    }
+
+    /**
+     * HTTP-error entry point (4xx/5xx). Disjoint from [onReceivedError]
+     * (transport-level failures). The main-frame filter is the FIRST line
+     * because Android fires this once per failing sub-resource — without the
+     * filter a page with a single broken image would flood JS. Does NOT
+     * abort the load: [onPageFinished] still fires independently, so we emit
+     * NO `onLoadEnd` here. May fire more than once per navigation (redirect
+     * hops) — that is an independent, non-deduped signal by design.
+     */
+    override fun onReceivedHttpError(
+      view: WebView,
+      request: WebResourceRequest,
+      errorResponse: WebResourceResponse,
+    ) {
+      if (!request.isForMainFrame) return
+      emitHttpError(
+        response = AndroidWebResourceResponse(errorResponse),
+        request = AndroidWebResourceRequest(request),
+        fallbackUrl = view.url,
+      )
+    }
+
+    /**
+     * Renderer-process-gone recovery hook (API 26+; guarded because minSdk
+     * is lower). MUST return `true` unconditionally: returning `false` lets
+     * Android kill the entire host app. JS is notified so it can
+     * [reload]/remount. `didCrash()` distinguishes a real crash (`true`)
+     * from an OS memory reclaim (`false`).
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onRenderProcessGone(
+      view: WebView,
+      detail: RenderProcessGoneDetail,
+    ): Boolean {
+      onRenderProcessGone?.invoke(
+        NitroWebViewRenderProcessGoneEvent(
+          NitroWebViewRenderProcessGoneNativeEvent(detail.didCrash()),
+        ),
+      )
+      return true
     }
   }
 
