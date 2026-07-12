@@ -152,6 +152,9 @@ namespace margelo::nitro::nitrowebview {
       virtual std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) = 0;
       virtual std::shared_ptr<Promise<void>> setCookie(const std::string& url, const Cookie& cookie) = 0;
       virtual std::shared_ptr<Promise<void>> clearCookies() = 0;
+      virtual std::shared_ptr<Promise<void>> clearCache() = 0;
+      virtual std::shared_ptr<Promise<void>> clearHistory() = 0;
+      virtual std::shared_ptr<Promise<void>> requestFocus() = 0;
 
     protected:
       // Hybrid Setup

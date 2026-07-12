@@ -27,10 +27,10 @@ export interface AndroidNativeBridge {
  * Build the literal JavaScript source string for the injected bridge.
  *
  * The script:
- *   - Defines `window.ReactNativeWebView` (idempotent — preserves any
+ *   - Defines `window.ReactNativeWebView` (idempotent; preserves any
  *     pre-existing object the page author installed).
  *   - Defines `window.ReactNativeWebView.postMessage(data)` (also
- *     idempotent — never overwrites an existing function).
+ *     idempotent; never overwrites an existing function).
  *   - String-coerces `data` before routing.
  *   - Routes to the platform-native handler (WebKit messageHandler on iOS,
  *     `ReactNativeWebViewNative` on Android).
@@ -106,6 +106,60 @@ export function buildPostMessageScript(
   const target = platform === 'ios' ? 'window' : 'document'
   const data = encodeJsStringLiteral(message)
   return `${target}.dispatchEvent(new MessageEvent('message',{data:${data}}));`
+}
+
+/**
+ * Reserved discriminator key for blob-download payloads posted back through
+ * the existing `ReactNativeWebView.postMessage` bridge. A native message sink
+ * peeks for this key before treating a payload as a normal `onMessage` string
+ * — see {@linkcode parseBlobEnvelope}. Chosen to be collision-proof with a
+ * real string payload (the `{"__nitro_blob__"` prefix).
+ */
+export const BLOB_ENVELOPE_KEY: '__nitro_blob__' = '__nitro_blob__'
+
+/** Blob-download payload demuxed out of a reserved envelope. */
+export interface BlobDownloadPayload {
+  /** The original `blob:` URL the download was requested for. */
+  url: string
+  /** `"data:<mime>;base64,<...>"`: the blob read to a data URL. */
+  dataUrl: string
+  /** MIME type from `Blob.type` (may be empty). */
+  mimeType: string
+  /** Best-effort suggested file name (native-derived; usually junk). */
+  fileName: string
+  /** Byte length from `Blob.size` (0 when unknown). */
+  size: number
+}
+
+/**
+ * Spec-of-record demux for the blob-download bridge, kept as the reference the
+ * native Kotlin port (`HybridNitroWebView.parseBlobEnvelope`) must match. Parses
+ * a raw `postMessage` string to a blob payload, or `null` for a normal
+ * `onMessage` payload; a cheap prefix peek runs before the `JSON.parse` cost.
+ */
+export function parseBlobEnvelope(raw: string): BlobDownloadPayload | null {
+  if (typeof raw !== 'string') return null
+  // Prefix peek: only a payload literally starting with the reserved key can
+  // be ours. A user string that merely contains the key elsewhere is not.
+  if (raw.indexOf(`{"${BLOB_ENVELOPE_KEY}"`) !== 0) return null
+  try {
+    const obj = JSON.parse(raw) as {
+      [BLOB_ENVELOPE_KEY]?: Partial<BlobDownloadPayload>
+    }
+    const b = obj?.[BLOB_ENVELOPE_KEY]
+    if (!b || typeof b.url !== 'string' || typeof b.dataUrl !== 'string') {
+      return null
+    }
+    return {
+      url: b.url,
+      dataUrl: b.dataUrl,
+      mimeType: typeof b.mimeType === 'string' ? b.mimeType : '',
+      fileName: typeof b.fileName === 'string' ? b.fileName : '',
+      size: typeof b.size === 'number' ? b.size : 0,
+    }
+  } catch {
+    return null
+  }
 }
 
 /**

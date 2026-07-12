@@ -366,6 +366,33 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     view.post { view.stopLoading() }
   }
 
+  override fun clearCache(): Promise<Unit> {
+    val promise = Promise<Unit>()
+    view.post {
+      view.clearCache(true) // true = also delete on-disk cache files
+      promise.resolve(Unit)
+    }
+    return promise
+  }
+
+  override fun clearHistory(): Promise<Unit> {
+    val promise = Promise<Unit>()
+    view.post {
+      view.clearHistory()
+      promise.resolve(Unit)
+    }
+    return promise
+  }
+
+  override fun requestFocus(): Promise<Unit> {
+    val promise = Promise<Unit>()
+    view.post {
+      view.requestFocus() // View.requestFocus(): Boolean — discard
+      promise.resolve(Unit)
+    }
+    return promise
+  }
+
   override fun evaluateJavaScript(code: String): Promise<String> {
     val promise = Promise<String>()
     view.post {
@@ -768,6 +795,26 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     fun postMessage(data: String) {
       // @JavascriptInterface runs on a dedicated `JavaBridge` thread.
       // WebView.url / onMessage delivery must hop back to the UI thread.
+      // Peek for a reserved blob-download envelope BEFORE treating the
+      // payload as a normal onMessage string — a real download is routed to
+      // onFileDownload, everything else falls through unchanged.
+      val blob = parseBlobEnvelope(data)
+      if (blob != null) {
+        view.post {
+          // The data URL is the ONE place a data: URL is a legitimate
+          // FileDownload.url (blob bytes bridged in-band as base64).
+          emitFileDownload(
+            FileDownload(
+              url = blob.dataUrl,
+              mimeType = blob.mimeType.takeIf { it.isNotEmpty() },
+              fileName = blob.fileName.takeIf { it.isNotEmpty() },
+              contentLength = blob.size.takeIf { it > 0 },
+              userAgent = null,
+            ),
+          )
+        }
+        return
+      }
       view.post {
         val payload = WebViewMessageEvent(
           WebViewMessageNativeEvent(
@@ -797,7 +844,8 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * we fall back to the platform's [URLUtil.guessFileName] which is the
    * historic default the AOSP DownloadManager uses.
    *
-   * The MVP excludes blob URLs by short-circuiting `blob:` schemes.
+   * `blob:` URLs cannot be fetched natively and take a JS-inject path; see
+   * the inline note below and [buildBlobReaderScript] / [parseBlobEnvelope].
    */
   private inner class DownloadListenerImpl : DownloadListener {
     override fun onDownloadStart(
@@ -808,8 +856,16 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       contentLength: Long,
     ) {
       if (url == null) return
-      // blob: URLs are out of scope for the MVP.
-      if (url.startsWith("blob:")) return
+      // blob: bytes live only in the web context — inject a reader that
+      // resolves the blob to a data URL and posts it back through the bridge
+      // (demuxed in BridgeInterface.postMessage). The real onFileDownload is
+      // emitted from there, not here.
+      if (url.startsWith("blob:")) {
+        val guessed = deriveDownloadFileName(url, contentDisposition, mimetype)
+        val js = buildBlobReaderScript(url, guessed)
+        view.post { view.evaluateJavascript(js, null) }
+        return
+      }
       val fileName = deriveDownloadFileName(url, contentDisposition, mimetype)
       val event = FileDownload(
         url = url,
@@ -1150,6 +1206,106 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       }
       return out.toTypedArray()
     }
+
+    /**
+     * Reserved discriminator key for blob-download payloads. Kept in sync
+     * with `BLOB_ENVELOPE_KEY` in `src/bridgeScript.ts` (the canonical TS
+     * source). A payload literally starting with `{"__nitro_blob__"` is
+     * demuxed to `onFileDownload`; everything else is a normal `onMessage`.
+     */
+    internal const val BLOB_ENVELOPE_KEY = "__nitro_blob__"
+
+    /**
+     * Parsed blob-download payload. Mirrors `BlobDownloadPayload` in
+     * `src/bridgeScript.ts`.
+     */
+    internal data class BlobEnvelope(
+      val url: String,
+      val dataUrl: String,
+      val mimeType: String,
+      val fileName: String,
+      val size: Double,
+    )
+
+    /**
+     * Injects the in-page reader that resolves a `blob:` URL to a data URL and
+     * posts a reserved envelope back through the message bridge; the envelope
+     * must match `parseBlobEnvelope`'s contract in `src/bridgeScript.ts`.
+     * `suggestedName` is native-derived (usually junk off the blob URL).
+     */
+    @JvmStatic
+    internal fun buildBlobReaderScript(blobUrl: String, suggestedName: String): String {
+      val urlLit = jsonQuote(blobUrl)
+      val nameLit = jsonQuote(suggestedName)
+      val keyLit = jsonQuote(BLOB_ENVELOPE_KEY)
+      return """;(function () {
+  try {
+    fetch($urlLit).then(function (r) { return r.blob(); }).then(function (b) {
+      var reader = new FileReader();
+      reader.onloadend = function () {
+        var dataUrl = String(reader.result || '');
+        var envelope = {};
+        envelope[$keyLit] = {
+          url: $urlLit,
+          dataUrl: dataUrl,
+          mimeType: b.type || '',
+          fileName: $nameLit,
+          size: b.size || 0
+        };
+        var br = window.$BRIDGE_NAME;
+        if (br && typeof br.postMessage === 'function') {
+          br.postMessage(JSON.stringify(envelope));
+        }
+      };
+      reader.readAsDataURL(b);
+    })["catch"](function () { /* blob gone / cross-origin: swallow */ });
+  } catch (e) { /* no fetch/FileReader: swallow, no page throw */ }
+})();"""
+    }
+
+    /**
+     * Parse a raw `postMessage` string; return the blob payload or `null`
+     * when it is a normal `onMessage` payload. Kotlin port of
+     * `parseBlobEnvelope` in `src/bridgeScript.ts`. A cheap prefix peek runs
+     * before the JSON parse so ordinary payloads are forwarded untouched.
+     *
+     * ponytail: the whole blob rides the bridge base64'd (data URL) —
+     * O(fileSize) memory, ~1.33x inflation, held twice (JS string + native
+     * String). Fine for the common blob (generated CSV/PDF/image, a few MB);
+     * a very large blob will strain the bridge. Upgrade path: temp-file
+     * streaming (slice the blob and post chunks, or a native download to
+     * disk) surfacing a `file://` URL instead of a data: URL.
+     */
+    @JvmStatic
+    internal fun parseBlobEnvelope(raw: String?): BlobEnvelope? {
+      if (raw == null) return null
+      if (!raw.startsWith("{\"$BLOB_ENVELOPE_KEY\"")) return null
+      return try {
+        val root = org.json.JSONObject(raw)
+        val b = root.optJSONObject(BLOB_ENVELOPE_KEY) ?: return null
+        val url = b.optString("url", "")
+        val dataUrl = b.optString("dataUrl", "")
+        if (url.isEmpty() || dataUrl.isEmpty()) return null
+        BlobEnvelope(
+          url = url,
+          dataUrl = dataUrl,
+          mimeType = b.optString("mimeType", ""),
+          fileName = b.optString("fileName", ""),
+          size = b.optDouble("size", 0.0),
+        )
+      } catch (e: org.json.JSONException) {
+        null
+      }
+    }
+
+    /**
+     * Minimal JSON string-literal encoder for the values embedded in the
+     * blob reader script. `org.json.JSONObject.quote` handles the escaping
+     * (quotes, backslashes, control chars) the same way `JSON.stringify`
+     * does for a bare string in the TS source.
+     */
+    @JvmStatic
+    internal fun jsonQuote(s: String): String = org.json.JSONObject.quote(s)
 
     /**
      * Pipeline that mirrors the per-instance [setCookie] body 1:1 but

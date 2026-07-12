@@ -49,6 +49,9 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   func getCookies(url: String) throws -> Promise<[Cookie]>
   func setCookie(url: String, cookie: Cookie) throws -> Promise<Void>
   func clearCookies() throws -> Promise<Void>
+  func clearCache() throws -> Promise<Void>
+  func clearHistory() throws -> Promise<Void>
+  func requestFocus() throws -> Promise<Void>
 }
 
 public extension HybridNitroWebViewSpec_protocol {

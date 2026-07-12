@@ -117,6 +117,9 @@ namespace margelo::nitro::nitrowebview {
     std::shared_ptr<Promise<std::vector<Cookie>>> getCookies(const std::string& url) override;
     std::shared_ptr<Promise<void>> setCookie(const std::string& url, const Cookie& cookie) override;
     std::shared_ptr<Promise<void>> clearCookies() override;
+    std::shared_ptr<Promise<void>> clearCache() override;
+    std::shared_ptr<Promise<void>> clearHistory() override;
+    std::shared_ptr<Promise<void>> requestFocus() override;
 
   private:
     jni::global_ref<JHybridNitroWebViewSpec::JavaPart> _javaPart;

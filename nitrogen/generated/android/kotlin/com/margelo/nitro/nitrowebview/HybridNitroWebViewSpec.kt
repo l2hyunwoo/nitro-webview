@@ -309,6 +309,18 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @DoNotStrip
   @Keep
   abstract fun clearCookies(): Promise<Unit>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun clearCache(): Promise<Unit>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun clearHistory(): Promise<Unit>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun requestFocus(): Promise<Unit>
 
   // Default implementation of `HybridObject.toString()`
   override fun toString(): String {
