@@ -1,0 +1,238 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-android:
+    name: E2E Android (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_LEVEL: '34'
+      ARCH: x86_64
+      STARTUP_TIMEOUT: '60'
+      TEST_TIMEOUT: '720'
+      BUNDLE_ID: com.example
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies (root)
+        run: yarn install --immutable
+
+      - name: Build library (yarn prepare - tsc + nitrogen)
+        run: yarn prepare
+
+      - name: Install dependencies (example)
+        working-directory: example
+        run: yarn install --immutable
+
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-e2e-${{ runner.os }}-${{ hashFiles('example/android/**/*.gradle*', 'example/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-e2e-${{ runner.os }}-
+
+      - name: Build debug APK
+        working-directory: example/android
+        run: ./gradlew :app:assembleDebug --no-daemon --build-cache
+
+      - name: Stop Gradle daemon
+        working-directory: example/android
+        run: ./gradlew --stop
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-${{ env.ARCH }}
+
+      - name: Create AVD and generate snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          arch: ${{ env.ARCH }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run E2E on emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          arch: ${{ env.ARCH }}
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          emulator-boot-timeout: 240
+          script: bash ./example/scripts/run-harness-android-ci.sh
+
+      - name: Upload logcat on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-logcat
+          path: example/artifacts/logcat-crash.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e-ios:
+    name: E2E iOS (simulator)
+    if: >-
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'e2e-ios')
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SIM_DEVICE: iPhone 16 Pro
+      SIM_OS: '18.2'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Ruby (bundler cache)
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          working-directory: example
+
+      - name: Install dependencies (root)
+        run: yarn install --immutable
+
+      - name: Build library (yarn prepare - tsc + nitrogen)
+        run: yarn prepare
+
+      - name: Install dependencies (example)
+        working-directory: example
+        run: yarn install --immutable
+
+      - name: Pods cache
+        uses: actions/cache@v4
+        with:
+          path: example/ios/Pods
+          key: pods-e2e-${{ runner.os }}-${{ hashFiles('example/ios/Podfile.lock') }}
+          restore-keys: |
+            pods-e2e-${{ runner.os }}-
+
+      - name: Install CocoaPods
+        working-directory: example/ios
+        run: bundle exec pod install
+
+      - name: Build app for simulator
+        working-directory: example/ios
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace example.xcworkspace \
+            -scheme example \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=$SIM_DEVICE,OS=$SIM_OS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Boot simulator
+        uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
+        with:
+          model: ${{ env.SIM_DEVICE }}
+          os_version: ${{ env.SIM_OS }}
+          wait_for_boot: true
+
+      - name: Install app on simulator
+        working-directory: example/ios
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find build/Build/Products -name 'example.app' -type d | head -1)
+          echo "Installing $APP_PATH"
+          xcrun simctl install booted "$APP_PATH"
+
+      - name: Run E2E harness (iOS)
+        working-directory: example
+        env:
+          CI: 'true'
+        run: |
+          set -euo pipefail
+          # Point the harness at the built .app so it installs on whichever
+          # simulator UDID it resolves by name+OS (several may share the name).
+          HARNESS_APP_PATH=$(find ios/build/Build/Products -name 'example.app' -type d | head -1)
+          export HARNESS_APP_PATH
+          echo "HARNESS_APP_PATH=$HARNESS_APP_PATH"
+          node ./e2e-server.mjs & E2E_SRV=$!
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8099/health >/dev/null; then break; fi
+            sleep 1
+          done
+          set +e
+          timeout --foreground --kill-after=30s 720s yarn test:e2e:ios
+          STATUS=$?
+          set -e
+          kill "$E2E_SRV" 2>/dev/null || true
+          exit "$STATUS"
+
+      - name: Capture simulator screenshot on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          xcrun simctl io booted screenshot artifacts/ios-failure.png || true
+
+      - name: Upload iOS failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-failure-screenshot
+          path: artifacts/ios-failure.png
+          if-no-files-found: ignore
+          retention-days: 7
