@@ -145,6 +145,9 @@ jobs:
       - name: Setup Ruby (bundler cache)
         uses: ruby/setup-ruby@v1
         with:
+          # Gemfile only has a range constraint (>= 2.6.10), so setup-ruby
+          # cannot infer a version and fails without an explicit one.
+          ruby-version: '3.3'
           bundler-cache: true
           working-directory: example
 
