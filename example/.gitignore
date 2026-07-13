@@ -76,3 +76,6 @@ yarn-error.log
 
 # E2E harness runtime artifacts
 artifacts/
+
+# React Native Harness runtime cache
+.harness/

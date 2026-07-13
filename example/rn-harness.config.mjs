@@ -3,6 +3,13 @@ import { applePlatform, appleSimulator } from '@react-native-harness/platform-ap
 
 const isCI = process.env.CI === 'true'
 
+// Default to the macos-15 CI runner's simulator (Xcode 16.2 ships iPhone 16 Pro /
+// iOS 18.2). Override with SIM_DEVICE / SIM_OS to run against a local simulator
+// whose Xcode differs (`xcrun simctl list runtimes devices available`). e2e.yml
+// keeps these pinned via its env block.
+const SIM_DEVICE = process.env.SIM_DEVICE || 'iPhone 16 Pro'
+const SIM_OS = process.env.SIM_OS || '18.2'
+
 /** @type {import('react-native-harness').HarnessConfig} */
 const config = {
   entryPoint: './index.js',
@@ -12,9 +19,7 @@ const config = {
   runners: [
     applePlatform({
       name: 'ios',
-      // SIM_OS in e2e.yml must match a runtime installed on the macos-15 runner's
-      // Xcode. Re-check `xcrun simctl list runtimes` when bumping the runner image.
-      device: appleSimulator('iPhone 16 Pro', '18.2'),
+      device: appleSimulator(SIM_DEVICE, SIM_OS),
       bundleId: 'org.reactjs.native.example.example',
     }),
     androidPlatform({
