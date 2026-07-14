@@ -221,6 +221,9 @@ jobs:
           echo "Installing $APP_PATH"
           xcrun simctl install booted "$APP_PATH"
 
+      - name: Install coreutils (gtimeout)
+        run: brew install coreutils
+
       - name: Run E2E harness (iOS)
         working-directory: example
         env:
@@ -244,7 +247,9 @@ jobs:
             exit 1
           fi
           set +e
-          timeout --foreground --kill-after=30s 720s yarn test:e2e:ios
+          # macOS has no GNU timeout by default (unlike the Android job's
+          # ubuntu runner) -- gtimeout from coreutils is the equivalent.
+          gtimeout --foreground --kill-after=30s 720s yarn test:e2e:ios
           STATUS=$?
           set -e
           kill "$E2E_SRV" 2>/dev/null || true
