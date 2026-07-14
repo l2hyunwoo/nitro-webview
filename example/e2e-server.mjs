@@ -30,8 +30,13 @@ const server = http.createServer((req, res) => {
     res.end('not found')
     return
   }
-  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-  res.end(PAGE)
+  if (url === '/') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+    res.end(PAGE)
+    return
+  }
+  res.writeHead(404, { 'content-type': 'text/plain' })
+  res.end('not found')
 })
 
 // Bind 0.0.0.0 so the Android emulator can reach it via 10.0.2.2 while the iOS

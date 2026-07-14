@@ -24,7 +24,10 @@ const config = {
     }),
     androidPlatform({
       name: 'android',
-      // apiLevel here MUST equal API_LEVEL in e2e.yml (34).
+      // 'e2e_avd' MUST equal avd-name in both android-emulator-runner steps in
+      // e2e.yml, and apiLevel here MUST equal API_LEVEL there (34) — a
+      // mismatched AVD name means the harness looks for a device that was
+      // never booted (HarnessAppPathError: App is not installed).
       device: androidEmulator('e2e_avd', {
         apiLevel: 34,
         profile: 'pixel_6',
