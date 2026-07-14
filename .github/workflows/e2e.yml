@@ -25,9 +25,14 @@ jobs:
       STARTUP_TIMEOUT: '60'
       TEST_TIMEOUT: '720'
       BUNDLE_ID: com.example
+      # Must match E2E_PORT default in example/e2e-server.mjs and the port
+      # baked into example/src/__tests__/e2eServer.ts.
+      E2E_PORT: '8099'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Enable KVM
         run: |
@@ -94,8 +99,11 @@ jobs:
         with:
           api-level: ${{ env.API_LEVEL }}
           arch: ${{ env.ARCH }}
+          # Must match the AVD name androidEmulator() uses in rn-harness.config.mjs,
+          # or the harness looks for a device that was never booted.
+          avd-name: e2e_avd
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: echo "Generated AVD snapshot for caching."
 
@@ -104,6 +112,7 @@ jobs:
         with:
           api-level: ${{ env.API_LEVEL }}
           arch: ${{ env.ARCH }}
+          avd-name: e2e_avd
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
@@ -129,9 +138,14 @@ jobs:
     env:
       SIM_DEVICE: iPhone 16 Pro
       SIM_OS: '18.2'
+      # Must match E2E_PORT default in example/e2e-server.mjs and the port
+      # baked into example/src/__tests__/e2eServer.ts.
+      E2E_PORT: '8099'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -214,10 +228,16 @@ jobs:
           export HARNESS_APP_PATH
           echo "HARNESS_APP_PATH=$HARNESS_APP_PATH"
           node ./e2e-server.mjs & E2E_SRV=$!
+          HEALTHY=0
           for _ in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:8099/health >/dev/null; then break; fi
+            if curl -sf "http://127.0.0.1:${E2E_PORT}/health" >/dev/null; then HEALTHY=1; break; fi
             sleep 1
           done
+          if [ "$HEALTHY" -ne 1 ]; then
+            echo "::error::e2e-server did not become healthy within 30s"
+            kill "$E2E_SRV" 2>/dev/null || true
+            exit 1
+          fi
           set +e
           timeout --foreground --kill-after=30s 720s yarn test:e2e:ios
           STATUS=$?
