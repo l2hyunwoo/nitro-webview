@@ -136,8 +136,13 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     env:
-      SIM_DEVICE: iPhone 16 Pro
-      SIM_OS: '18.2'
+      # macos-15 image versions drift (Xcode/simulator runtimes get updated
+      # independently of the runner label), so this pair needs periodic
+      # re-verification against `xcodebuild -showdestinations` on the runner
+      # itself, not just picked from Apple's release notes. Confirmed present
+      # on this image as of 2026-07-14 (Xcode 16.4 / iOS 26.1 runtime).
+      SIM_DEVICE: iPhone 17 Pro
+      SIM_OS: '26.1'
       # Must match E2E_PORT default in example/e2e-server.mjs and the port
       # baked into example/src/__tests__/e2eServer.ts.
       E2E_PORT: '8099'
