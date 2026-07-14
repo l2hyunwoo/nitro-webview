@@ -18,6 +18,14 @@ describe('postMessage', () => {
         onMessage={callback(() => {})}
       />
     )
+
+    // NOT asserting ref.current populates here: hybridRef is delivered through
+    // the same Nitro callback() mechanism as onLoadEnd/onMessage, which (see
+    // load.harness.tsx) does not fire through harness 1.3.0's render() overlay.
+    // Asserting on it would make this smoke test flaky/red for the same known
+    // reason the round-trip test below is skipped, not a real regression signal.
+    void ref
+
     unmount()
   })
 
