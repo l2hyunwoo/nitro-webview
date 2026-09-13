@@ -136,11 +136,8 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     env:
-      # macos-15 image versions drift (Xcode/simulator runtimes get updated
-      # independently of the runner label), so this pair needs periodic
-      # re-verification against `xcodebuild -showdestinations` on the runner
-      # itself, not just picked from Apple's release notes. Confirmed present
-      # on this image as of 2026-07-14 (Xcode 16.4 / iOS 26.1 runtime).
+      # Keep Xcode and runtime compatible; macos-15 defaults to Xcode 16.4.
+      DEVELOPER_DIR: /Applications/Xcode_26.1.1.app/Contents/Developer
       SIM_DEVICE: iPhone 17 Pro
       SIM_OS: '26.1'
       # Must match E2E_PORT default in example/e2e-server.mjs and the port
@@ -188,12 +185,33 @@ jobs:
           restore-keys: |
             pods-e2e-${{ runner.os }}-
 
+      - name: Show selected Xcode and runtimes
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+
       - name: Install CocoaPods
         working-directory: example/ios
         run: bundle exec pod install
 
+      # Resolve a real device before passing its UDID to xcodebuild.
+      - name: Boot simulator
+        id: sim
+        uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
+        with:
+          model: ${{ env.SIM_DEVICE }}
+          os_version: ${{ env.SIM_OS }}
+          wait_for_boot: true
+
+      - name: Resolve booted simulator for harness
+        run: node example/scripts/resolve-booted-simulator.mjs
+        env:
+          SIM_UDID: ${{ steps.sim.outputs.udid }}
+
       - name: Build app for simulator
         working-directory: example/ios
+        env:
+          SIM_UDID: ${{ steps.sim.outputs.udid }}
         run: |
           set -euo pipefail
           xcodebuild \
@@ -201,17 +219,10 @@ jobs:
             -scheme example \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=$SIM_DEVICE,OS=$SIM_OS" \
+            -destination "platform=iOS Simulator,id=$SIM_UDID" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build
-
-      - name: Boot simulator
-        uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
-        with:
-          model: ${{ env.SIM_DEVICE }}
-          os_version: ${{ env.SIM_OS }}
-          wait_for_boot: true
 
       - name: Install app on simulator
         working-directory: example/ios
@@ -219,7 +230,7 @@ jobs:
           set -euo pipefail
           APP_PATH=$(find build/Build/Products -name 'example.app' -type d | head -1)
           echo "Installing $APP_PATH"
-          xcrun simctl install booted "$APP_PATH"
+          xcrun simctl install "$SIM_UDID" "$APP_PATH"
 
       - name: Install coreutils (gtimeout)
         run: brew install coreutils
@@ -259,7 +270,7 @@ jobs:
         if: failure()
         run: |
           mkdir -p artifacts
-          xcrun simctl io booted screenshot artifacts/ios-failure.png || true
+          xcrun simctl io "$SIM_UDID" screenshot artifacts/ios-failure.png || true
 
       - name: Upload iOS failure screenshot
         if: failure()
