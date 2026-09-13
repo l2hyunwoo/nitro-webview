@@ -122,17 +122,6 @@ final class HybridNitroWebView:
     progressObservation?.invalidate()
   }
 
-  func onDropView() {
-    progressObservation?.invalidate()
-    progressObservation = nil
-    onLoadStart = nil
-    onLoad = nil
-    onLoadEnd = nil
-    onLoadProgress = nil
-    view.navigationDelegate = nil
-    navigationDelegate.owner = nil
-    view.stopLoading()
-  }
 
   private static let bridgeBootstrapScript: String = """
   ;(function () {
@@ -184,6 +173,12 @@ final class HybridNitroWebView:
   """
 
   func onDropView() {
+    progressObservation?.invalidate()
+    progressObservation = nil
+    onLoadStart = nil
+    onLoad = nil
+    onLoadEnd = nil
+    onLoadProgress = nil
     let controller = view.configuration.userContentController
     controller.removeScriptMessageHandler(
       forName: NitroWebViewMessageHandler.scriptMessageHandlerName
@@ -200,6 +195,7 @@ final class HybridNitroWebView:
     uiDelegate.owner = nil
     messageHandler.dispatcher = nil
     historyHandler.dispatcher = nil
+    view.stopLoading()
   }
 
   var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil)) {
