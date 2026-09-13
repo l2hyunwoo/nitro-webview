@@ -296,6 +296,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var onLoadStart: ((event: WebViewLoadEvent) -> Unit)? = null
   private var loadActive = false
   private var loadFailed = false
+  private var pendingHttpErrorUrl: String? = null
   private var loadUrl: String? = null
   override var onLoad: ((event: WebViewLoadEvent) -> Unit)? = null
   override var onLoadProgress: ((event: WebViewLoadProgressEvent) -> Unit)? = null
@@ -708,7 +709,9 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
       loadUrl = url
       loadActive = true
-      loadFailed = false
+      // Chromium can report the response error before onPageStarted.
+      loadFailed = pendingHttpErrorUrl == url
+      pendingHttpErrorUrl = null
       // Inject the SPA history shim FIRST so history.pushState is wrapped
       // before the page's own scripts (including injectedJavaScriptBeforeContentLoaded
       // below) run. Idempotent via `window.__nitroHistoryShimInstalled`, so
@@ -819,7 +822,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       errorResponse: WebResourceResponse,
     ) {
       if (!request.isForMainFrame) return
-      if (loadActive && request.url.toString() == loadUrl) loadFailed = true
+      if (loadActive && request.url.toString() == loadUrl) {
+        loadFailed = true
+      } else {
+        pendingHttpErrorUrl = request.url.toString()
+      }
       emitHttpError(
         response = AndroidWebResourceResponse(errorResponse),
         request = AndroidWebResourceRequest(request),
