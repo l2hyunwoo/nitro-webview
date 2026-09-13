@@ -169,6 +169,16 @@ using namespace margelo::nitro::nitrowebview::views;
     swiftPart.setOnLoadStart(newViewProps.onLoadStart.value);
     newViewProps.onLoadStart.isDirty = false;
   }
+  // onLoad: optional
+  if (newViewProps.onLoad.isDirty) {
+    swiftPart.setOnLoad(newViewProps.onLoad.value);
+    newViewProps.onLoad.isDirty = false;
+  }
+  // onLoadProgress: optional
+  if (newViewProps.onLoadProgress.isDirty) {
+    swiftPart.setOnLoadProgress(newViewProps.onLoadProgress.value);
+    newViewProps.onLoadProgress.isDirty = false;
+  }
   // onLoadEnd: optional
   if (newViewProps.onLoadEnd.isDirty) {
     swiftPart.setOnLoadEnd(newViewProps.onLoadEnd.value);

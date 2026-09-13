@@ -89,9 +89,18 @@ export interface WebViewNavigationState {
   canGoForward: boolean
 }
 
-/** Payload of load lifecycle events (onLoadStart / onLoadEnd). */
+/** Payload of load lifecycle events (onLoadStart / onLoad / onLoadEnd). */
 export interface WebViewLoadEvent {
   nativeEvent: WebViewNavigationState
+}
+
+/** Native loading estimate, normalized to 0..1; not a byte count. */
+export interface WebViewLoadProgressNativeEvent extends WebViewNavigationState {
+  progress: number
+}
+
+export interface WebViewLoadProgressEvent {
+  nativeEvent: WebViewLoadProgressNativeEvent
 }
 
 /** Inner payload of `WebViewMessageEvent.nativeEvent`. */
@@ -365,7 +374,15 @@ export interface NitroWebViewProps extends HybridViewProps {
   /** Fired when the WebView begins loading content. */
   onLoadStart?: (event: WebViewLoadEvent) => void
 
-  /** Fired when the WebView finishes loading content. */
+  /** Fired once on successful main-document completion, before onLoadEnd.
+   * Transport failures and HTTP 4xx/5xx responses do not fire onLoad.
+   */
+  onLoad?: (event: WebViewLoadEvent) => void
+
+  /** Native progress estimate (0..1). Updates may skip values; 1 is not success. */
+  onLoadProgress?: (event: WebViewLoadProgressEvent) => void
+
+  /** Fired once when the main-document load completes, including failures. */
   onLoadEnd?: (event: WebViewLoadEvent) => void
 
   /** Fired when navigation state changes (URL, title, back/forward, loading). */

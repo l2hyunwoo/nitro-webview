@@ -123,7 +123,9 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `injectedJavaScript` | `string` | Fire-and-forget script run at document-END on every page load. |
 | `injectedJavaScriptBeforeContentLoaded` | `string` | Script run at document-START, before the page's own scripts. iOS: `WKUserScript(.atDocumentStart)` (hard before-any-script guarantee). Android: `WebViewCompat.addDocumentStartJavaScript` when the WebView supports `DOCUMENT_START_SCRIPT`, else `evaluateJavascript` in `onPageStarted` (early, but not a strict before-first-script guarantee). Main frame only. |
 | `onLoadStart` | `(event: WebViewLoadEvent) => void` | Fired when the WebView begins loading content. |
-| `onLoadEnd` | `(event: WebViewLoadEvent) => void` | Fired when the WebView finishes loading content. |
+| `onLoad` | `(event: WebViewLoadEvent) => void` | Fired once after a successful main-document load, before `onLoadEnd`. Transport failures and HTTP 4xx/5xx do not fire `onLoad`. |
+| `onLoadProgress` | `(event: WebViewLoadProgressEvent) => void` | Navigation state plus `nativeEvent.progress` (0..1), from WebKit estimated progress / Android WebChromeClient. Values may skip; reaching 1 does not imply success. |
+| `onLoadEnd` | `(event: WebViewLoadEvent) => void` | Fired once when the main-document load ends, including errors. Terminal payloads have `loading: false`. |
 | `onNavigationStateChange` | `(state: WebViewNavigationState) => void` | URL / title / `canGoBack` / `canGoForward` / `loading`. |
 | `onMessage` | `(event: WebViewMessageEvent) => void` | Fires when the page calls `window.ReactNativeWebView.postMessage(...)`. |
 | `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation failure (network, SSL). |

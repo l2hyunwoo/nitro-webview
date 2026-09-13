@@ -143,6 +143,34 @@ abstract class HybridNitroWebViewSpec: HybridView() {
       onLoadStart = value?.let { it }
     }
   
+  abstract var onLoad: ((event: WebViewLoadEvent) -> Unit)?
+  
+  private var onLoad_cxx: Func_void_WebViewLoadEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onLoad?.let { Func_void_WebViewLoadEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onLoad = value?.let { it }
+    }
+  
+  abstract var onLoadProgress: ((event: WebViewLoadProgressEvent) -> Unit)?
+  
+  private var onLoadProgress_cxx: Func_void_WebViewLoadProgressEvent?
+    @Keep
+    @DoNotStrip
+    get() {
+      return onLoadProgress?.let { Func_void_WebViewLoadProgressEvent_java(it) }
+    }
+    @Keep
+    @DoNotStrip
+    set(value) {
+      onLoadProgress = value?.let { it }
+    }
+  
   abstract var onLoadEnd: ((event: WebViewLoadEvent) -> Unit)?
   
   private var onLoadEnd_cxx: Func_void_WebViewLoadEvent?

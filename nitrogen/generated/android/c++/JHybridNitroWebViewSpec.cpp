@@ -15,6 +15,10 @@ namespace margelo::nitro::nitrowebview { struct HtmlSource; }
 namespace margelo::nitro::nitrowebview { struct WebViewLoadEvent; }
 // Forward declaration of `WebViewNavigationState` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
+// Forward declaration of `WebViewLoadProgressEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressEvent; }
+// Forward declaration of `WebViewLoadProgressNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressNativeEvent; }
 // Forward declaration of `WebViewMessageEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 // Forward declaration of `WebViewMessageNativeEvent` to properly resolve imports.
@@ -68,6 +72,11 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "JWebViewLoadEvent.hpp"
 #include "WebViewNavigationState.hpp"
 #include "JWebViewNavigationState.hpp"
+#include "WebViewLoadProgressEvent.hpp"
+#include "JFunc_void_WebViewLoadProgressEvent.hpp"
+#include "JWebViewLoadProgressEvent.hpp"
+#include "WebViewLoadProgressNativeEvent.hpp"
+#include "JWebViewLoadProgressNativeEvent.hpp"
 #include "JFunc_void_WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "JFunc_void_WebViewMessageEvent.hpp"
@@ -330,6 +339,40 @@ namespace margelo::nitro::nitrowebview {
   void JHybridNitroWebViewSpec::setOnLoadStart(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadStart) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_WebViewLoadEvent::javaobject> /* onLoadStart */)>("setOnLoadStart_cxx");
     method(_javaPart, onLoadStart.has_value() ? JFunc_void_WebViewLoadEvent_cxx::fromCpp(onLoadStart.value()) : nullptr);
+  }
+  std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> JHybridNitroWebViewSpec::getOnLoad() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_WebViewLoadEvent::javaobject>()>("getOnLoad_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const WebViewLoadEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_WebViewLoadEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_WebViewLoadEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_WebViewLoadEvent, void(WebViewLoadEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnLoad(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoad) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_WebViewLoadEvent::javaobject> /* onLoad */)>("setOnLoad_cxx");
+    method(_javaPart, onLoad.has_value() ? JFunc_void_WebViewLoadEvent_cxx::fromCpp(onLoad.value()) : nullptr);
+  }
+  std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>> JHybridNitroWebViewSpec::getOnLoadProgress() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_WebViewLoadProgressEvent::javaobject>()>("getOnLoadProgress_cxx");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const WebViewLoadProgressEvent& /* event */)> {
+      if (__result->isInstanceOf(JFunc_void_WebViewLoadProgressEvent_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_WebViewLoadProgressEvent_cxx::javaobject>(__result);
+        return downcast->cthis()->getFunction();
+      } else {
+        auto __resultRef = jni::make_global(__result);
+        return JNICallable<JFunc_void_WebViewLoadProgressEvent, void(WebViewLoadProgressEvent)>(std::move(__resultRef));
+      }
+    }()) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setOnLoadProgress(const std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>& onLoadProgress) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_WebViewLoadProgressEvent::javaobject> /* onLoadProgress */)>("setOnLoadProgress_cxx");
+    method(_javaPart, onLoadProgress.has_value() ? JFunc_void_WebViewLoadProgressEvent_cxx::fromCpp(onLoadProgress.value()) : nullptr);
   }
   std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> JHybridNitroWebViewSpec::getOnLoadEnd() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_WebViewLoadEvent::javaobject>()>("getOnLoadEnd_cxx");

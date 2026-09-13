@@ -24,6 +24,8 @@ export type {
   NitroWebViewMethods,
   NitroWebViewProps,
   WebViewLoadEvent,
+  WebViewLoadProgressEvent,
+  WebViewLoadProgressNativeEvent,
   WebViewMessageEvent,
   WebViewMessageNativeEvent,
   WebViewNavigationState,
