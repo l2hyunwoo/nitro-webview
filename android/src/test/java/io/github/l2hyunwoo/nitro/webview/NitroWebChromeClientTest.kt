@@ -34,6 +34,22 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class NitroWebChromeClientTest {
 
+  @Test
+  fun `progress callbacks deliver native values and detach cleanly`() {
+    val client = newClient()
+    val webView = android.webkit.WebView(org.robolectric.RuntimeEnvironment.getApplication())
+    val values = mutableListOf<Int>()
+    client.onLoadProgress = { values.add(it) }
+    client.onProgressChanged(webView, 10)
+    client.onProgressChanged(webView, 65)
+    client.onProgressChanged(webView, 100)
+    assertEquals(listOf(10, 65, 100), values)
+    client.onLoadProgress = null
+    client.onProgressChanged(webView, 25)
+    assertEquals(listOf(10, 65, 100), values)
+    webView.destroy()
+  }
+
   private fun newClient(): NitroWebChromeClient {
     // The `Context` reference is only consulted when capture intents are
     // built (we test that path with empty accept types, which short-circuit

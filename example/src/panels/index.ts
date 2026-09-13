@@ -25,6 +25,7 @@
 
 import type { ComponentType } from 'react';
 import { PostVerificationScreen } from '../PostVerificationScreen';
+import { LoadEventsVerificationScreen } from '../LoadEventsVerificationScreen';
 
 import { DialogsVerificationScreen } from '../DialogsVerificationScreen';
 import { PermissionsVerificationScreen } from '../PermissionsVerificationScreen';
@@ -45,6 +46,7 @@ export type PanelId =
   | 'post-verification'
   | 'js-dialogs'
   | 'permissions'
+  | 'load-events'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -86,6 +88,11 @@ export const PANELS: readonly PanelEntry[] = [
     id: 'permissions',
     title: 'Camera / microphone / location permissions',
     component: PermissionsVerificationScreen,
+  },
+  {
+    id: 'load-events',
+    title: 'Native load events verification',
+    component: LoadEventsVerificationScreen,
   },
   {
     id: 'js-bridge',

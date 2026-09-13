@@ -19,6 +19,8 @@ namespace margelo::nitro::nitrowebview { struct UriSource; }
 namespace margelo::nitro::nitrowebview { struct HtmlSource; }
 // Forward declaration of `WebViewLoadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewLoadEvent; }
+// Forward declaration of `WebViewLoadProgressEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressEvent; }
 // Forward declaration of `WebViewNavigationState` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 // Forward declaration of `WebViewMessageEvent` to properly resolve imports.
@@ -49,6 +51,7 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include <unordered_map>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
+#include "WebViewLoadProgressEvent.hpp"
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
@@ -128,6 +131,10 @@ namespace margelo::nitro::nitrowebview {
       virtual void setInjectedJavaScriptBeforeContentLoaded(const std::optional<std::string>& injectedJavaScriptBeforeContentLoaded) = 0;
       virtual std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() = 0;
       virtual void setOnLoadStart(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadStart) = 0;
+      virtual std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoad() = 0;
+      virtual void setOnLoad(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoad) = 0;
+      virtual std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>> getOnLoadProgress() = 0;
+      virtual void setOnLoadProgress(const std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>& onLoadProgress) = 0;
       virtual std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadEnd() = 0;
       virtual void setOnLoadEnd(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadEnd) = 0;
       virtual std::optional<std::function<void(const WebViewNavigationState& /* state */)>> getOnNavigationStateChange() = 0;

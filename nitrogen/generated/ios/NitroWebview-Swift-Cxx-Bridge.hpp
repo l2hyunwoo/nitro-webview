@@ -44,6 +44,10 @@ namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 namespace margelo::nitro::nitrowebview { struct UriSource; }
 // Forward declaration of `WebViewLoadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewLoadEvent; }
+// Forward declaration of `WebViewLoadProgressEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressEvent; }
+// Forward declaration of `WebViewLoadProgressNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressNativeEvent; }
 // Forward declaration of `WebViewMessageEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 // Forward declaration of `WebViewMessageNativeEvent` to properly resolve imports.
@@ -80,6 +84,8 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
+#include "WebViewLoadProgressEvent.hpp"
+#include "WebViewLoadProgressNativeEvent.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "WebViewMessageNativeEvent.hpp"
 #include "WebViewNavigationState.hpp"
@@ -278,6 +284,43 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.has_value();
   }
   inline std::function<void(const WebViewLoadEvent& /* event */)> get_std__optional_std__function_void_const_WebViewLoadEvent_____event______(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<void(const WebViewLoadProgressEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<void(const WebViewLoadProgressEvent&)>`.
+   */
+  using Func_void_WebViewLoadProgressEvent = std::function<void(const WebViewLoadProgressEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<void(const WebViewLoadProgressEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_void_WebViewLoadProgressEvent_Wrapper final {
+  public:
+    explicit Func_void_WebViewLoadProgressEvent_Wrapper(std::function<void(const WebViewLoadProgressEvent& /* event */)>&& func): _function(std::make_unique<std::function<void(const WebViewLoadProgressEvent& /* event */)>>(std::move(func))) {}
+    inline void call(WebViewLoadProgressEvent event) const noexcept {
+      _function->operator()(event);
+    }
+  private:
+    std::unique_ptr<std::function<void(const WebViewLoadProgressEvent& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_WebViewLoadProgressEvent create_Func_void_WebViewLoadProgressEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_WebViewLoadProgressEvent_Wrapper wrap_Func_void_WebViewLoadProgressEvent(Func_void_WebViewLoadProgressEvent value) noexcept {
+    return Func_void_WebViewLoadProgressEvent_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>
+  /**
+   * Specialized version of `std::optional<std::function<void(const WebViewLoadProgressEvent& / * event * /)>>`.
+   */
+  using std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______ = std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>;
+  inline std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>> create_std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______(const std::function<void(const WebViewLoadProgressEvent& /* event */)>& value) noexcept {
+    return std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______(const std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<void(const WebViewLoadProgressEvent& /* event */)> get_std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______(const std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>& optional) noexcept {
     return optional.value();
   }
   
