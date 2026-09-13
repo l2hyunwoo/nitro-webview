@@ -102,11 +102,12 @@ add_violation() {
 
 run_check() {
   local pattern="$1" rule="$2"
-  # BSD grep (macOS) — no -P, use -E.
+  # BSD grep (macOS) — no -P, use -E. -I skips binary assets rather than
+  # reporting their binary-match notice as a source-code violation.
   while IFS=: read -r lineno matched; do
     [[ "$VIOLATION_COUNT" -ge "$MAX_VIOLATIONS" ]] && break
     add_violation "$lineno" "$rule" "$matched"
-  done < <(grep -nE "$pattern" "$FILE" 2>/dev/null || true)
+  done < <(grep -nIE "$pattern" "$FILE" 2>/dev/null || true)
 }
 
 # Rule 1a: Swift must not use /** */ doc comments. Anchor to line start so

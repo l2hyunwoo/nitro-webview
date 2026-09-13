@@ -115,8 +115,8 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `scrollEnabled` | `boolean` | iOS-only: `scrollView.isScrollEnabled` (mutable). Android: no-op (RNW does not implement it). |
 | `bounces` | `boolean` | iOS-only: `scrollView.bounces` (mutable). Android: no-op. |
 | `scalesPageToFit` | `boolean` | Android-only: `loadWithOverviewMode` + `useWideViewPort`. iOS: no-op. |
-| `mediaPlaybackRequiresUserAction` | `boolean` | Require a gesture before media plays. Default `true`. Android: mutable. iOS: **no-op** - Nitro delivers props after `WKWebView` init, so this is never applied. |
-| `allowsInlineMediaPlayback` | `boolean` | iOS-only: **no-op** - `allowsInlineMediaPlayback` is only read at `WKWebView` init, which Nitro's prop delivery always misses. Android: no-op (inline by default). |
+| `mediaPlaybackRequiresUserAction` | `boolean` | Require a gesture before media plays. Default `true`. Android: mutable. iOS: applied on initial mount; remount with a new `key` to change it. |
+| `allowsInlineMediaPlayback` | `boolean` | iOS-only: play video inline (`false` by default). Requires HTML `playsinline`. Applied on initial mount; remount with a new `key` to change it. Android: inline by default, with HTML video fullscreen supported. |
 | `allowsBackForwardNavigationGestures` | `boolean` | iOS-only: back/forward swipe gestures (mutable). Android: no-op. |
 | `thirdPartyCookiesEnabled` | `boolean` | Android-only: `setAcceptThirdPartyCookies` for this WebView (mutable). iOS: no-op. |
 | `sharedCookiesEnabled` | `boolean` | iOS-only: **no-op** - Nitro delivers props after `WKWebView` init, so sharing `HTTPCookieStorage` is never applied. Android: no-op (one process-wide store). |

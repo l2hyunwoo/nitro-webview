@@ -270,12 +270,8 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Require a user gesture before HTML5 media can play. Defaults to `true`
    * (react-native-webview parity - block autoplay).
    *
-   *   - iOS (WKWebView): NO-OP.
-   *     `WKWebViewConfiguration.mediaTypesRequiringUserActionForPlayback`
-   *     is only read at construction, but Nitro delivers props strictly
-   *     after `init()` runs - the view is always built with the default
-   *     (`.all`, gesture required) before this prop's value is known. There
-   *     is currently no way to honor this prop on iOS, on any render.
+   *   - iOS (WKWebView): applied before the first page loads. This is an
+   *     initial-only setting; change the component `key` to apply a new value.
    *   - Android (WebSettings): `WebSettings.mediaPlaybackRequiresUserGesture`,
    *     mutable anytime.
    */
@@ -285,12 +281,9 @@ export interface NitroWebViewProps extends HybridViewProps {
    * iOS-only. Play HTML5 video inline instead of forcing the native
    * fullscreen player. Defaults to `false` (WKWebView default).
    *
-   *   - iOS (WKWebView): NO-OP.
-   *     `WKWebViewConfiguration.allowsInlineMediaPlayback` is only read at
-   *     construction, but Nitro delivers props strictly after `init()` runs
-   *     - the view is always built with the default (`false`, fullscreen
-   *     player) before this prop's value is known. There is currently no
-   *     way to honor this prop on iOS, on any render.
+   *   - iOS (WKWebView): applied before the first page loads. The HTML video
+   *     must also have `playsinline`. Change the component `key` to apply a
+   *     new value after mounting.
    *   - Android: no-op (Android WebView already plays video inline).
    */
   allowsInlineMediaPlayback?: boolean

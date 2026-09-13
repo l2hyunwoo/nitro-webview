@@ -1,5 +1,5 @@
 /**
- * Panel registry — ordered list of the seven demo panels mounted by the
+ * Panel registry — ordered list of the demo panels mounted by the
  * home-list router in `example/App.tsx`.
  *
  * Each entry pairs a stable `id` (used as React key + `active_panel_id`
@@ -24,6 +24,7 @@
  */
 
 import type { ComponentType } from 'react'
+import { MediaVerificationScreen } from '../MediaVerificationScreen'
 
 import { CookiesDemo } from './CookiesDemo'
 import { FileDownloadDemo } from './FileDownloadDemo'
@@ -38,6 +39,7 @@ import { UserAgentDemo } from './UserAgentDemo'
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'media-playback'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -59,12 +61,17 @@ export type PanelEntry = {
 }
 
 /**
- * Ordered list of the seven demo panels. Order is the rendering
+ * Ordered list of the demo panels. Order is the rendering
  * order in the home list and reflects the original App.tsx scroll
  * order, with the JS bridge (the old global-chrome WebView demo)
  * surfaced first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'media-playback',
+    title: 'Media playback verification',
+    component: MediaVerificationScreen,
+  },
   {
     id: 'js-bridge',
     title: 'postMessage bridge / Evaluate JS',
