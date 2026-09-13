@@ -65,3 +65,23 @@ export type {
   _BaseUrl_IsOptional,
   _Shape_HasOnlyExpectedKeys,
 }
+
+import type { UriSource } from '../WebViewSource'
+const _post: UriSource = {
+  uri: 'https://example.com',
+  method: 'POST',
+  body: 'a=1',
+}
+const _get: UriSource = { uri: 'https://example.com', method: 'GET' }
+// @ts-expect-error Only GET and POST are supported.
+const _put: UriSource = { uri: 'https://example.com', method: 'PUT' }
+const _binary: UriSource = {
+  uri: 'https://example.com',
+  method: 'POST',
+  // @ts-expect-error Body is a UTF-8 string.
+  body: new Uint8Array(),
+}
+void _post
+void _get
+void _put
+void _binary

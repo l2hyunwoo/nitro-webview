@@ -133,3 +133,33 @@ test('empty uri string is treated as invalid (falls through to type error)', () 
   // An empty string isn't a meaningful URL to hand to the native loader.
   assert.throws(() => sourceToCommand({ uri: '' } as UriSource), TypeError)
 })
+
+test('POST preserves method and UTF-8 body with an empty default', () => {
+  assert.deepEqual(
+    sourceToCommand({
+      uri: 'https://example.com',
+      method: 'POST',
+      body: 'name=한글',
+    }),
+    {
+      type: 'loadUrl',
+      url: 'https://example.com',
+      method: 'POST',
+      body: 'name=한글',
+    }
+  )
+  assert.deepEqual(
+    sourceToCommand({ uri: 'https://example.com', method: 'POST' }),
+    { type: 'loadUrl', url: 'https://example.com', method: 'POST', body: '' }
+  )
+})
+
+test('rejects unsupported methods, GET bodies, and non-HTTP POST', () => {
+  for (const source of [
+    { uri: 'https://example.com', method: 'PUT' },
+    { uri: 'https://example.com', body: '' },
+    { uri: 'https://example.com', method: 'POST', body: 42 },
+    { uri: 'file:///tmp/form', method: 'POST' },
+  ])
+    assert.throws(() => sourceToCommand(source as UriSource), TypeError)
+})

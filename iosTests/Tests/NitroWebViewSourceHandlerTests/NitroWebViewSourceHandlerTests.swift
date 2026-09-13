@@ -22,6 +22,27 @@ private final class SpyHTMLLoader: WebViewHTMLLoader {
 }
 
 final class NitroWebViewSourceHandlerTests: XCTestCase {
+  func testPOSTRequestUsesUTF8AndPreservesHeadersAndCachePolicy() throws {
+    let request = try NitroWebViewSourceHandler.makeRequest(
+      uri: "https://example.com/form", method: "POST", body: "name=한글",
+      headers: ["Content-Type": "application/x-www-form-urlencoded", "X-App": "test"],
+      cachePolicy: .reloadIgnoringLocalCacheData)
+    XCTAssertEqual(request.httpMethod, "POST")
+    XCTAssertEqual(request.httpBody, Data("name=한글".utf8))
+    XCTAssertEqual(request.value(forHTTPHeaderField: "X-App"), "test")
+    XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
+  }
+
+  func testRequestDefaultsAndInvalidCombinations() throws {
+    let get = try NitroWebViewSourceHandler.makeRequest(uri: "about:blank")
+    XCTAssertEqual(get.httpMethod, "GET")
+    XCTAssertNil(get.httpBody)
+    let post = try NitroWebViewSourceHandler.makeRequest(uri: "https://example.com", method: "POST")
+    XCTAssertEqual(post.httpBody, Data())
+    XCTAssertThrowsError(try NitroWebViewSourceHandler.makeRequest(uri: "https://example.com", body: ""))
+    XCTAssertThrowsError(try NitroWebViewSourceHandler.makeRequest(uri: "file:///tmp/form", method: "POST"))
+  }
+
 
   func test_applyHtmlPayload_withNoBaseUrl_callsLoadHTMLStringWithNilBaseURL() {
     let handler = NitroWebViewSourceHandler()

@@ -174,8 +174,17 @@ final class HybridNitroWebView:
     historyHandler.dispatcher = nil
   }
 
-  var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil)) {
-    didSet { applySource(source) }
+  private var sourceNeedsLoading = false
+  var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil, method: nil, body: nil)) {
+    didSet { sourceNeedsLoading = true }
+  }
+
+  // Nitro sets source before headers and callbacks. Wait for the complete
+  // prop batch so the first request and validation errors use those values.
+  func afterUpdate() {
+    guard sourceNeedsLoading else { return }
+    sourceNeedsLoading = false
+    applySource(source)
   }
 
   /// Default HTTP headers applied to every main-frame navigation initiated
@@ -383,17 +392,16 @@ final class HybridNitroWebView:
   private func applySource(_ source: WebViewSource) {
     switch source {
     case .first(let uri):
-      guard let url = URL(string: uri.uri) else { return }
-      var request = URLRequest(url: url)
-      request.cachePolicy = Self.cachePolicy(forCacheEnabled: cacheEnabled)
-      let merged = Self.mergeHeaders(
-        defaults: defaultHeaders,
-        perRequest: uri.headers
-      )
-      for (k, v) in merged {
-        request.setValue(v, forHTTPHeaderField: k)
+      do {
+        let request = try NitroWebViewSourceHandler.makeRequest(
+          uri: uri.uri, method: uri.method?.stringValue, body: uri.body,
+          headers: Self.mergeHeaders(defaults: defaultHeaders, perRequest: uri.headers),
+          cachePolicy: Self.cachePolicy(forCacheEnabled: cacheEnabled)
+        )
+        view.load(request)
+      } catch {
+        emitError(error as NSError, fallbackUrl: uri.uri)
       }
-      view.load(request)
     case .second(let html):
       let payload = NitroLoadHtmlPayload(
         html: html.html,

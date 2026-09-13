@@ -10,6 +10,8 @@
 #include <fbjni/fbjni.h>
 #include "UriSource.hpp"
 
+#include "JWebViewSourceMethod.hpp"
+#include "WebViewSourceMethod.hpp"
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -37,6 +39,10 @@ namespace margelo::nitro::nitrowebview {
       jni::local_ref<jni::JString> uri = this->getFieldValue(fieldUri);
       static const auto fieldHeaders = clazz->getField<jni::JMap<jni::JString, jni::JString>>("headers");
       jni::local_ref<jni::JMap<jni::JString, jni::JString>> headers = this->getFieldValue(fieldHeaders);
+      static const auto fieldMethod = clazz->getField<JWebViewSourceMethod>("method");
+      jni::local_ref<JWebViewSourceMethod> method = this->getFieldValue(fieldMethod);
+      static const auto fieldBody = clazz->getField<jni::JString>("body");
+      jni::local_ref<jni::JString> body = this->getFieldValue(fieldBody);
       return UriSource(
         uri->toStdString(),
         headers != nullptr ? std::make_optional([&]() {
@@ -46,7 +52,9 @@ namespace margelo::nitro::nitrowebview {
             __map.emplace(__entry.first->toStdString(), __entry.second->toStdString());
           }
           return __map;
-        }()) : std::nullopt
+        }()) : std::nullopt,
+        method != nullptr ? std::make_optional(method->toCpp()) : std::nullopt,
+        body != nullptr ? std::make_optional(body->toStdString()) : std::nullopt
       );
     }
 
@@ -56,7 +64,7 @@ namespace margelo::nitro::nitrowebview {
      */
     [[maybe_unused]]
     static jni::local_ref<JUriSource::javaobject> fromCpp(const UriSource& value) {
-      using JSignature = JUriSource(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JMap<jni::JString, jni::JString>>);
+      using JSignature = JUriSource(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JMap<jni::JString, jni::JString>>, jni::alias_ref<JWebViewSourceMethod>, jni::alias_ref<jni::JString>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
@@ -68,7 +76,9 @@ namespace margelo::nitro::nitrowebview {
             __map->put(jni::make_jstring(__entry.first), jni::make_jstring(__entry.second));
           }
           return __map;
-        }() : nullptr
+        }() : nullptr,
+        value.method.has_value() ? JWebViewSourceMethod::fromCpp(value.method.value()) : nullptr,
+        value.body.has_value() ? jni::make_jstring(value.body.value()) : nullptr
       );
     }
   };

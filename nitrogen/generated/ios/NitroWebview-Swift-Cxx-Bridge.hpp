@@ -54,6 +54,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 // Forward declaration of `WebViewPoint` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
+// Forward declaration of `WebViewSourceMethod` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewSourceMethod; }
 
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridNitroWebViewSpec_cxx` to properly resolve imports.
@@ -83,6 +85,7 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include "WebViewNavigationState.hpp"
 #include "WebViewNavigationType.hpp"
 #include "WebViewPoint.hpp"
+#include "WebViewSourceMethod.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
@@ -138,6 +141,21 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return optional.has_value();
   }
   inline std::unordered_map<std::string, std::string> get_std__optional_std__unordered_map_std__string__std__string__(const std::optional<std::unordered_map<std::string, std::string>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<WebViewSourceMethod>
+  /**
+   * Specialized version of `std::optional<WebViewSourceMethod>`.
+   */
+  using std__optional_WebViewSourceMethod_ = std::optional<WebViewSourceMethod>;
+  inline std::optional<WebViewSourceMethod> create_std__optional_WebViewSourceMethod_(const WebViewSourceMethod& value) noexcept {
+    return std::optional<WebViewSourceMethod>(value);
+  }
+  inline bool has_value_std__optional_WebViewSourceMethod_(const std::optional<WebViewSourceMethod>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline WebViewSourceMethod get_std__optional_WebViewSourceMethod_(const std::optional<WebViewSourceMethod>& optional) noexcept {
     return optional.value();
   }
   
