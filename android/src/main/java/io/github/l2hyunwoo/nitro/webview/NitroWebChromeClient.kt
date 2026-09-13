@@ -87,6 +87,11 @@ open class NitroWebChromeClient(
     }
   },
 ) : WebChromeClient() {
+  var onLoadProgress: ((Int) -> Unit)? = null
+
+  override fun onProgressChanged(view: WebView, newProgress: Int) {
+    onLoadProgress?.invoke(newProgress)
+  }
 
   /**
    * Optional explicit override for the resolved Activity. When non-null,

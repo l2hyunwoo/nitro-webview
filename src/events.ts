@@ -89,7 +89,7 @@ export interface NativeLoadPayload {
   canGoForward: boolean
 }
 
-export type OnLoad = NonNullable<NitroWebViewProps['onLoadEnd']>
+export type OnLoad = NonNullable<NitroWebViewProps['onLoad']>
 
 export type LoadDispatcher = (payload: NativeLoadPayload) => void
 

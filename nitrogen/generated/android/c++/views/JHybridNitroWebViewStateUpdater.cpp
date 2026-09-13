@@ -109,6 +109,14 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
     hybridView->setOnLoadStart(props->onLoadStart.value);
     props->onLoadStart.isDirty = false;
   }
+  if (props->onLoad.isDirty) {
+    hybridView->setOnLoad(props->onLoad.value);
+    props->onLoad.isDirty = false;
+  }
+  if (props->onLoadProgress.isDirty) {
+    hybridView->setOnLoadProgress(props->onLoadProgress.value);
+    props->onLoadProgress.isDirty = false;
+  }
   if (props->onLoadEnd.isDirty) {
     hybridView->setOnLoadEnd(props->onLoadEnd.value);
     props->onLoadEnd.isDirty = false;

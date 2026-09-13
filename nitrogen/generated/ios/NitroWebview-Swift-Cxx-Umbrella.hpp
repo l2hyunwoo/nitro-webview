@@ -44,6 +44,10 @@ namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 namespace margelo::nitro::nitrowebview { struct UriSource; }
 // Forward declaration of `WebViewLoadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewLoadEvent; }
+// Forward declaration of `WebViewLoadProgressEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressEvent; }
+// Forward declaration of `WebViewLoadProgressNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressNativeEvent; }
 // Forward declaration of `WebViewMessageEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 // Forward declaration of `WebViewMessageNativeEvent` to properly resolve imports.
@@ -74,6 +78,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 #include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
+#include "WebViewLoadProgressEvent.hpp"
+#include "WebViewLoadProgressNativeEvent.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "WebViewMessageNativeEvent.hpp"
 #include "WebViewNavigationState.hpp"

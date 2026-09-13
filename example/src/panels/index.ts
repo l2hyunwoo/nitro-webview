@@ -24,6 +24,7 @@
  */
 
 import type { ComponentType } from 'react'
+import { LoadEventsVerificationScreen } from '../LoadEventsVerificationScreen'
 
 import { CookiesDemo } from './CookiesDemo'
 import { FileDownloadDemo } from './FileDownloadDemo'
@@ -38,6 +39,7 @@ import { UserAgentDemo } from './UserAgentDemo'
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'load-events'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -65,6 +67,11 @@ export type PanelEntry = {
  * surfaced first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'load-events',
+    title: 'Native load events verification',
+    component: LoadEventsVerificationScreen,
+  },
   {
     id: 'js-bridge',
     title: 'postMessage bridge / Evaluate JS',

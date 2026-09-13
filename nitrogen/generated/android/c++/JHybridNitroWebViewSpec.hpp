@@ -86,6 +86,10 @@ namespace margelo::nitro::nitrowebview {
     void setInjectedJavaScriptBeforeContentLoaded(const std::optional<std::string>& injectedJavaScriptBeforeContentLoaded) override;
     std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadStart() override;
     void setOnLoadStart(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadStart) override;
+    std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoad() override;
+    void setOnLoad(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoad) override;
+    std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>> getOnLoadProgress() override;
+    void setOnLoadProgress(const std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>& onLoadProgress) override;
     std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadEnd() override;
     void setOnLoadEnd(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadEnd) override;
     std::optional<std::function<void(const WebViewNavigationState& /* state */)>> getOnNavigationStateChange() override;

@@ -17,6 +17,7 @@
 
 #include "JHybridNitroWebViewSpec.hpp"
 #include "JFunc_void_WebViewLoadEvent.hpp"
+#include "JFunc_void_WebViewLoadProgressEvent.hpp"
 #include "JFunc_void_WebViewNavigationState.hpp"
 #include "JFunc_void_WebViewMessageEvent.hpp"
 #include "JFunc_void_NitroWebViewErrorEvent.hpp"
@@ -53,6 +54,7 @@ void registerAllNatives() {
   // Register native JNI methods
   margelo::nitro::nitrowebview::JHybridNitroWebViewSpec::CxxPart::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_WebViewLoadEvent_cxx::registerNatives();
+  margelo::nitro::nitrowebview::JFunc_void_WebViewLoadProgressEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_WebViewNavigationState_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_WebViewMessageEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_NitroWebViewErrorEvent_cxx::registerNatives();

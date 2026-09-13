@@ -40,6 +40,8 @@ import com.margelo.nitro.nitrowebview.OpenWindowNativeEvent
 import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
 import com.margelo.nitro.nitrowebview.WebViewPoint
 import com.margelo.nitro.nitrowebview.UriSource
+import com.margelo.nitro.nitrowebview.WebViewLoadProgressEvent
+import com.margelo.nitro.nitrowebview.WebViewLoadProgressNativeEvent
 import com.margelo.nitro.nitrowebview.WebViewLoadEvent
 import com.margelo.nitro.nitrowebview.WebViewMessageEvent
 import com.margelo.nitro.nitrowebview.WebViewMessageNativeEvent
@@ -292,6 +294,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   private var documentStartScriptHandler: androidx.webkit.ScriptHandler? = null
 
   override var onLoadStart: ((event: WebViewLoadEvent) -> Unit)? = null
+  private var loadActive = false
+  private var loadFailed = false
+  private var pendingHttpErrorUrl: String? = null
+  private var loadUrl: String? = null
+  override var onLoad: ((event: WebViewLoadEvent) -> Unit)? = null
+  override var onLoadProgress: ((event: WebViewLoadProgressEvent) -> Unit)? = null
   override var onLoadEnd: ((event: WebViewLoadEvent) -> Unit)? = null
   override var onNavigationStateChange: ((state: WebViewNavigationState) -> Unit)? = null
   override var onMessage: ((event: WebViewMessageEvent) -> Unit)? = null
@@ -346,6 +354,16 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     // and onOpenWindow can never surface (see NitroWebChromeClient).
     view.settings.setSupportMultipleWindows(true)
     view.webViewClient = ClientImpl()
+    webChromeClient.onLoadProgress = { progress ->
+      if (loadActive) {
+        val state = snapshotNavigationState()
+        onLoadProgress?.invoke(WebViewLoadProgressEvent(WebViewLoadProgressNativeEvent(
+          url = state.url, title = state.title, loading = state.loading,
+          canGoBack = state.canGoBack, canGoForward = state.canGoForward,
+          progress = progress.coerceIn(0, 100) / 100.0,
+        )))
+      }
+    }
     view.webChromeClient = webChromeClient
     view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
     // Second, DISTINCT @JavascriptInterface for the SPA history shim. A route
@@ -555,6 +573,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   override fun onDropView() {
+    loadActive = false
+    onLoadStart = null
+    onLoad = null
+    onLoadEnd = null
+    onLoadProgress = null
+    webChromeClient.onLoadProgress = null
     view.webViewClient = WebViewClient() // detach our client
     // Release the chooser-bound activity to avoid leaking the host while
     // the WebView itself is being torn down. The chooser client is
@@ -619,7 +643,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   private fun emitLoadEnd() {
-    onLoadEnd?.invoke(WebViewLoadEvent(snapshotNavigationState()))
+    if (!loadActive) return
+    loadActive = false
+    val event = WebViewLoadEvent(snapshotNavigationState().copy(loading = false))
+    if (!loadFailed) onLoad?.invoke(event)
+    onLoadEnd?.invoke(event)
   }
 
   private fun emitNavigationState() {
@@ -679,6 +707,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
 
   private inner class ClientImpl : WebViewClient() {
     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+      loadUrl = url
+      loadActive = true
+      // Chromium can report the response error before onPageStarted.
+      loadFailed = pendingHttpErrorUrl == url
+      pendingHttpErrorUrl = null
       // Inject the SPA history shim FIRST so history.pushState is wrapped
       // before the page's own scripts (including injectedJavaScriptBeforeContentLoaded
       // below) run. Idempotent via `window.__nitroHistoryShimInstalled`, so
@@ -701,6 +734,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
+      if (!loadActive || url != loadUrl) return
       val script = injectedJavaScript
       if (!script.isNullOrEmpty()) {
         view.evaluateJavascript(script, null)
@@ -761,7 +795,8 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       error: WebResourceError,
     ) {
       // Only main-frame errors should surface to JS, matching iOS semantics.
-      if (request.isForMainFrame) {
+      if (request.isForMainFrame && loadActive && request.url.toString() == loadUrl) {
+        loadFailed = true
         emitError(
           error = AndroidWebResourceError(error),
           request = AndroidWebResourceRequest(request),
@@ -787,6 +822,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       errorResponse: WebResourceResponse,
     ) {
       if (!request.isForMainFrame) return
+      if (loadActive && request.url.toString() == loadUrl) {
+        loadFailed = true
+      } else {
+        pendingHttpErrorUrl = request.url.toString()
+      }
       emitHttpError(
         response = AndroidWebResourceResponse(errorResponse),
         request = AndroidWebResourceRequest(request),
