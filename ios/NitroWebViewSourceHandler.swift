@@ -42,6 +42,34 @@ public protocol WebViewHTMLLoader: AnyObject {
 public final class NitroWebViewSourceHandler {
   public init() {}
 
+  /// Builds the request used by the actual WKWebView load path.
+  public static func makeRequest(
+    uri: String, method: String? = nil, body: String? = nil,
+    headers: [String: String] = [:],
+    cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy
+  ) throws -> URLRequest {
+    let method = method ?? "GET"
+    func invalid(_ message: String) -> NSError {
+      NSError(domain: "NitroWebViewSource", code: -1,
+              userInfo: [NSLocalizedDescriptionKey: message])
+    }
+    guard method == "GET" || method == "POST" else {
+      throw invalid("source.method must be GET or POST")
+    }
+    guard method == "POST" || body == nil else {
+      throw invalid("source.body requires POST")
+    }
+    guard let url = URL(string: uri) else { throw invalid("Invalid source URI") }
+    if method == "POST" && !["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+      throw invalid("POST requires an HTTP(S) URI")
+    }
+    var request = URLRequest(url: url, cachePolicy: cachePolicy)
+    request.httpMethod = method
+    if method == "POST" { request.httpBody = Data((body ?? "").utf8) }
+    for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
+    return request
+  }
+
   /// Apply a normalised HTML payload to the given WebView.
   public func applyHtmlPayload(
     _ payload: NitroLoadHtmlPayload,

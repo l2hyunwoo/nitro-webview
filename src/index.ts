@@ -17,6 +17,7 @@ export type {
   HtmlSource,
   UriSource,
   WebViewSource,
+  WebViewSourceMethod,
 } from './specs/WebViewSource'
 
 export type {

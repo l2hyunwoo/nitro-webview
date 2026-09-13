@@ -23,40 +23,42 @@
  *     unmount on Back) is owned by `App.tsx`, not this registry.
  */
 
-import type { ComponentType } from 'react'
+import type { ComponentType } from 'react';
+import { PostVerificationScreen } from '../PostVerificationScreen';
 
-import { CookiesDemo } from './CookiesDemo'
-import { FileDownloadDemo } from './FileDownloadDemo'
-import { FileUploadDemo } from './FileUploadDemo'
-import { HeadersDemo } from './HeadersDemo'
-import { JSBridgeDemo } from './JSBridgeDemo'
-import { NavigationInterceptionDemo } from './NavigationInterceptionDemo'
-import { UserAgentDemo } from './UserAgentDemo'
+import { CookiesDemo } from './CookiesDemo';
+import { FileDownloadDemo } from './FileDownloadDemo';
+import { FileUploadDemo } from './FileUploadDemo';
+import { HeadersDemo } from './HeadersDemo';
+import { JSBridgeDemo } from './JSBridgeDemo';
+import { NavigationInterceptionDemo } from './NavigationInterceptionDemo';
+import { UserAgentDemo } from './UserAgentDemo';
 
 /**
  * Stable identifier for a demo panel. Doubles as the
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'post-verification'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
   | 'user-agent'
   | 'cookies'
   | 'file-upload'
-  | 'file-download'
+  | 'file-download';
 
 /**
  * A single entry in the home-list / router registry.
  */
 export type PanelEntry = {
   /** Stable identifier; doubles as the React key in the home list. */
-  id: PanelId
+  id: PanelId;
   /** Human-readable label shown in the home list and panel header. */
-  title: string
+  title: string;
   /** Panel screen mounted full-screen when the row is tapped. */
-  component: ComponentType
-}
+  component: ComponentType;
+};
 
 /**
  * Ordered list of the seven demo panels. Order is the rendering
@@ -65,6 +67,11 @@ export type PanelEntry = {
  * surfaced first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'post-verification',
+    title: 'POST source verification',
+    component: PostVerificationScreen,
+  },
   {
     id: 'js-bridge',
     title: 'postMessage bridge / Evaluate JS',
@@ -100,14 +107,16 @@ export const PANELS: readonly PanelEntry[] = [
     title: 'File download demo',
     component: FileDownloadDemo,
   },
-] as const
+] as const;
 
 /**
  * Lookup helper used by the router in `App.tsx` to resolve an
  * `active_panel_id` into the entry to mount. Returns `undefined`
  * when the id is not present (treated by the router as "go home").
  */
-export function findPanelById(id: PanelId | null | undefined): PanelEntry | undefined {
-  if (id == null) return undefined
-  return PANELS.find((entry) => entry.id === id)
+export function findPanelById(
+  id: PanelId | null | undefined,
+): PanelEntry | undefined {
+  if (id == null) return undefined;
+  return PANELS.find(entry => entry.id === id);
 }

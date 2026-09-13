@@ -50,6 +50,27 @@ export function sourceToCommand(source: WebViewSource): NativeViewCommand {
   }
 
   if (isUriSource(source)) {
+    const method = source.method ?? 'GET'
+    if (method !== 'GET' && method !== 'POST') {
+      throw new TypeError('NitroWebView: source.method must be GET or POST')
+    }
+    if (source.body !== undefined && typeof source.body !== 'string') {
+      throw new TypeError('NitroWebView: source.body must be a string')
+    }
+    if (method === 'GET' && source.body !== undefined) {
+      throw new TypeError('NitroWebView: source.body requires POST')
+    }
+    if (method === 'POST') {
+      if (!/^https?:\/\//i.test(source.uri)) {
+        throw new TypeError('NitroWebView: POST requires an HTTP(S) URI')
+      }
+      return {
+        type: 'loadUrl',
+        url: source.uri,
+        method,
+        body: source.body ?? '',
+      }
+    }
     return { type: 'loadUrl', url: source.uri }
   }
 

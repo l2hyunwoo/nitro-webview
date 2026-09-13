@@ -469,3 +469,24 @@ MIT.
 
 [nitro]: https://github.com/mrousavy/nitro
 [harness]: https://github.com/callstackincubator/react-native-harness
+
+
+### POST sources
+
+```tsx
+<NitroWebView source={{ uri: 'https://example.com/form', method: 'POST', body: 'name=Nitro+WebView' }} />
+```
+
+`method` defaults to `GET`. POST sends `body` as UTF-8 (empty when omitted)
+and requires an HTTP(S) URI. A GET source cannot specify a body.
+Android uses `WebView.postUrl`, whose body must be form-urlencoded; encode the
+form yourself. Android POST cannot attach custom headers: any nonempty
+`source.headers` or `defaultHeaders` emits `onError` with domain
+`NitroWebViewSource`, code `-1`, and skips navigation. iOS POST supports the
+usual merged headers, including an explicit `Content-Type` for the body.
+Invalid source combinations likewise emit `onError` before a load starts.
+
+For a server-side echo check, run `node example/scripts/post-verification-server.mjs`
+and mount `PostVerificationScreen` from the example. Android also needs
+`adb reverse tcp:18965 tcp:18965`. The WebView displays the actual HTTP response;
+the server logs the received method, body, and content type.

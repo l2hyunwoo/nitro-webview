@@ -80,6 +80,9 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
       view.loadUrl(url, additionalHttpHeaders)
     }
+    override fun postUrl(url: String, body: ByteArray) {
+      view.postUrl(url, body)
+    }
   }
 
   /**
@@ -136,7 +139,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   // the listener set that actually fires from `onActivityResult`.
   private val reactContext: ReactContext = context.reactApplicationContext
 
-  override var source: WebViewSource = WebViewSource.create(UriSource("about:blank", null))
+  override var source: WebViewSource = WebViewSource.create(UriSource("about:blank", null, null, null))
     set(value) {
       field = value
       applySource(value)
@@ -597,7 +600,14 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         first = { uriSource ->
           // Delegate to the companion helper so the header-merge + loadUrl
           // call can be verified in unit tests via the UrlLoader seam.
-          applyUriSource(uriSource, defaultHeaders, viewLoader)
+          try {
+            applyUriSource(uriSource, defaultHeaders, viewLoader)
+          } catch (error: IllegalArgumentException) {
+            onError?.invoke(NitroWebViewErrorEvent(NitroWebViewErrorNativeEvent(
+              code = -1.0, description = error.message ?: "Invalid source",
+              url = uriSource.uri, domain = "NitroWebViewSource",
+            )))
+          }
         },
         second = { html ->
           val payload = NitroLoadHtmlPayload(
@@ -959,6 +969,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   internal interface UrlLoader {
     /** Mirror of `WebView.loadUrl(url, additionalHttpHeaders)`. */
     fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>)
+    fun postUrl(url: String, body: ByteArray)
   }
 
   /**
@@ -1203,7 +1214,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         putAll(defaultHeaders ?: emptyMap())
         putAll(uriSource.headers ?: emptyMap())
       }
-      loader.loadUrl(uriSource.uri, merged)
+      val body = NitroWebViewSourceHandler.postBody(
+        uriSource.uri, uriSource.method?.name, uriSource.body, merged,
+      )
+      if (body == null) loader.loadUrl(uriSource.uri, merged)
+      else loader.postUrl(uriSource.uri, body)
     }
 
     /**

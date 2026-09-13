@@ -28,11 +28,13 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-
+// Forward declaration of `WebViewSourceMethod` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewSourceMethod; }
 
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include "WebViewSourceMethod.hpp"
 
 namespace margelo::nitro::nitrowebview {
 
@@ -43,10 +45,12 @@ namespace margelo::nitro::nitrowebview {
   public:
     std::string uri     SWIFT_PRIVATE;
     std::optional<std::unordered_map<std::string, std::string>> headers     SWIFT_PRIVATE;
+    std::optional<WebViewSourceMethod> method     SWIFT_PRIVATE;
+    std::optional<std::string> body     SWIFT_PRIVATE;
 
   public:
     UriSource() = default;
-    explicit UriSource(std::string uri, std::optional<std::unordered_map<std::string, std::string>> headers): uri(uri), headers(headers) {}
+    explicit UriSource(std::string uri, std::optional<std::unordered_map<std::string, std::string>> headers, std::optional<WebViewSourceMethod> method, std::optional<std::string> body): uri(uri), headers(headers), method(method), body(body) {}
 
   public:
     friend bool operator==(const UriSource& lhs, const UriSource& rhs) = default;
@@ -63,13 +67,17 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::nitrowebview::UriSource(
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "uri"))),
-        JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headers")))
+        JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headers"))),
+        JSIConverter<std::optional<margelo::nitro::nitrowebview::WebViewSourceMethod>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "method"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "body")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::nitrowebview::UriSource& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "uri"), JSIConverter<std::string>::toJSI(runtime, arg.uri));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "headers"), JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::toJSI(runtime, arg.headers));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "method"), JSIConverter<std::optional<margelo::nitro::nitrowebview::WebViewSourceMethod>>::toJSI(runtime, arg.method));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "body"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.body));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -82,6 +90,8 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "uri")))) return false;
       if (!JSIConverter<std::optional<std::unordered_map<std::string, std::string>>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headers")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::nitrowebview::WebViewSourceMethod>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "method")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "body")))) return false;
       return true;
     }
   };

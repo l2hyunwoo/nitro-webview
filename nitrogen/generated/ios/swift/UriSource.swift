@@ -18,7 +18,7 @@ public extension UriSource {
   /**
    * Create a new instance of `UriSource`.
    */
-  init(uri: String, headers: Dictionary<String, String>?) {
+  init(uri: String, headers: Dictionary<String, String>?, method: WebViewSourceMethod?, body: String?) {
     self.init(std.string(uri), { () -> bridge.std__optional_std__unordered_map_std__string__std__string__ in
       if let __unwrappedValue = headers {
         return bridge.create_std__optional_std__unordered_map_std__string__std__string__({ () -> bridge.std__unordered_map_std__string__std__string_ in
@@ -28,6 +28,18 @@ public extension UriSource {
           }
           return __map
         }())
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_WebViewSourceMethod_ in
+      if let __unwrappedValue = method {
+        return bridge.create_std__optional_WebViewSourceMethod_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__string_ in
+      if let __unwrappedValue = body {
+        return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
       } else {
         return .init()
       }
@@ -53,6 +65,23 @@ public extension UriSource {
           }
           return __dictionary
         }()
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var method: WebViewSourceMethod? {
+    return self.__method.value
+  }
+  
+  @inline(__always)
+  var body: String? {
+    return { () -> String? in
+      if bridge.has_value_std__optional_std__string_(self.__body) {
+        let __unwrapped = bridge.get_std__optional_std__string_(self.__body)
+        return String(__unwrapped)
       } else {
         return nil
       }

@@ -23,7 +23,13 @@ data class UriSource(
   val uri: String,
   @DoNotStrip
   @Keep
-  val headers: Map<String, String>?
+  val headers: Map<String, String>?,
+  @DoNotStrip
+  @Keep
+  val method: WebViewSourceMethod?,
+  @DoNotStrip
+  @Keep
+  val body: String?
 ) {
   /* primary constructor */
 
@@ -32,12 +38,16 @@ data class UriSource(
     if (other !is UriSource) return false
     return Objects.deepEquals(this.uri, other.uri)
       && Objects.deepEquals(this.headers, other.headers)
+      && Objects.deepEquals(this.method, other.method)
+      && Objects.deepEquals(this.body, other.body)
   }
 
   override fun hashCode(): Int {
     return arrayOf<Any?>(
       uri,
-      headers
+      headers,
+      method,
+      body
     ).contentDeepHashCode()
   }
 
@@ -49,8 +59,8 @@ data class UriSource(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(uri: String, headers: Map<String, String>?): UriSource {
-      return UriSource(uri, headers)
+    private fun fromCpp(uri: String, headers: Map<String, String>?, method: WebViewSourceMethod?, body: String?): UriSource {
+      return UriSource(uri, headers, method, body)
     }
   }
 }

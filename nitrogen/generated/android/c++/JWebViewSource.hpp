@@ -17,6 +17,8 @@
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include "WebViewSourceMethod.hpp"
+#include "JWebViewSourceMethod.hpp"
 #include "JHtmlSource.hpp"
 
 namespace margelo::nitro::nitrowebview {

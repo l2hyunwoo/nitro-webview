@@ -32,6 +32,9 @@ class HybridNitroWebViewApplySourceTest {
   private class RecordingUrlLoader : HybridNitroWebView.UrlLoader {
     data class Call(val url: String, val headers: Map<String, String>)
 
+    var postedBody: ByteArray? = null
+    override fun postUrl(url: String, body: ByteArray) { postedBody = body }
+
     var lastCall: Call? = null
       private set
 
@@ -44,6 +47,7 @@ class HybridNitroWebViewApplySourceTest {
   fun `applyUriSource_callsLoadUrlWithMergedHeaders`() {
     val loader = RecordingUrlLoader()
     val uriSource = UriSource(
+      method = null, body = null,
       uri = "https://example.com",
       headers = mapOf("X-Per-Request" to "from-source"),
     )
@@ -80,6 +84,7 @@ class HybridNitroWebViewApplySourceTest {
   fun `applyUriSource_perRequestHeadersOverrideDefaults`() {
     val loader = RecordingUrlLoader()
     val uriSource = UriSource(
+      method = null, body = null,
       uri = "https://api.example.com/data",
       headers = mapOf("Authorization" to "Bearer per-request"),
     )
@@ -104,6 +109,7 @@ class HybridNitroWebViewApplySourceTest {
   fun `applyUriSource_emptyHeaders_stillInvokesLoadUrl_withEmptyMap`() {
     val loader = RecordingUrlLoader()
     val uriSource = UriSource(
+      method = null, body = null,
       uri = "https://example.com/empty",
       headers = null,
     )
@@ -127,7 +133,7 @@ class HybridNitroWebViewApplySourceTest {
   fun `applyUriSource_forwardsExactUri_unmodified`() {
     val loader = RecordingUrlLoader()
     val uri = "https://subdomain.example.com/path?query=1&foo=bar#anchor"
-    val uriSource = UriSource(uri = uri, headers = null)
+    val uriSource = UriSource(uri = uri, headers = null, method = null, body = null)
 
     HybridNitroWebView.applyUriSource(uriSource, null, loader)
 
@@ -136,6 +142,23 @@ class HybridNitroWebViewApplySourceTest {
       uri,
       loader.lastCall?.url,
     )
+  }
+
+  @Test
+  fun `post forwards UTF8 body without loadUrl`() {
+    val loader = RecordingUrlLoader()
+    val source = UriSource("https://example.com", null,
+      com.margelo.nitro.nitrowebview.WebViewSourceMethod.POST, "name=한글")
+    HybridNitroWebView.applyUriSource(source, null, loader)
+    assertNull(loader.lastCall)
+    assertEquals("name=한글", loader.postedBody?.toString(Charsets.UTF_8))
+  }
+
+  @Test(expected = IllegalArgumentException::class)
+  fun `post rejects default headers`() {
+    val source = UriSource("https://example.com", null,
+      com.margelo.nitro.nitrowebview.WebViewSourceMethod.POST, null)
+    HybridNitroWebView.applyUriSource(source, mapOf("X-App" to "test"), RecordingUrlLoader())
   }
 
   // region: deriveDownloadFileName
