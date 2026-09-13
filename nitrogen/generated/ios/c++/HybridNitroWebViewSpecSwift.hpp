@@ -57,12 +57,13 @@ namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 // Forward declaration of `Cookie` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct Cookie; }
 
+#include <string>
+#include <vector>
+#include <optional>
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
 #include <variant>
-#include <string>
 #include <unordered_map>
-#include <optional>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "WebViewNavigationState.hpp"
@@ -85,7 +86,6 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "NitroWebViewScrollNativeEvent.hpp"
 #include "WebViewPoint.hpp"
 #include "Cookie.hpp"
-#include <vector>
 
 #include "NitroWebview-Swift-Cxx-Umbrella.hpp"
 
@@ -133,6 +133,20 @@ namespace margelo::nitro::nitrowebview {
 
   public:
     // Properties
+    inline std::optional<std::vector<std::string>> getMediaCapturePermissionOrigins() noexcept override {
+      auto __result = _swiftPart.getMediaCapturePermissionOrigins();
+      return __result;
+    }
+    inline void setMediaCapturePermissionOrigins(const std::optional<std::vector<std::string>>& mediaCapturePermissionOrigins) noexcept override {
+      _swiftPart.setMediaCapturePermissionOrigins(mediaCapturePermissionOrigins);
+    }
+    inline std::optional<std::vector<std::string>> getGeolocationPermissionOrigins() noexcept override {
+      auto __result = _swiftPart.getGeolocationPermissionOrigins();
+      return __result;
+    }
+    inline void setGeolocationPermissionOrigins(const std::optional<std::vector<std::string>>& geolocationPermissionOrigins) noexcept override {
+      _swiftPart.setGeolocationPermissionOrigins(geolocationPermissionOrigins);
+    }
     inline std::variant<UriSource, HtmlSource> getSource() noexcept override {
       auto __result = _swiftPart.getSource();
       return __result;

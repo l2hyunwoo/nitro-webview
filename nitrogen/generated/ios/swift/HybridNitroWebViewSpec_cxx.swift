@@ -121,6 +121,66 @@ open class HybridNitroWebViewSpec_cxx {
   }
 
   // Properties
+  public final var mediaCapturePermissionOrigins: bridge.std__optional_std__vector_std__string__ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__vector_std__string__ in
+        if let __unwrappedValue = self.__implementation.mediaCapturePermissionOrigins {
+          return bridge.create_std__optional_std__vector_std__string__({ () -> bridge.std__vector_std__string_ in
+            var __vector = bridge.create_std__vector_std__string_(__unwrappedValue.count)
+            for __item in __unwrappedValue {
+              __vector.push_back(std.string(__item))
+            }
+            return __vector
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.mediaCapturePermissionOrigins = { () -> [String]? in
+        if bridge.has_value_std__optional_std__vector_std__string__(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__vector_std__string__(newValue)
+          return __unwrapped.map({ __item in String(__item) })
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
+  public final var geolocationPermissionOrigins: bridge.std__optional_std__vector_std__string__ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__vector_std__string__ in
+        if let __unwrappedValue = self.__implementation.geolocationPermissionOrigins {
+          return bridge.create_std__optional_std__vector_std__string__({ () -> bridge.std__vector_std__string_ in
+            var __vector = bridge.create_std__vector_std__string_(__unwrappedValue.count)
+            for __item in __unwrappedValue {
+              __vector.push_back(std.string(__item))
+            }
+            return __vector
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.geolocationPermissionOrigins = { () -> [String]? in
+        if bridge.has_value_std__optional_std__vector_std__string__(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__vector_std__string__(newValue)
+          return __unwrapped.map({ __item in String(__item) })
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
   public final var source: bridge.std__variant_UriSource__HtmlSource_ {
     @inline(__always)
     get {

@@ -26,6 +26,26 @@ namespace margelo::nitro::nitrowebview::views {
                                                    const HybridNitroWebViewProps& sourceProps,
                                                    const react::RawProps& rawProps):
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
+    mediaCapturePermissionOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("mediaCapturePermissionOrigins", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.mediaCapturePermissionOrigins;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::vector<std::string>>>::fromRawValue(*runtime, value, sourceProps.mediaCapturePermissionOrigins);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.mediaCapturePermissionOrigins: ") + exc.what());
+      }
+    }()),
+    geolocationPermissionOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("geolocationPermissionOrigins", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.geolocationPermissionOrigins;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::vector<std::string>>>::fromRawValue(*runtime, value, sourceProps.geolocationPermissionOrigins);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.geolocationPermissionOrigins: ") + exc.what());
+      }
+    }()),
     source([&]() -> CachedProp<std::variant<UriSource, HtmlSource>> {
       try {
         const react::RawValue* rawValue = rawProps.at("source", nullptr, nullptr);
@@ -329,6 +349,8 @@ namespace margelo::nitro::nitrowebview::views {
 
   bool HybridNitroWebViewProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
+      case hashString("mediaCapturePermissionOrigins"): return true;
+      case hashString("geolocationPermissionOrigins"): return true;
       case hashString("source"): return true;
       case hashString("defaultHeaders"): return true;
       case hashString("userAgent"): return true;

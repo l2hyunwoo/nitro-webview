@@ -52,14 +52,15 @@ namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 // Forward declaration of `Cookie` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct Cookie; }
 
+#include <string>
+#include <vector>
+#include <optional>
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
 #include <variant>
 #include "JWebViewSource.hpp"
 #include "JUriSource.hpp"
-#include <string>
 #include <unordered_map>
-#include <optional>
 #include "JHtmlSource.hpp"
 #include "WebViewLoadEvent.hpp"
 #include <functional>
@@ -114,7 +115,6 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "WebViewPoint.hpp"
 #include "JWebViewPoint.hpp"
 #include "Cookie.hpp"
-#include <vector>
 #include "JCookie.hpp"
 #include <NitroModules/JUnit.hpp>
 
@@ -148,6 +148,60 @@ namespace margelo::nitro::nitrowebview {
   }
 
   // Properties
+  std::optional<std::vector<std::string>> JHybridNitroWebViewSpec::getMediaCapturePermissionOrigins() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JArrayClass<jni::JString>>()>("getMediaCapturePermissionOrigins");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&](auto&& __input) {
+      size_t __size = __input->size();
+      std::vector<std::string> __vector;
+      __vector.reserve(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        auto __element = __input->getElement(__i);
+        __vector.push_back(__element->toStdString());
+      }
+      return __vector;
+    }(__result)) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setMediaCapturePermissionOrigins(const std::optional<std::vector<std::string>>& mediaCapturePermissionOrigins) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JArrayClass<jni::JString>> /* mediaCapturePermissionOrigins */)>("setMediaCapturePermissionOrigins");
+    method(_javaPart, mediaCapturePermissionOrigins.has_value() ? [&](auto&& __input) {
+      size_t __size = __input.size();
+      jni::local_ref<jni::JArrayClass<jni::JString>> __array = jni::JArrayClass<jni::JString>::newArray(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        const auto& __element = __input[__i];
+        auto __elementJni = jni::make_jstring(__element);
+        __array->setElement(__i, *__elementJni);
+      }
+      return __array;
+    }(mediaCapturePermissionOrigins.value()) : nullptr);
+  }
+  std::optional<std::vector<std::string>> JHybridNitroWebViewSpec::getGeolocationPermissionOrigins() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JArrayClass<jni::JString>>()>("getGeolocationPermissionOrigins");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&](auto&& __input) {
+      size_t __size = __input->size();
+      std::vector<std::string> __vector;
+      __vector.reserve(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        auto __element = __input->getElement(__i);
+        __vector.push_back(__element->toStdString());
+      }
+      return __vector;
+    }(__result)) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setGeolocationPermissionOrigins(const std::optional<std::vector<std::string>>& geolocationPermissionOrigins) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JArrayClass<jni::JString>> /* geolocationPermissionOrigins */)>("setGeolocationPermissionOrigins");
+    method(_javaPart, geolocationPermissionOrigins.has_value() ? [&](auto&& __input) {
+      size_t __size = __input.size();
+      jni::local_ref<jni::JArrayClass<jni::JString>> __array = jni::JArrayClass<jni::JString>::newArray(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        const auto& __element = __input[__i];
+        auto __elementJni = jni::make_jstring(__element);
+        __array->setElement(__i, *__elementJni);
+      }
+      return __array;
+    }(geolocationPermissionOrigins.value()) : nullptr);
+  }
   std::variant<UriSource, HtmlSource> JHybridNitroWebViewSpec::getSource() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JWebViewSource>()>("getSource");
     auto __result = method(_javaPart);
