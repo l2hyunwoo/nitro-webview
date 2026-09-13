@@ -79,6 +79,16 @@ using namespace margelo::nitro::nitrowebview::views;
   // 2. Update each prop individually
   swiftPart.beforeUpdate();
 
+  // mediaCapturePermissionOrigins: optional
+  if (newViewProps.mediaCapturePermissionOrigins.isDirty) {
+    swiftPart.setMediaCapturePermissionOrigins(newViewProps.mediaCapturePermissionOrigins.value);
+    newViewProps.mediaCapturePermissionOrigins.isDirty = false;
+  }
+  // geolocationPermissionOrigins: optional
+  if (newViewProps.geolocationPermissionOrigins.isDirty) {
+    swiftPart.setGeolocationPermissionOrigins(newViewProps.geolocationPermissionOrigins.value);
+    newViewProps.geolocationPermissionOrigins.isDirty = false;
+  }
   // source: variant
   if (newViewProps.source.isDirty) {
     swiftPart.setSource(newViewProps.source.value);

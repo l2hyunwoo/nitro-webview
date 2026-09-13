@@ -469,3 +469,51 @@ MIT.
 
 [nitro]: https://github.com/mrousavy/nitro
 [harness]: https://github.com/callstackincubator/react-native-harness
+
+### Camera, microphone, and location
+
+On Android, WebView requests are denied by default. Opt in only origins you trust:
+
+```tsx
+<NitroWebView
+  source={{ uri: 'https://app.example.com' }}
+  mediaCapturePermissionOrigins={['https://app.example.com']}
+  geolocationPermissionOrigins={['https://app.example.com']}
+/>
+```
+
+These Android-only lists match exact HTTP(S) origins (scheme, host, and effective
+port), including requesting iframe origins. Wildcards, credentials, query strings,
+fragments, and non-root paths are rejected. This policy is separate from navigation
+allowlists. Secure-context requirements still apply to browser APIs.
+
+Declare the permissions your app uses in its **app** AndroidManifest.xml:
+
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+```
+
+The host must implement React Native's `PermissionAwareActivity` (as ReactActivity
+does). Missing runtime permissions prompt the user. Approximate location is
+accepted. Only camera/microphone resources actually allowed by Android are granted;
+unknown resources are never granted. Location grants are not persisted in WebView.
+Concurrent requests awaiting OS consent may be denied; retry after the active
+request finishes. Avoid requesting app permissions through another module while
+this prompt is open because ReactActivity has one permission listener. Removing an
+origin blocks subsequent requests and pending grants; it does not stop an existing
+media stream. Stop its tracks or unmount the WebView to end capture.
+
+On iOS, WKWebView keeps the system's website permission prompts; the two origin
+props have no effect. Add `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`,
+and `NSLocationWhenInUseUsageDescription` to the application's Info.plist for the
+features used. Camera/microphone web capture requires a supported WKWebView version
+(iOS 14.3+) and a secure context. User or system denial still takes precedence.
+
+`example/src/PermissionsVerificationScreen.tsx` exercises real `getUserMedia` and
+`getCurrentPosition` calls with visible PASS/FAIL results. Use a device with camera,
+microphone, and location available. Android deny mode checks that origin policy
+still blocks access after OS permissions have been granted. Location timeout or
+unavailable hardware is a FAIL, not a simulated success.

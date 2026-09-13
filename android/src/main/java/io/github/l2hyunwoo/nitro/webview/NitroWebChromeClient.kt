@@ -97,6 +97,23 @@ open class NitroWebChromeClient(
    */
   var hostActivity: Activity? = null
 
+  internal val permissions = NitroWebViewPermissions(context) {
+    currentHostActivity() as? com.facebook.react.modules.core.PermissionAwareActivity
+  }
+
+  override fun onPermissionRequest(request: android.webkit.PermissionRequest) =
+    permissions.requestMedia(request)
+
+  override fun onPermissionRequestCanceled(request: android.webkit.PermissionRequest) =
+    permissions.cancelMedia(request)
+
+  override fun onGeolocationPermissionsShowPrompt(
+    origin: String, callback: android.webkit.GeolocationPermissions.Callback,
+  ) = permissions.requestLocation(origin, callback)
+
+  override fun onGeolocationPermissionsHidePrompt() = permissions.cancelLocation()
+
+
   /**
    * Convenience secondary constructor preserving the historical
    * `(context, hostActivity)` shape. Internally seeds the explicit

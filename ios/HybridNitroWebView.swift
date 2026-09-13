@@ -228,6 +228,9 @@ final class HybridNitroWebView:
   var domStorageEnabled: Bool?
   var scalesPageToFit: Bool?
   var thirdPartyCookiesEnabled: Bool?
+  // Android origin policy; WKWebView keeps its own per-origin system prompts.
+  var mediaCapturePermissionOrigins: [String]?
+  var geolocationPermissionOrigins: [String]?
   var javaScriptEnabled: Bool?
 
   var injectedJavaScript: String? {

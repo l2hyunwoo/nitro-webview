@@ -16,12 +16,13 @@
 #include <react/renderer/components/view/ConcreteViewShadowNode.h>
 #include <react/renderer/components/view/ViewProps.h>
 
+#include <string>
+#include <vector>
+#include <optional>
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
 #include <variant>
-#include <string>
 #include <unordered_map>
-#include <optional>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "WebViewNavigationState.hpp"
@@ -57,6 +58,8 @@ namespace margelo::nitro::nitrowebview::views {
                             const react::RawProps& rawProps);
 
   public:
+    CachedProp<std::optional<std::vector<std::string>>> mediaCapturePermissionOrigins;
+    CachedProp<std::optional<std::vector<std::string>>> geolocationPermissionOrigins;
     CachedProp<std::variant<UriSource, HtmlSource>> source;
     CachedProp<std::optional<std::unordered_map<std::string, std::string>>> defaultHeaders;
     CachedProp<std::optional<std::string>> userAgent;

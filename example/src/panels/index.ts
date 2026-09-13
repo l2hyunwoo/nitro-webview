@@ -1,5 +1,5 @@
 /**
- * Panel registry — ordered list of the seven demo panels mounted by the
+ * Panel registry — ordered list of demo panels mounted by the
  * home-list router in `example/App.tsx`.
  *
  * Each entry pairs a stable `id` (used as React key + `active_panel_id`
@@ -25,6 +25,8 @@
 
 import type { ComponentType } from 'react'
 
+import { PermissionsVerificationScreen } from '../PermissionsVerificationScreen'
+
 import { CookiesDemo } from './CookiesDemo'
 import { FileDownloadDemo } from './FileDownloadDemo'
 import { FileUploadDemo } from './FileUploadDemo'
@@ -38,6 +40,7 @@ import { UserAgentDemo } from './UserAgentDemo'
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'permissions'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -59,12 +62,17 @@ export type PanelEntry = {
 }
 
 /**
- * Ordered list of the seven demo panels. Order is the rendering
+ * Ordered list of demo panels. Order is the rendering
  * order in the home list and reflects the original App.tsx scroll
  * order, with the JS bridge (the old global-chrome WebView demo)
  * surfaced first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'permissions',
+    title: 'Camera / microphone / location permissions',
+    component: PermissionsVerificationScreen,
+  },
   {
     id: 'js-bridge',
     title: 'postMessage bridge / Evaluate JS',
