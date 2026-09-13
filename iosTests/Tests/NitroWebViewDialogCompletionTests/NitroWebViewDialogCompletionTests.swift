@@ -37,6 +37,14 @@ final class NitroWebViewDialogCompletionTests: XCTestCase {
     XCTAssertEqual(calls, 1)
   }
 
+  func testPromptTextSurvivesCompletionOwnerRelease() {
+    var results: [String?] = []
+    var pending: NitroWebViewDialogCompletion? = NitroWebViewDialogCompletion { results.append($0) }
+    pending?.resolve("Nitro verified 한글")
+    pending = nil
+    XCTAssertEqual(results, ["Nitro verified 한글"])
+  }
+
   func testOwnerReleaseCancelsUnansweredRequest() {
     var results: [String?] = []
     var pending: NitroWebViewDialogCompletion? = NitroWebViewDialogCompletion { results.append($0) }
