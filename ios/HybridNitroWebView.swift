@@ -50,7 +50,7 @@ final class HybridNitroWebView:
 
   override init() {
     let configuration = WKWebViewConfiguration()
-    self.view = WKWebView(frame: .zero, configuration: configuration)
+    self.view = NitroDialogWebView(frame: .zero, configuration: configuration)
     self.navigationDelegate = NavigationDelegate()
     self.uiDelegate = UIDelegate()
     self.scrollDelegate = ScrollDelegate()
@@ -74,6 +74,9 @@ final class HybridNitroWebView:
     // driven by the HTML input attributes (react-native-webview parity).
     view.uiDelegate = uiDelegate
     uiDelegate.owner = self
+    (view as? NitroDialogWebView)?.onDetach = { [weak uiDelegate] in
+      uiDelegate?.dialogs.cancel()
+    }
     messageHandler.dispatcher = self
     historyHandler.dispatcher = self
     let controller = configuration.userContentController
@@ -156,6 +159,7 @@ final class HybridNitroWebView:
   """
 
   func onDropView() {
+    uiDelegate.dialogs.cancel()
     let controller = view.configuration.userContentController
     controller.removeScriptMessageHandler(
       forName: NitroWebViewMessageHandler.scriptMessageHandlerName
@@ -1132,6 +1136,26 @@ extension HybridNitroWebView.NavigationDelegate: WKDownloadDelegate {
 /// unrelated to the forbidden macOS `runOpenPanelWith` selector.
 fileprivate final class UIDelegate: NSObject, WKUIDelegate {
   weak var owner: HybridNitroWebView?
+  let dialogs = NitroWebViewDialogPresenter()
+
+  func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+               initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+    dialogs.present(in: webView, title: frame.request.url?.host, message: message,
+                    kind: .alert) { _ in completionHandler() }
+  }
+
+  func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+               initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+    dialogs.present(in: webView, title: frame.request.url?.host, message: message,
+                    kind: .confirm) { completionHandler($0 != nil) }
+  }
+
+  func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String,
+               defaultText: String?, initiatedByFrame frame: WKFrameInfo,
+               completionHandler: @escaping (String?) -> Void) {
+    dialogs.present(in: webView, title: frame.request.url?.host, message: prompt,
+                    kind: .prompt(defaultText), completion: completionHandler)
+  }
 
   /// `window.open` / `target=_blank` surface here (with `targetFrame == nil`).
   /// We NEVER create a second `WKWebView`: when `onOpenWindow` is set we emit
