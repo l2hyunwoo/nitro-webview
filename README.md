@@ -429,8 +429,43 @@ allprojects {
 }
 ```
 
+## E2E tests
+
+On-device / on-simulator smoke tests using [react-native-harness][harness] live in
+`example/src/__tests__/*.harness.tsx`. They mount the real `NitroWebView` against a
+tiny stdlib HTTP server (`example/e2e-server.mjs`, no deps) and assert it renders
+without crashing. Strict event-callback assertions (`onLoadEnd` / `onMessage` /
+`onHttpError`) are present but `test.skip`ped: Nitro view-event callbacks don't yet
+propagate through the harness `render()` overlay. Re-enable them once that lands.
+
+The harness does not build or install the app, so pre-build it first, then run the harness:
+
+```sh
+# from repo root
+yarn install && yarn prepare          # tsc + committed nitrogen output
+
+# iOS simulator
+cd example && yarn install
+cd ios && bundle install && bundle exec pod install && cd ..
+xcodebuild -workspace ios/example.xcworkspace -scheme example \
+  -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+node e2e-server.mjs &                  # controlled pages the tests drive
+yarn test:e2e:ios                      # SIM_DEVICE / SIM_OS override the target simulator
+
+# Android emulator (emulator already booted; harness handles adb reverse)
+cd example/android && ./gradlew :app:assembleDebug && cd ..
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+node e2e-server.mjs &
+yarn test:e2e:android                  # tests reach the host via 10.0.2.2
+```
+
+CI runs these on every PR (Android) and on push-to-main or a `e2e-ios`-labeled PR
+(iOS) via `.github/workflows/e2e.yml`; the baseline lint/typecheck/compile gate is
+`.github/workflows/ci.yml`.
+
 ## License
 
 MIT.
 
 [nitro]: https://github.com/mrousavy/nitro
+[harness]: https://github.com/callstackincubator/react-native-harness

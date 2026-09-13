@@ -73,3 +73,9 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# E2E harness runtime artifacts
+artifacts/
+
+# React Native Harness runtime cache
+.harness/
