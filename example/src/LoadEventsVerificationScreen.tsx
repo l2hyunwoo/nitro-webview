@@ -33,7 +33,7 @@ export function LoadEventsVerificationScreen() {
     setEnds(0);
     const uri =
       path === 'transport'
-        ? 'http://127.0.0.1:1/unreachable'
+        ? 'http://127.0.0.1:18967/unreachable'
         : `${host.replace(/\/$/, '')}${path}`;
     setRequest({ uri, key: Date.now() });
   };
