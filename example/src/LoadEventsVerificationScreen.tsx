@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,6 +13,7 @@ import type { WebViewLoadEvent, WebViewLoadProgressEvent } from 'nitro-webview';
 export function LoadEventsVerificationScreen() {
   const [host, setHost] = useState('http://127.0.0.1:18966');
   const [request, setRequest] = useState<{ uri: string; key: number }>();
+  const source = useMemo(() => ({ uri: request?.uri ?? '' }), [request]);
   const [events, setEvents] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [loads, setLoads] = useState(0);
@@ -78,7 +79,7 @@ export function LoadEventsVerificationScreen() {
           <NitroWebView
             key={request.key}
             style={styles.web}
-            source={{ uri: request.uri }}
+            source={source}
             onLoadStart={callback((event: WebViewLoadEvent) =>
               log(`START loading=${event.nativeEvent.loading}`),
             )}
