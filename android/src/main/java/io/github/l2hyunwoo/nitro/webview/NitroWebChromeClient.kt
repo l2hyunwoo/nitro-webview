@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Message
 import android.provider.MediaStore
+import android.view.View
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -86,7 +87,16 @@ open class NitroWebChromeClient(
       false
     }
   },
+  private val webViewProvider: () -> View? = { null },
 ) : WebChromeClient() {
+  private val fullscreenVideo = NitroFullscreenVideo()
+
+  override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+    fullscreenVideo.show(hostActivity ?: activityResolver.resolveActivity(), webViewProvider(), view, callback)
+  }
+
+  override fun onHideCustomView() = fullscreenVideo.hide()
+
 
   /**
    * Optional explicit override for the resolved Activity. When non-null,
