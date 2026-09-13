@@ -10,22 +10,7 @@ final class NitroDialogWebView: WKWebView {
   }
 }
 
-/// Observes external dismissal without subclassing UIAlertController.
-private final class DialogDismissalObserver: UIView {
-  var onDetach: (() -> Void)?
-  private var wasAttached = false
-
-  override func didMoveToWindow() {
-    super.didMoveToWindow()
-    if window != nil {
-      wasAttached = true
-    } else if wasAttached {
-      onDetach?()
-    }
-  }
-}
-
-final class NitroWebViewDialogPresenter {
+final class NitroWebViewDialogPresenter: NSObject, UIAdaptivePresentationControllerDelegate {
   enum Kind {
     case alert, confirm, prompt(String?)
   }
@@ -48,22 +33,19 @@ final class NitroWebViewDialogPresenter {
 
     let pending = NitroWebViewDialogCompletion(completion)
     let dialog = UIAlertController(title: title ?? "Web page", message: message, preferredStyle: .alert)
-    let observer = DialogDismissalObserver(frame: .zero)
-    observer.isUserInteractionEnabled = false
-    observer.onDetach = { [weak self, weak pending] in
-      guard let pending else { return }
-      self?.finish(pending, value: nil)
-    }
-    dialog.view.addSubview(observer)
     if case .prompt(let defaultText) = kind {
       dialog.addTextField { $0.text = defaultText }
     }
     let respond: (String?) -> Void = { [weak self, weak dialog] value in
       // Resolve after dismissal so JS can immediately open its next dialog.
-      observer.onDetach = nil
-      dialog?.dismiss(animated: false) {
+      let complete = {
         self?.finish(pending, value: value)
         pending.resolve(value)
+      }
+      if let dialog, dialog.presentingViewController != nil {
+        dialog.dismiss(animated: false, completion: complete)
+      } else {
+        complete()
       }
     }
     dialog.addAction(UIAlertAction(title: "OK", style: .default) { [weak dialog] _ in
@@ -79,7 +61,15 @@ final class NitroWebViewDialogPresenter {
     active = pending
     alert = dialog
     presenter.present(dialog, animated: true)
+    dialog.presentationController?.delegate = self
     if dialog.presentingViewController == nil { cancel() }
+  }
+
+  // Unlike observing the alert's view leaving its window, this callback
+  // represents adaptive dismissal, not UIKit's automatic dismissal before
+  // invoking an OK/Cancel action. Never infer cancellation from view removal.
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    if presentationController.presentedViewController === alert { cancel() }
   }
 
   func cancel() {
