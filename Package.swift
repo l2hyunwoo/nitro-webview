@@ -22,6 +22,11 @@ let package = Package(
     .macOS(.v11),
   ],
   targets: [
+    .testTarget(
+      name: "NitroWebViewDialogCompletionTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/NitroWebViewDialogCompletionTests"
+    ),
     .target(
       name: "NitroWebViewSource",
       path: "ios",
@@ -36,8 +41,10 @@ let package = Package(
         // `HybridNitroWebViewUIDelegateBindingTests` via a structural
         // replica.
         "HybridNitroWebView.swift",
+        "NitroWebViewDialogPresenter.swift",
       ],
       sources: [
+        "NitroWebViewDialogCompletion.swift",
         "NitroWebViewSourceHandler.swift",
         "NitroWebViewMessageHandler.swift",
         // Second WKScriptMessageHandler for the SPA history shim. Like the

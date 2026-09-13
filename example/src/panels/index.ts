@@ -25,6 +25,7 @@
 
 import type { ComponentType } from 'react'
 
+import { DialogsVerificationScreen } from '../DialogsVerificationScreen'
 import { CookiesDemo } from './CookiesDemo'
 import { FileDownloadDemo } from './FileDownloadDemo'
 import { FileUploadDemo } from './FileUploadDemo'
@@ -38,6 +39,7 @@ import { UserAgentDemo } from './UserAgentDemo'
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'js-dialogs'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -65,6 +67,11 @@ export type PanelEntry = {
  * surfaced first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'js-dialogs',
+    title: 'JavaScript dialogs',
+    component: DialogsVerificationScreen,
+  },
   {
     id: 'js-bridge',
     title: 'postMessage bridge / Evaluate JS',
