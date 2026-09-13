@@ -4,6 +4,8 @@
   "bubblingEventTypes": {},
   "directEventTypes": {},
   "validAttributes": {
+    "mediaCapturePermissionOrigins": true,
+    "geolocationPermissionOrigins": true,
     "source": true,
     "defaultHeaders": true,
     "userAgent": true,
