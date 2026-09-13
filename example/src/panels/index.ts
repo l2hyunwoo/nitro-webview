@@ -26,6 +26,7 @@
 import type { ComponentType } from 'react';
 import { PostVerificationScreen } from '../PostVerificationScreen';
 import { LoadEventsVerificationScreen } from '../LoadEventsVerificationScreen';
+import { MediaVerificationScreen } from '../MediaVerificationScreen';
 
 import { DialogsVerificationScreen } from '../DialogsVerificationScreen';
 import { PermissionsVerificationScreen } from '../PermissionsVerificationScreen';
@@ -47,6 +48,7 @@ export type PanelId =
   | 'js-dialogs'
   | 'permissions'
   | 'load-events'
+  | 'media-playback'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -93,6 +95,11 @@ export const PANELS: readonly PanelEntry[] = [
     id: 'load-events',
     title: 'Native load events verification',
     component: LoadEventsVerificationScreen,
+  },
+  {
+    id: 'media-playback',
+    title: 'Media playback verification',
+    component: MediaVerificationScreen,
   },
   {
     id: 'js-bridge',

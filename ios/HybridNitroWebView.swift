@@ -1,13 +1,17 @@
 import Foundation
 import NitroModules
 import WebKit
+import UIKit
 
 final class HybridNitroWebView:
   HybridNitroWebViewSpec,
   NitroWebViewMessageDispatcher,
   NitroWebViewNavStateDispatcher
 {
-  let view: WKWebView
+  let view = UIView()
+  private var webView: WKWebView?
+  private var sourceNeedsLoading = false
+  private var isDropped = false
 
   private let sourceHandler = NitroWebViewSourceHandler()
   private let evaluator = NitroWebViewEvaluateJavaScriptHandler()
@@ -52,30 +56,54 @@ final class HybridNitroWebView:
   var onOpenWindow: ((OpenWindowEvent) -> Void)?
 
   override init() {
-    let configuration = WKWebViewConfiguration()
-    self.view = NitroDialogWebView(frame: .zero, configuration: configuration)
     self.navigationDelegate = NavigationDelegate()
     self.uiDelegate = UIDelegate()
     self.scrollDelegate = ScrollDelegate()
     super.init()
+  }
 
-    progressObservation = view.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+  // Nitro keeps `view` for the lifetime of the component. Build its child
+  // only after the first complete prop batch, before loading any source.
+  func afterUpdate() {
+    guard !isDropped else { return }
+    if webView == nil { createWebView() }
+    if sourceNeedsLoading {
+      sourceNeedsLoading = false
+      applySource(source)
+    }
+  }
+
+  private func createWebView() {
+    let configuration = WKWebViewConfiguration()
+    configuration.allowsInlineMediaPlayback = allowsInlineMediaPlayback ?? false
+    configuration.mediaTypesRequiringUserActionForPlayback =
+      (mediaPlaybackRequiresUserAction ?? true) ? .all : []
+    let webView = NitroDialogWebView(frame: view.bounds, configuration: configuration)
+    self.webView = webView
+    webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    view.addSubview(webView)
+    webView.customUserAgent = (userAgent?.isEmpty ?? true) ? nil : userAgent
+    webView.scrollView.isScrollEnabled = scrollEnabled ?? true
+    webView.scrollView.bounces = bounces ?? true
+    webView.allowsBackForwardNavigationGestures = allowsBackForwardNavigationGestures ?? false
+
+    progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] observedWebView, _ in
       guard let self = self, self.navigationDelegate.loading else { return }
       let state = self.snapshotNavigationState()
       self.onLoadProgress?(WebViewLoadProgressEvent(nativeEvent: WebViewLoadProgressNativeEvent(
-        progress: min(1, max(0, self.view.estimatedProgress)),
+        progress: min(1, max(0, observedWebView.estimatedProgress)),
         url: state.url, title: state.title, loading: state.loading,
         canGoBack: state.canGoBack, canGoForward: state.canGoForward
       )))
     }
     navigationDelegate.owner = self
-    view.navigationDelegate = navigationDelegate
+    webView.navigationDelegate = navigationDelegate
     // Claim the scrollView delegate to surface `onScroll`. WKWebView does
     // NOT rely on its scrollView delegate internally — momentum, bounce, and
     // zoom are driven by gesture recognizers, not this delegate — so claiming
     // it is safe (react-native-webview does exactly this in production).
     scrollDelegate.owner = self
-    view.scrollView.delegate = scrollDelegate
+    webView.scrollView.delegate = scrollDelegate
     // Binding any `WKUIDelegate` is what enables WebKit's built-in
     // `<input type="file">` chooser (camera / photo library / document
     // picker). The delegate itself does not need to implement any picker
@@ -84,9 +112,9 @@ final class HybridNitroWebView:
     // HTML `accept`, `multiple`, and `capture` attributes are honored by
     // WebKit directly. No public TS API is exposed — behavior is fully
     // driven by the HTML input attributes (react-native-webview parity).
-    view.uiDelegate = uiDelegate
+    webView.uiDelegate = uiDelegate
     uiDelegate.owner = self
-    (view as? NitroDialogWebView)?.onDetach = { [weak uiDelegate] in
+    webView.onDetach = { [weak uiDelegate] in
       uiDelegate?.dialogs.cancel()
     }
     messageHandler.dispatcher = self
@@ -104,21 +132,7 @@ final class HybridNitroWebView:
       historyHandler,
       name: NitroWebViewHistoryHandler.scriptMessageHandlerName
     )
-    // Defines window.ReactNativeWebView.postMessage so web pages can call
-    // it without knowing about WKWebView's webkit.messageHandlers bridge.
-    controller.addUserScript(WKUserScript(
-      source: Self.bridgeBootstrapScript,
-      injectionTime: .atDocumentStart,
-      forMainFrameOnly: false
-    ))
-    // Hooks history.pushState/replaceState/popstate at document-start (main
-    // frame — SPA routing is a main-frame concern) so route changes surface
-    // via onNavigationStateChange.
-    controller.addUserScript(WKUserScript(
-      source: Self.historyShimScript,
-      injectionTime: .atDocumentStart,
-      forMainFrameOnly: true
-    ))
+    reinstallUserScripts()
   }
 
   deinit {
@@ -183,7 +197,12 @@ final class HybridNitroWebView:
     onLoad = nil
     onLoadEnd = nil
     onLoadProgress = nil
-    let controller = view.configuration.userContentController
+    isDropped = true
+    guard let webView else { return }
+    webView.stopLoading()
+    webView.removeFromSuperview()
+    self.webView = nil
+    let controller = webView.configuration.userContentController
     controller.removeScriptMessageHandler(
       forName: NitroWebViewMessageHandler.scriptMessageHandlerName
     )
@@ -191,28 +210,18 @@ final class HybridNitroWebView:
       forName: NitroWebViewHistoryHandler.scriptMessageHandlerName
     )
     controller.removeAllUserScripts()
-    view.navigationDelegate = nil
-    view.uiDelegate = nil
-    view.scrollView.delegate = nil
+    webView.navigationDelegate = nil
+    webView.uiDelegate = nil
+    webView.scrollView.delegate = nil
     navigationDelegate.owner = nil
     scrollDelegate.owner = nil
     uiDelegate.owner = nil
     messageHandler.dispatcher = nil
     historyHandler.dispatcher = nil
-    view.stopLoading()
   }
 
-  private var sourceNeedsLoading = false
   var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil, method: nil, body: nil)) {
     didSet { sourceNeedsLoading = true }
-  }
-
-  // Nitro sets source before headers and callbacks. Wait for the complete
-  // prop batch so the first request and validation errors use those values.
-  func afterUpdate() {
-    guard sourceNeedsLoading else { return }
-    sourceNeedsLoading = false
-    applySource(source)
   }
 
   /// Default HTTP headers applied to every main-frame navigation initiated
@@ -227,7 +236,7 @@ final class HybridNitroWebView:
   var userAgent: String? {
     didSet {
       let value = userAgent
-      view.customUserAgent = (value?.isEmpty ?? true) ? nil : value
+      webView?.customUserAgent = (value?.isEmpty ?? true) ? nil : value
     }
   }
 
@@ -235,14 +244,14 @@ final class HybridNitroWebView:
 
   // Applied live in didSet; nil restores the documented default.
   var scrollEnabled: Bool? {
-    didSet { view.scrollView.isScrollEnabled = scrollEnabled ?? true }
+    didSet { webView?.scrollView.isScrollEnabled = scrollEnabled ?? true }
   }
   var bounces: Bool? {
-    didSet { view.scrollView.bounces = bounces ?? true }
+    didSet { webView?.scrollView.bounces = bounces ?? true }
   }
   var allowsBackForwardNavigationGestures: Bool? {
     didSet {
-      view.allowsBackForwardNavigationGestures =
+      webView?.allowsBackForwardNavigationGestures =
         allowsBackForwardNavigationGestures ?? false
     }
   }
@@ -252,15 +261,12 @@ final class HybridNitroWebView:
   /// `Self.cachePolicy(forCacheEnabled:)`.
   var cacheEnabled: Bool?
 
-  // No-op on iOS / no iOS knob: stored but never applied, on any render. See
-  // each prop's JSDoc in `NitroWebView.nitro.ts` for why - Nitro delivers
-  // props strictly after `init()` runs, so the WKWebView-configuration-only
-  // ones (incognito, javaScriptEnabled, mediaPlaybackRequiresUserAction,
-  // allowsInlineMediaPlayback, sharedCookiesEnabled) never have a window in
-  // which their value is known before the view is built.
-  var incognito: Bool?
+  // Media configuration is captured at the first afterUpdate. Remount to
+  // change it; recreating a live WKWebView would discard page/history state.
   var mediaPlaybackRequiresUserAction: Bool?
   var allowsInlineMediaPlayback: Bool?
+  // Other unsupported iOS settings remain stored for cross-platform parity.
+  var incognito: Bool?
   var sharedCookiesEnabled: Bool?
   var domStorageEnabled: Bool?
   var scalesPageToFit: Bool?
@@ -281,16 +287,16 @@ final class HybridNitroWebView:
     didSet { reinstallUserScripts() }
   }
 
-  func goBack() throws { view.goBack() }
-  func goForward() throws { view.goForward() }
-  func reload() throws { view.reload() }
-  func stopLoading() throws { view.stopLoading() }
+  func goBack() throws { webView?.goBack() }
+  func goForward() throws { webView?.goForward() }
+  func reload() throws { webView?.reload() }
+  func stopLoading() throws { webView?.stopLoading() }
 
   /// Clear the cache-shaped record types (`Self.cacheDataTypes()`) from the
   /// view's data store.
   func clearCache() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    view.configuration.websiteDataStore.removeData(
+    (webView?.configuration.websiteDataStore ?? WKWebsiteDataStore.default()).removeData(
       ofTypes: Self.cacheDataTypes(),
       modifiedSince: .distantPast
     ) {
@@ -314,7 +320,7 @@ final class HybridNitroWebView:
     // becomeFirstResponder must run on the main thread. Discard the Bool:
     // `false` means "already first responder / window not key", not an error.
     DispatchQueue.main.async {
-      _ = self.view.becomeFirstResponder()
+      _ = self.webView?.becomeFirstResponder()
       promise.resolve(withResult: ())
     }
     return promise
@@ -330,9 +336,14 @@ final class HybridNitroWebView:
 
   func evaluateJavaScript(code: String) throws -> Promise<String> {
     let promise = Promise<String>()
+    guard let webView else {
+      promise.reject(withError: NSError(domain: "NitroWebView", code: -1,
+        userInfo: [NSLocalizedDescriptionKey: "WebView is not mounted"]))
+      return promise
+    }
     evaluator.evaluate(
       code: code,
-      in: view,
+      in: webView,
       resolve: { result in promise.resolve(withResult: result) },
       reject: { error in promise.reject(withError: error) }
     )
@@ -342,7 +353,7 @@ final class HybridNitroWebView:
   /// Fire-and-forget JS execution — no result, no completion. Mirrors
   /// react-native-webview's `injectJavaScript` (`nil` completion handler).
   func injectJavaScript(code: String) throws {
-    view.evaluateJavaScript(code, completionHandler: nil)
+    webView?.evaluateJavaScript(code, completionHandler: nil)
   }
 
   /// Deliver a native→web message. iOS dispatches a DOM `message` event on
@@ -350,13 +361,13 @@ final class HybridNitroWebView:
   /// the shared `NitroWebViewPostMessage` builder, then evaluated
   /// fire-and-forget.
   func postMessage(data: String) throws {
-    view.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
+    webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
   }
 
   // MARK: - Cookie API
 
   /// Fetch cookies from
-  /// `view.configuration.websiteDataStore.httpCookieStore.getAllCookies`
+  /// `webView?.configuration.websiteDataStore.httpCookieStore.getAllCookies`
   /// and filter the results by:
   ///   1. URL host match  (RFC 6265 §5.1.3 — exact, leading-dot suffix, or
   ///                       unprefixed parent suffix; case-insensitive)
@@ -369,7 +380,7 @@ final class HybridNitroWebView:
   func getCookies(url: String) throws -> Promise<[Cookie]> {
     let promise = Promise<[Cookie]>()
     let scope = NitroWebViewCookieFilter.urlScope(forUrl: url)
-    let store = view.configuration.websiteDataStore.httpCookieStore
+    let store = (webView?.configuration.websiteDataStore ?? WKWebsiteDataStore.default()).httpCookieStore
     store.getAllCookies { cookies in
       let filtered: [Cookie] = cookies.compactMap { httpCookie in
         guard NitroWebViewCookieFilter.cookieMatches(httpCookie, scope: scope)
@@ -421,6 +432,7 @@ final class HybridNitroWebView:
   }
 
   private func applySource(_ source: WebViewSource) {
+    guard let webView else { return }
     switch source {
     case .first(let uri):
       do {
@@ -429,7 +441,7 @@ final class HybridNitroWebView:
           headers: Self.mergeHeaders(defaults: defaultHeaders, perRequest: uri.headers),
           cachePolicy: Self.cachePolicy(forCacheEnabled: cacheEnabled)
         )
-        view.load(request)
+        webView.load(request)
       } catch {
         emitError(error as NSError, fallbackUrl: uri.uri)
       }
@@ -438,7 +450,7 @@ final class HybridNitroWebView:
         html: html.html,
         baseUrlString: html.baseUrl
       )
-      sourceHandler.applyHtmlPayload(payload, to: view)
+      sourceHandler.applyHtmlPayload(payload, to: webView)
     }
   }
 
@@ -507,7 +519,7 @@ final class HybridNitroWebView:
   /// `injectedJavaScriptBeforeContentLoaded` changes (both drive this
   /// method via `didSet`).
   private func reinstallUserScripts() {
-    let controller = view.configuration.userContentController
+    guard let controller = webView?.configuration.userContentController else { return }
     controller.removeAllUserScripts()
 
     // 1. bridge bootstrap — always present.
@@ -584,7 +596,7 @@ final class HybridNitroWebView:
       loading = false
       if let error = error {
         failed = true
-        owner?.emitError(error, fallbackUrl: owner?.view.url?.absoluteString)
+        owner?.emitError(error, fallbackUrl: owner?.webView?.url?.absoluteString)
       }
       owner?.emitLoadEnd(success: !failed)
       owner?.emitNavigationState()
@@ -915,11 +927,11 @@ final class HybridNitroWebView:
 
   private func snapshotNavigationState() -> WebViewNavigationState {
     WebViewNavigationState(
-      url: view.url?.absoluteString ?? "",
-      title: view.title ?? "",
-      loading: view.isLoading,
-      canGoBack: view.canGoBack,
-      canGoForward: view.canGoForward
+      url: webView?.url?.absoluteString ?? "",
+      title: webView?.title ?? "",
+      loading: webView?.isLoading ?? false,
+      canGoBack: webView?.canGoBack ?? false,
+      canGoForward: webView?.canGoForward ?? false
     )
   }
 
