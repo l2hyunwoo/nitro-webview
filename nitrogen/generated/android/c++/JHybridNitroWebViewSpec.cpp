@@ -11,6 +11,8 @@
 namespace margelo::nitro::nitrowebview { struct UriSource; }
 // Forward declaration of `HtmlSource` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct HtmlSource; }
+// Forward declaration of `WebViewSourceMethod` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewSourceMethod; }
 // Forward declaration of `WebViewLoadEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewLoadEvent; }
 // Forward declaration of `WebViewNavigationState` to properly resolve imports.
@@ -60,6 +62,8 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include "WebViewSourceMethod.hpp"
+#include "JWebViewSourceMethod.hpp"
 #include "JHtmlSource.hpp"
 #include "WebViewLoadEvent.hpp"
 #include <functional>

@@ -33,6 +33,20 @@ class NitroWebViewSourceHandler {
   }
 
   companion object {
+    /** Validate before invoking postUrl, which cannot carry custom headers. */
+    @JvmStatic
+    fun postBody(uri: String, method: String?, body: String?, headers: Map<String, String>): ByteArray? {
+      val verb = method ?: "GET"
+      require(verb == "GET" || verb == "POST") { "source.method must be GET or POST" }
+      require(verb == "POST" || body == null) { "source.body requires POST" }
+      if (verb == "GET") return null
+      require(uri.startsWith("http://", ignoreCase = true) || uri.startsWith("https://", ignoreCase = true)) {
+        "POST requires an HTTP(S) URI"
+      }
+      require(headers.isEmpty()) { "Android POST does not support source.headers or defaultHeaders" }
+      return (body ?: "").toByteArray(Charsets.UTF_8)
+    }
+
     const val MIME_TYPE: String = "text/html"
     const val ENCODING: String = "UTF-8"
 

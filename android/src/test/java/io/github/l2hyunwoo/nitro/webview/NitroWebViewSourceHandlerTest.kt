@@ -37,6 +37,30 @@ private class SpyHtmlLoader : WebViewHTMLLoader {
 }
 
 class NitroWebViewSourceHandlerTest {
+  @org.junit.Test
+  fun postBodyDefaultsAndUTF8() {
+    org.junit.Assert.assertNull(NitroWebViewSourceHandler.postBody("about:blank", null, null, emptyMap()))
+    org.junit.Assert.assertArrayEquals(byteArrayOf(), NitroWebViewSourceHandler.postBody("https://example.com", "POST", null, emptyMap()))
+    org.junit.Assert.assertArrayEquals("한글".toByteArray(Charsets.UTF_8), NitroWebViewSourceHandler.postBody("https://example.com", "POST", "한글", emptyMap()))
+  }
+
+  @org.junit.Test
+  fun rejectsUnsupportedPostCombinations() {
+    val cases = listOf(
+      Triple("https://example.com", "GET", ""),
+      Triple("file:///tmp/form", "POST", ""),
+      Triple("https://example.com", "PUT", ""),
+    )
+    for ((uri, method, body) in cases) {
+      org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+        NitroWebViewSourceHandler.postBody(uri, method, body, emptyMap())
+      }
+    }
+    org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+      NitroWebViewSourceHandler.postBody("https://example.com", "POST", "", mapOf("X-Test" to "value"))
+    }
+  }
+
 
   @Test
   fun `applyHtmlPayload_withNoBaseUrl_callsLoadDataWithBaseURL_withNullBaseUrl`() {

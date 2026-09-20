@@ -1,6 +1,8 @@
 export interface LoadUrlCommand {
   type: 'loadUrl'
   url: string
+  method?: 'GET' | 'POST'
+  body?: string
 }
 
 export interface LoadHtmlCommand {

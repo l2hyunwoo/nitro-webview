@@ -54,6 +54,8 @@ namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 // Forward declaration of `WebViewPoint` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
+// Forward declaration of `WebViewSourceMethod` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { enum class WebViewSourceMethod; }
 
 // Include C++ defined types
 #include "Cookie.hpp"
@@ -79,6 +81,7 @@ namespace margelo::nitro::nitrowebview { struct WebViewPoint; }
 #include "WebViewNavigationState.hpp"
 #include "WebViewNavigationType.hpp"
 #include "WebViewPoint.hpp"
+#include "WebViewSourceMethod.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
