@@ -152,6 +152,8 @@ dependencies {
 
   // File-upload pathway: AndroidX FileProvider for camera capture URIs.
   implementation "androidx.core:core-ktx:1.13.1"
+  // Activity back dispatcher handles fullscreen video before React navigation.
+  implementation "androidx.activity:activity-ktx:1.9.3"
 
   // Document-start JS injection: WebViewCompat.addDocumentStartJavaScript
   // (gated on the DOCUMENT_START_SCRIPT feature) gives the same

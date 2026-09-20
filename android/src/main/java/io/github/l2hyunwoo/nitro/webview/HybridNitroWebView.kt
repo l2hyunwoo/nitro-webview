@@ -99,6 +99,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   internal val webChromeClient: NitroWebChromeClient =
     NitroWebChromeClient(
       context = context.applicationContext,
+      webViewProvider = { view },
       activityResolver = ActivityResolver { context.currentActivity },
       chooserLauncher = chooserLauncher@{ intent, code ->
         // Route the chooser through the real ReactApplicationContext, the
@@ -595,6 +596,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     onLoadEnd = null
     onLoadProgress = null
     webChromeClient.onLoadProgress = null
+    webChromeClient.onHideCustomView()
     view.webViewClient = WebViewClient() // detach our client
     // Release the chooser-bound activity to avoid leaking the host while
     // the WebView itself is being torn down. The chooser client is
