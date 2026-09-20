@@ -26,6 +26,7 @@
 import type { ComponentType } from 'react';
 import { PostVerificationScreen } from '../PostVerificationScreen';
 
+import { DialogsVerificationScreen } from '../DialogsVerificationScreen';
 import { CookiesDemo } from './CookiesDemo';
 import { FileDownloadDemo } from './FileDownloadDemo';
 import { FileUploadDemo } from './FileUploadDemo';
@@ -34,12 +35,14 @@ import { JSBridgeDemo } from './JSBridgeDemo';
 import { NavigationInterceptionDemo } from './NavigationInterceptionDemo';
 import { UserAgentDemo } from './UserAgentDemo';
 
+
 /**
  * Stable identifier for a demo panel. Doubles as the
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
   | 'post-verification'
+  | 'js-dialogs'
   | 'js-bridge'
   | 'headers'
   | 'navigation-interception'
@@ -71,6 +74,11 @@ export const PANELS: readonly PanelEntry[] = [
     id: 'post-verification',
     title: 'POST source verification',
     component: PostVerificationScreen,
+  },
+  {
+    id: 'js-dialogs',
+    title: 'JavaScript dialogs',
+    component: DialogsVerificationScreen,
   },
   {
     id: 'js-bridge',
