@@ -54,6 +54,10 @@ namespace margelo::nitro::nitrowebview {
       prototype.registerHybridSetter("injectedJavaScriptBeforeContentLoaded", &HybridNitroWebViewSpec::setInjectedJavaScriptBeforeContentLoaded);
       prototype.registerHybridGetter("onLoadStart", &HybridNitroWebViewSpec::getOnLoadStart);
       prototype.registerHybridSetter("onLoadStart", &HybridNitroWebViewSpec::setOnLoadStart);
+      prototype.registerHybridGetter("onLoad", &HybridNitroWebViewSpec::getOnLoad);
+      prototype.registerHybridSetter("onLoad", &HybridNitroWebViewSpec::setOnLoad);
+      prototype.registerHybridGetter("onLoadProgress", &HybridNitroWebViewSpec::getOnLoadProgress);
+      prototype.registerHybridSetter("onLoadProgress", &HybridNitroWebViewSpec::setOnLoadProgress);
       prototype.registerHybridGetter("onLoadEnd", &HybridNitroWebViewSpec::getOnLoadEnd);
       prototype.registerHybridSetter("onLoadEnd", &HybridNitroWebViewSpec::setOnLoadEnd);
       prototype.registerHybridGetter("onNavigationStateChange", &HybridNitroWebViewSpec::getOnNavigationStateChange);

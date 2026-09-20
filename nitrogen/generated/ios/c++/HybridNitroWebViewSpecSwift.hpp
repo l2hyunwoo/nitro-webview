@@ -22,6 +22,10 @@ namespace margelo::nitro::nitrowebview { enum class WebViewSourceMethod; }
 namespace margelo::nitro::nitrowebview { struct WebViewLoadEvent; }
 // Forward declaration of `WebViewNavigationState` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewNavigationState; }
+// Forward declaration of `WebViewLoadProgressEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressEvent; }
+// Forward declaration of `WebViewLoadProgressNativeEvent` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct WebViewLoadProgressNativeEvent; }
 // Forward declaration of `WebViewMessageEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct WebViewMessageEvent; }
 // Forward declaration of `WebViewMessageNativeEvent` to properly resolve imports.
@@ -70,6 +74,8 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "WebViewNavigationState.hpp"
+#include "WebViewLoadProgressEvent.hpp"
+#include "WebViewLoadProgressNativeEvent.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "WebViewMessageNativeEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
@@ -275,6 +281,20 @@ namespace margelo::nitro::nitrowebview {
     }
     inline void setOnLoadStart(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoadStart) noexcept override {
       _swiftPart.setOnLoadStart(onLoadStart);
+    }
+    inline std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoad() noexcept override {
+      auto __result = _swiftPart.getOnLoad();
+      return __result;
+    }
+    inline void setOnLoad(const std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>& onLoad) noexcept override {
+      _swiftPart.setOnLoad(onLoad);
+    }
+    inline std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>> getOnLoadProgress() noexcept override {
+      auto __result = _swiftPart.getOnLoadProgress();
+      return __result;
+    }
+    inline void setOnLoadProgress(const std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>& onLoadProgress) noexcept override {
+      _swiftPart.setOnLoadProgress(onLoadProgress);
     }
     inline std::optional<std::function<void(const WebViewLoadEvent& /* event */)>> getOnLoadEnd() noexcept override {
       auto __result = _swiftPart.getOnLoadEnd();

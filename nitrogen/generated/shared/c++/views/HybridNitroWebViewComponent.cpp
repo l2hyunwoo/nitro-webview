@@ -226,6 +226,26 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.onLoadStart: ") + exc.what());
       }
     }()),
+    onLoad([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onLoad", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onLoad;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onLoad);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onLoad: ") + exc.what());
+      }
+    }()),
+    onLoadProgress([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("onLoadProgress", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.onLoadProgress;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onLoadProgress);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.onLoadProgress: ") + exc.what());
+      }
+    }()),
     onLoadEnd([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("onLoadEnd", nullptr, nullptr);
@@ -369,6 +389,8 @@ namespace margelo::nitro::nitrowebview::views {
       case hashString("injectedJavaScript"): return true;
       case hashString("injectedJavaScriptBeforeContentLoaded"): return true;
       case hashString("onLoadStart"): return true;
+      case hashString("onLoad"): return true;
+      case hashString("onLoadProgress"): return true;
       case hashString("onLoadEnd"): return true;
       case hashString("onNavigationStateChange"): return true;
       case hashString("onMessage"): return true;

@@ -30,6 +30,8 @@ public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   var injectedJavaScript: String? { get set }
   var injectedJavaScriptBeforeContentLoaded: String? { get set }
   var onLoadStart: ((_ event: WebViewLoadEvent) -> Void)? { get set }
+  var onLoad: ((_ event: WebViewLoadEvent) -> Void)? { get set }
+  var onLoadProgress: ((_ event: WebViewLoadProgressEvent) -> Void)? { get set }
   var onLoadEnd: ((_ event: WebViewLoadEvent) -> Void)? { get set }
   var onNavigationStateChange: ((_ state: WebViewNavigationState) -> Void)? { get set }
   var onMessage: ((_ event: WebViewMessageEvent) -> Void)? { get set }

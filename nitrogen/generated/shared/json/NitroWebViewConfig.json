@@ -24,6 +24,8 @@
     "injectedJavaScript": true,
     "injectedJavaScriptBeforeContentLoaded": true,
     "onLoadStart": true,
+    "onLoad": true,
+    "onLoadProgress": true,
     "onLoadEnd": true,
     "onNavigationStateChange": true,
     "onMessage": true,

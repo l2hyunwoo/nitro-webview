@@ -19,6 +19,9 @@ final class HybridNitroWebView:
   private var currentInjectedUserScript: WKUserScript?
 
   var onLoadStart: ((WebViewLoadEvent) -> Void)?
+  private var progressObservation: NSKeyValueObservation?
+  var onLoad: ((WebViewLoadEvent) -> Void)?
+  var onLoadProgress: ((WebViewLoadProgressEvent) -> Void)?
   var onLoadEnd: ((WebViewLoadEvent) -> Void)?
   var onNavigationStateChange: ((WebViewNavigationState) -> Void)?
   var onMessage: ((WebViewMessageEvent) -> Void)?
@@ -56,6 +59,15 @@ final class HybridNitroWebView:
     self.scrollDelegate = ScrollDelegate()
     super.init()
 
+    progressObservation = view.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+      guard let self = self, self.navigationDelegate.loading else { return }
+      let state = self.snapshotNavigationState()
+      self.onLoadProgress?(WebViewLoadProgressEvent(nativeEvent: WebViewLoadProgressNativeEvent(
+        progress: min(1, max(0, self.view.estimatedProgress)),
+        url: state.url, title: state.title, loading: state.loading,
+        canGoBack: state.canGoBack, canGoForward: state.canGoForward
+      )))
+    }
     navigationDelegate.owner = self
     view.navigationDelegate = navigationDelegate
     // Claim the scrollView delegate to surface `onScroll`. WKWebView does
@@ -109,6 +121,11 @@ final class HybridNitroWebView:
     ))
   }
 
+  deinit {
+    progressObservation?.invalidate()
+  }
+
+
   private static let bridgeBootstrapScript: String = """
   ;(function () {
     var __bridge = window.ReactNativeWebView;
@@ -160,6 +177,12 @@ final class HybridNitroWebView:
 
   func onDropView() {
     uiDelegate.dialogs.cancel()
+    progressObservation?.invalidate()
+    progressObservation = nil
+    onLoadStart = nil
+    onLoad = nil
+    onLoadEnd = nil
+    onLoadProgress = nil
     let controller = view.configuration.userContentController
     controller.removeScriptMessageHandler(
       forName: NitroWebViewMessageHandler.scriptMessageHandlerName
@@ -176,6 +199,7 @@ final class HybridNitroWebView:
     uiDelegate.owner = nil
     messageHandler.dispatcher = nil
     historyHandler.dispatcher = nil
+    view.stopLoading()
   }
 
   private var sourceNeedsLoading = false
@@ -551,6 +575,20 @@ final class HybridNitroWebView:
 
   fileprivate final class NavigationDelegate: NSObject, WKNavigationDelegate {
     weak var owner: HybridNitroWebView?
+    private var activeNavigation: WKNavigation?
+    fileprivate var loading = false
+    private var failed = false
+
+    private func finish(_ navigation: WKNavigation?, error: NSError? = nil) {
+      guard loading, navigation === activeNavigation else { return }
+      loading = false
+      if let error = error {
+        failed = true
+        owner?.emitError(error, fallbackUrl: owner?.view.url?.absoluteString)
+      }
+      owner?.emitLoadEnd(success: !failed)
+      owner?.emitNavigationState()
+    }
 
     /// In-memory map of WKNavigationAction → its WebKit-supplied
     /// `decisionHandler` closure, parked while the JS-side Promise from
@@ -586,6 +624,9 @@ final class HybridNitroWebView:
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+      activeNavigation = navigation
+      loading = true
+      failed = false
       owner?.emitLoadStart()
       owner?.emitNavigationState()
     }
@@ -633,14 +674,11 @@ final class HybridNitroWebView:
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-      owner?.emitLoadEnd()
-      owner?.emitNavigationState()
+      finish(navigation)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-      owner?.emitError(error as NSError, fallbackUrl: webView.url?.absoluteString)
-      owner?.emitLoadEnd()
-      owner?.emitNavigationState()
+      finish(navigation, error: error as NSError)
     }
 
     func webView(
@@ -648,9 +686,7 @@ final class HybridNitroWebView:
       didFailProvisionalNavigation navigation: WKNavigation!,
       withError error: Error
     ) {
-      owner?.emitError(error as NSError, fallbackUrl: webView.url?.absoluteString)
-      owner?.emitLoadEnd()
-      owner?.emitNavigationState()
+      finish(navigation, error: error as NSError)
     }
 
     /// File-download detection: when the response should be treated as a
@@ -689,6 +725,7 @@ final class HybridNitroWebView:
       if navigationResponse.isForMainFrame,
          let http = httpResponse,
          let mapped = HybridNitroWebView.httpError(from: http) {
+        failed = true
         owner?.emitHttpError(mapped)
       }
       let isDownload = HybridNitroWebView.shouldTreatAsDownload(
@@ -809,8 +846,14 @@ final class HybridNitroWebView:
     onLoadStart?(WebViewLoadEvent(nativeEvent: snapshotNavigationState()))
   }
 
-  fileprivate func emitLoadEnd() {
-    onLoadEnd?(WebViewLoadEvent(nativeEvent: snapshotNavigationState()))
+  fileprivate func emitLoadEnd(success: Bool) {
+    let state = snapshotNavigationState()
+    let event = WebViewLoadEvent(nativeEvent: WebViewNavigationState(
+      url: state.url, title: state.title, loading: false,
+      canGoBack: state.canGoBack, canGoForward: state.canGoForward
+    ))
+    if success { onLoad?(event) }
+    onLoadEnd?(event)
   }
 
   fileprivate func emitNavigationState() {

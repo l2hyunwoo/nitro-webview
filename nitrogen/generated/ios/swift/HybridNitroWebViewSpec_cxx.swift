@@ -641,6 +641,70 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
+  public final var onLoad: bridge.std__optional_std__function_void_const_WebViewLoadEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_WebViewLoadEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onLoad {
+          return bridge.create_std__optional_std__function_void_const_WebViewLoadEvent_____event______({ () -> bridge.Func_void_WebViewLoadEvent in
+            let __closureWrapper = Func_void_WebViewLoadEvent(__unwrappedValue)
+            return bridge.create_Func_void_WebViewLoadEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onLoad = { () -> ((_ event: WebViewLoadEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_WebViewLoadEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_WebViewLoadEvent_____event______(newValue)
+          return { () -> (WebViewLoadEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_WebViewLoadEvent(__unwrapped)
+            return { (__event: WebViewLoadEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
+  public final var onLoadProgress: bridge.std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______ {
+    @inline(__always)
+    get {
+      return { () -> bridge.std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______ in
+        if let __unwrappedValue = self.__implementation.onLoadProgress {
+          return bridge.create_std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______({ () -> bridge.Func_void_WebViewLoadProgressEvent in
+            let __closureWrapper = Func_void_WebViewLoadProgressEvent(__unwrappedValue)
+            return bridge.create_Func_void_WebViewLoadProgressEvent(__closureWrapper.toUnsafe())
+          }())
+        } else {
+          return .init()
+        }
+      }()
+    }
+    @inline(__always)
+    set {
+      self.__implementation.onLoadProgress = { () -> ((_ event: WebViewLoadProgressEvent) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_WebViewLoadProgressEvent_____event______(newValue)
+          return { () -> (WebViewLoadProgressEvent) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_WebViewLoadProgressEvent(__unwrapped)
+            return { (__event: WebViewLoadProgressEvent) -> Void in
+              __wrappedFunction.call(__event)
+            }
+          }()
+        } else {
+          return nil
+        }
+      }()
+    }
+  }
+  
   public final var onLoadEnd: bridge.std__optional_std__function_void_const_WebViewLoadEvent_____event______ {
     @inline(__always)
     get {

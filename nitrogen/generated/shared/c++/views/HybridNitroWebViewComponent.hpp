@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
+#include "WebViewLoadProgressEvent.hpp"
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
@@ -78,6 +79,8 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::optional<std::string>> injectedJavaScript;
     CachedProp<std::optional<std::string>> injectedJavaScriptBeforeContentLoaded;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
+    CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoad;
+    CachedProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>> onLoadProgress;
     CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;
     CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;
     CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
