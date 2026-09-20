@@ -40,12 +40,13 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollEvent; }
 // Forward declaration of `Cookie` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct Cookie; }
 
+#include <string>
+#include <vector>
+#include <optional>
 #include "UriSource.hpp"
 #include "HtmlSource.hpp"
 #include <variant>
-#include <string>
 #include <unordered_map>
-#include <optional>
 #include "WebViewLoadEvent.hpp"
 #include <functional>
 #include "WebViewNavigationState.hpp"
@@ -59,7 +60,6 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "NitroWebViewRenderProcessGoneEvent.hpp"
 #include "NitroWebViewScrollEvent.hpp"
 #include "Cookie.hpp"
-#include <vector>
 
 namespace margelo::nitro::nitrowebview {
 
@@ -88,6 +88,10 @@ namespace margelo::nitro::nitrowebview {
 
     public:
       // Properties
+      virtual std::optional<std::vector<std::string>> getMediaCapturePermissionOrigins() = 0;
+      virtual void setMediaCapturePermissionOrigins(const std::optional<std::vector<std::string>>& mediaCapturePermissionOrigins) = 0;
+      virtual std::optional<std::vector<std::string>> getGeolocationPermissionOrigins() = 0;
+      virtual void setGeolocationPermissionOrigins(const std::optional<std::vector<std::string>>& geolocationPermissionOrigins) = 0;
       virtual std::variant<UriSource, HtmlSource> getSource() = 0;
       virtual void setSource(const std::variant<UriSource, HtmlSource>& source) = 0;
       virtual std::optional<std::unordered_map<std::string, std::string>> getDefaultHeaders() = 0;

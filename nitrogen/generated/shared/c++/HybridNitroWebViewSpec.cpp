@@ -14,6 +14,10 @@ namespace margelo::nitro::nitrowebview {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
+      prototype.registerHybridGetter("mediaCapturePermissionOrigins", &HybridNitroWebViewSpec::getMediaCapturePermissionOrigins);
+      prototype.registerHybridSetter("mediaCapturePermissionOrigins", &HybridNitroWebViewSpec::setMediaCapturePermissionOrigins);
+      prototype.registerHybridGetter("geolocationPermissionOrigins", &HybridNitroWebViewSpec::getGeolocationPermissionOrigins);
+      prototype.registerHybridSetter("geolocationPermissionOrigins", &HybridNitroWebViewSpec::setGeolocationPermissionOrigins);
       prototype.registerHybridGetter("source", &HybridNitroWebViewSpec::getSource);
       prototype.registerHybridSetter("source", &HybridNitroWebViewSpec::setSource);
       prototype.registerHybridGetter("defaultHeaders", &HybridNitroWebViewSpec::getDefaultHeaders);

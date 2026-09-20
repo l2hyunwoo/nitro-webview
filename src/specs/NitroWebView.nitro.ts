@@ -137,6 +137,17 @@ export interface NitroWebViewErrorEvent {
 export type WebViewErrorEvent = NitroWebViewErrorEvent
 
 export interface NitroWebViewProps extends HybridViewProps {
+  /** Android only: exact HTTP(S) origins allowed to request camera/microphone.
+   * Default denies all. No wildcards or paths. Android runtime consent is still required.
+   * iOS ignores this prop and retains WKWebView's system permission prompts.
+   */
+  mediaCapturePermissionOrigins?: string[]
+  /** Android only: exact HTTP(S) origins allowed to request location.
+   * Default denies all; grants are not remembered by WebView. Accepts approximate location.
+   * iOS ignores this prop and retains system permission prompts.
+   */
+  geolocationPermissionOrigins?: string[]
+
   /**
    * Content source for the WebView.
    * @see {@linkcode WebViewSource}

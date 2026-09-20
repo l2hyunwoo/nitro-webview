@@ -177,6 +177,18 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   // thread via `view.post { }` (same convention as `userAgent`). Props are
   // nullable: `null` (prop unset) leaves the platform default untouched.
 
+  override var mediaCapturePermissionOrigins: Array<String>? = null
+    set(value) {
+      field = value
+      webChromeClient.permissions.mediaOrigins = value
+    }
+
+  override var geolocationPermissionOrigins: Array<String>? = null
+    set(value) {
+      field = value
+      webChromeClient.permissions.locationOrigins = value
+    }
+
   override var javaScriptEnabled: Boolean? = null
     set(value) {
       field = value
@@ -558,6 +570,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   override fun onDropView() {
+    webChromeClient.permissions.dispose()
     view.webViewClient = WebViewClient() // detach our client
     // Release the chooser-bound activity to avoid leaking the host while
     // the WebView itself is being torn down. The chooser client is

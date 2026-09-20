@@ -10,6 +10,8 @@ import NitroModules
 /// See ``HybridNitroWebViewSpec``
 public protocol HybridNitroWebViewSpec_protocol: HybridObject, HybridView {
   // Properties
+  var mediaCapturePermissionOrigins: [String]? { get set }
+  var geolocationPermissionOrigins: [String]? { get set }
   var source: WebViewSource { get set }
   var defaultHeaders: Dictionary<String, String>? { get set }
   var userAgent: String? { get set }

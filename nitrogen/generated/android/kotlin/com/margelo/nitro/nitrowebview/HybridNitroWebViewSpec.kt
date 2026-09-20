@@ -31,6 +31,18 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @get:Keep
   @set:DoNotStrip
   @set:Keep
+  abstract var mediaCapturePermissionOrigins: Array<String>?
+  
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
+  abstract var geolocationPermissionOrigins: Array<String>?
+  
+  @get:DoNotStrip
+  @get:Keep
+  @set:DoNotStrip
+  @set:Keep
   abstract var source: WebViewSource
   
   @get:DoNotStrip

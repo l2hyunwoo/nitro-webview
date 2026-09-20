@@ -50,6 +50,10 @@ namespace margelo::nitro::nitrowebview {
 
   public:
     // Properties
+    std::optional<std::vector<std::string>> getMediaCapturePermissionOrigins() override;
+    void setMediaCapturePermissionOrigins(const std::optional<std::vector<std::string>>& mediaCapturePermissionOrigins) override;
+    std::optional<std::vector<std::string>> getGeolocationPermissionOrigins() override;
+    void setGeolocationPermissionOrigins(const std::optional<std::vector<std::string>>& geolocationPermissionOrigins) override;
     std::variant<UriSource, HtmlSource> getSource() override;
     void setSource(const std::variant<UriSource, HtmlSource>& source) override;
     std::optional<std::unordered_map<std::string, std::string>> getDefaultHeaders() override;

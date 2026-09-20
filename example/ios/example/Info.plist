@@ -34,13 +34,13 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Used to pick photos for file upload in the WebView demo.</string>
+	<string>Used to capture video and take photos in the WebView demo.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Used to record audio for file upload in the WebView demo.</string>
+	<string>Used to capture microphone audio in the WebView demo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to select photos for file upload in the WebView demo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Used to verify website location access in the WebView demo.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

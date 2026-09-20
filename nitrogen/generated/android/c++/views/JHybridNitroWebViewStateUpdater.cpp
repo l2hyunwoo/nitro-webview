@@ -37,6 +37,14 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
   }
 
   // Update all props if they are dirty
+  if (props->mediaCapturePermissionOrigins.isDirty) {
+    hybridView->setMediaCapturePermissionOrigins(props->mediaCapturePermissionOrigins.value);
+    props->mediaCapturePermissionOrigins.isDirty = false;
+  }
+  if (props->geolocationPermissionOrigins.isDirty) {
+    hybridView->setGeolocationPermissionOrigins(props->geolocationPermissionOrigins.value);
+    props->geolocationPermissionOrigins.isDirty = false;
+  }
   if (props->source.isDirty) {
     hybridView->setSource(props->source.value);
     props->source.isDirty = false;
