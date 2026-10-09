@@ -208,4 +208,24 @@ final class HybridNitroWebViewGetCookiesFilterTests: XCTestCase {
     let scope = NitroWebViewCookieFilter.urlScope(forUrl: "http://example.com")
     XCTAssertEqual(scope.path, "/")
   }
+  func test_invalidCookieURLsNeverExposeCookies() {
+    let cookie = makeCookie(name: "secret", domain: "example.com")
+    for raw in ["", "garbage", "file:///private", "about:blank", "wss://example.com", "https:///", "https://"] {
+      XCTAssertNil(NitroWebViewCookieFilter.validCookieURL(raw), raw)
+      XCTAssertEqual(filteredNames(cookies: [cookie], forUrl: raw), [], raw)
+    }
+  }
+
+  func test_initialSessionSettingsValidation() {
+    let normal = NitroWebViewSessionSettings(incognito: false, sharedCookies: false, javaScript: true)
+    XCTAssertNil(normal.error(comparedTo: nil))
+    XCTAssertNil(normal.error(comparedTo: normal))
+    let privateSession = NitroWebViewSessionSettings(incognito: true, sharedCookies: false, javaScript: true)
+    XCTAssertNil(privateSession.error(comparedTo: nil))
+    XCTAssertNotNil(privateSession.error(comparedTo: normal))
+    XCTAssertNotNil(NitroWebViewSessionSettings(incognito: true, sharedCookies: true, javaScript: true).error(comparedTo: nil))
+    XCTAssertNotNil(NitroWebViewSessionSettings(incognito: false, sharedCookies: false, javaScript: false).error(comparedTo: normal))
+    XCTAssertNotNil(NitroWebViewSessionSettings(incognito: false, sharedCookies: true, javaScript: true).error(comparedTo: normal))
+  }
+
 }

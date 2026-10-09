@@ -200,11 +200,9 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Enable JavaScript execution. Defaults to `true` (the file chooser needs
    * it; react-native-webview also defaults JS on).
    *
-   *   - iOS (WKWebView): NO-OP. `WKPreferences.javaScriptEnabled` is only
-   *     read when `WKWebView` is constructed, but Nitro delivers props
-   *     strictly after `init()` runs - the view is always built with
-   *     WebKit's default (JS on) before this prop's value is known. There is
-   *     currently no way to honor this prop on iOS, on any render.
+   *   - iOS: captured before the first load using allowsContentJavaScript.
+   *     Remount with a new key to change it. When false, bridge/history/user
+   *     scripts are not installed, evaluation rejects and injection is ignored.
    *   - Android (WebSettings): `WebSettings.javaScriptEnabled`, mutable
    *     anytime.
    *
@@ -237,20 +235,11 @@ export interface NitroWebViewProps extends HybridViewProps {
   cacheEnabled?: boolean
 
   /**
-   * Non-persistent (incognito / private browsing) data store: cache and DOM
-   * storage live only in memory. Defaults to `false`.
-   *
-   *   - iOS (WKWebView): NO-OP. `WKWebViewConfiguration.websiteDataStore`
-   *     would need `.nonPersistent()` at construction, but Nitro delivers
-   *     props strictly after `init()` runs - the view is always built with
-   *     the default persistent store before this prop's value is known.
-   *     There is currently no way to honor this prop on iOS, on any render
-   *     (react-native-webview has the same limitation; there is no
-   *     supported way to switch data stores post-init without a full
-   *     remount, which Nitro's view lifecycle does not expose either).
-   *   - Android (WebSettings/CookieManager): there is no first-class
-   *     incognito mode. Cookies written through the cookie API remain
-   *     process-global, so full data isolation is NOT guaranteed on Android.
+   * Use a new, non-persistent data store on iOS. Defaults to false.
+   * Captured before the first load; remount with a new key to change it.
+   * Cannot be combined with sharedCookiesEnabled.
+   * Android does not support isolated sessions: true emits a configuration
+   * error and prevents source loading without clearing shared cookies.
    */
   incognito?: boolean
 
@@ -330,18 +319,11 @@ export interface NitroWebViewProps extends HybridViewProps {
   thirdPartyCookiesEnabled?: boolean
 
   /**
-   * iOS-only. Share the app-wide `HTTPCookieStorage` cookies (those set by
-   * `NSURLSession`) into the WebView's data store at construction, so a
-   * login established outside the WebView is visible inside it. Defaults to
-   * `false`.
-   *
-   *   - iOS (WKWebView): NO-OP. Sharing `HTTPCookieStorage` into the data
-   *     store would need to happen at construction, but Nitro delivers
-   *     props strictly after `init()` runs - the view is always built
-   *     before this prop's value is known. There is currently no way to
-   *     honor this prop on iOS, on any render.
-   *   - Android: no-op - Android WebView already shares one process-wide
-   *     `CookieManager`; there is nothing to opt into.
+   * iOS-only. Import non-expired HTTPCookieStorage cookies into the chosen
+   * WebView store once, before its first load. Same name/domain/path cookies
+   * are overwritten by the imported cookies. Defaults to false. This is a
+   * one-way import, not continuous synchronization. Remount to change it.
+   * Cannot be combined with incognito. Android ignores this prop.
    */
   sharedCookiesEnabled?: boolean
 
@@ -687,11 +669,10 @@ export interface NitroWebViewMethods extends HybridViewMethods {
   postMessage(data: string): void
 
   /**
-   * Return every cookie the platform's shared cookie store holds for the
-   * origin of `url`.
+   * Return cookies for an absolute HTTP(S) URL; invalid URLs reject.
    *
-   *   - iOS: queries `WKWebsiteDataStore.default().httpCookieStore` and
-   *     filters by host suffix match against `url`.
+   *   - iOS: queries this instance's selected store and filters host, path
+   *     and secure scope. Unmounted instances reject, without a default fallback.
    *   - Android: parses the value returned by
    *     `CookieManager.getInstance().getCookie(url)` into individual
    *     `Cookie` objects (name/value only; `httpOnly`, `secure`, `expires`,
@@ -703,12 +684,12 @@ export interface NitroWebViewMethods extends HybridViewMethods {
   getCookies(url: string): Promise<Cookie[]>
 
   /**
-   * Persist a single cookie into the platform's shared cookie store. `url`
+   * Persist a cookie into this instance's store (process-shared on Android). `url`
    * scopes the cookie and is also used to derive the default `domain`/`path`
    * when those fields are omitted from `cookie`.
    *
    *   - iOS: builds an `HTTPCookie` via `HTTPCookie(properties:)` and calls
-   *     `WKWebsiteDataStore.default().httpCookieStore.setCookie(_:)`.
+   *     the selected store's `httpCookieStore.setCookie(_:)`.
    *   - Android: serialises `cookie` into a `Set-Cookie`-style string and
    *     calls `CookieManager.getInstance().setCookie(url, value)` followed
    *     by `flush()`.
@@ -716,13 +697,11 @@ export interface NitroWebViewMethods extends HybridViewMethods {
   setCookie(url: string, cookie: Cookie): Promise<void>
 
   /**
-   * Remove every cookie from the platform's shared cookie store.
-   *   - iOS: iterates `WKHTTPCookieStore.allCookies()` and removes each
-   *     entry via `delete(_:)`.
-   *   - Android: calls `CookieManager.getInstance().removeAllCookies(null)`
-   *     followed by `flush()`.
-   *
-   * The promise resolves only after the platform reports completion.
+   * Remove every cookie from this instance's selected store on iOS, or the
+   * process-wide CookieManager on Android. Persistent iOS views share the
+   * default store; clearing it also affects other views using that store.
+   * Private iOS stores are isolated. Unmounted iOS instances reject.
+   * Resolves only after the platform completion callback (and Android flush).
    */
   clearCookies(): Promise<void>
 

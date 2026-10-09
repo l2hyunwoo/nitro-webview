@@ -12,6 +12,20 @@ final class HybridNitroWebView:
   private var webView: WKWebView?
   private var sourceNeedsLoading = false
   private var isDropped = false
+  private var mountedSettings: NitroWebViewSessionSettings?
+  private var cookiesReady = false
+  private var lastConfigurationError: String?
+  private var pendingEvaluations: [UUID: Promise<String>] = [:]
+
+  private var sessionSettings: NitroWebViewSessionSettings {
+    NitroWebViewSessionSettings(incognito: incognito ?? false,
+      sharedCookies: sharedCookiesEnabled ?? false, javaScript: javaScriptEnabled ?? true)
+  }
+
+  private static func stateError(_ message: String = "WebView is not mounted. Remount with a new key.") -> NSError {
+    NSError(domain: "NitroWebViewState", code: -1,
+      userInfo: [NSLocalizedDescriptionKey: message])
+  }
 
   private let sourceHandler = NitroWebViewSourceHandler()
   private let evaluator = NitroWebViewEvaluateJavaScriptHandler()
@@ -66,15 +80,29 @@ final class HybridNitroWebView:
   // only after the first complete prop batch, before loading any source.
   func afterUpdate() {
     guard !isDropped else { return }
+    if let message = sessionSettings.error(comparedTo: mountedSettings) {
+      sourceNeedsLoading = false
+      if lastConfigurationError != message {
+        lastConfigurationError = message
+        emitError(NSError(domain: "NitroWebViewConfiguration", code: -1,
+          userInfo: [NSLocalizedDescriptionKey: message]), fallbackUrl: nil)
+      }
+      return
+    }
+    lastConfigurationError = nil
     if webView == nil { createWebView() }
-    if sourceNeedsLoading {
+    if cookiesReady && sourceNeedsLoading {
       sourceNeedsLoading = false
       applySource(source)
     }
   }
 
   private func createWebView() {
+    let settings = sessionSettings
+    mountedSettings = settings
     let configuration = WKWebViewConfiguration()
+    configuration.websiteDataStore = settings.incognito ? .nonPersistent() : .default()
+    configuration.defaultWebpagePreferences.allowsContentJavaScript = settings.javaScript
     configuration.allowsInlineMediaPlayback = allowsInlineMediaPlayback ?? false
     configuration.mediaTypesRequiringUserActionForPlayback =
       (mediaPlaybackRequiresUserAction ?? true) ? .all : []
@@ -117,22 +145,30 @@ final class HybridNitroWebView:
     webView.onDetach = { [weak uiDelegate] in
       uiDelegate?.dialogs.cancel()
     }
-    messageHandler.dispatcher = self
-    historyHandler.dispatcher = self
-    let controller = configuration.userContentController
-    controller.add(
-      messageHandler,
-      name: NitroWebViewMessageHandler.scriptMessageHandlerName
-    )
-    // Second, DISTINCT script message handler for the SPA history shim. A
-    // route change (pushState/replaceState/popstate) posts here — never the
-    // ReactNativeWebView message sink — so it can never be mistaken for an
-    // onMessage payload.
-    controller.add(
-      historyHandler,
-      name: NitroWebViewHistoryHandler.scriptMessageHandlerName
-    )
-    reinstallUserScripts()
+    if settings.javaScript {
+      messageHandler.dispatcher = self
+      historyHandler.dispatcher = self
+      let controller = configuration.userContentController
+      controller.add(messageHandler, name: NitroWebViewMessageHandler.scriptMessageHandlerName)
+      controller.add(historyHandler, name: NitroWebViewHistoryHandler.scriptMessageHandlerName)
+      reinstallUserScripts()
+    }
+    if settings.sharedCookies {
+      let group = DispatchGroup()
+      let store = configuration.websiteDataStore.httpCookieStore
+      for cookie in HTTPCookieStorage.shared.cookies ?? [] {
+        if let expires = cookie.expiresDate, expires <= Date() { continue }
+        group.enter()
+        store.setCookie(cookie) { group.leave() }
+      }
+      group.notify(queue: .main) { [weak self] in
+        guard let self, !self.isDropped else { return }
+        self.cookiesReady = true
+        self.afterUpdate()
+      }
+    } else {
+      cookiesReady = true
+    }
   }
 
   deinit {
@@ -199,6 +235,9 @@ final class HybridNitroWebView:
     onLoad = nil
     onLoadEnd = nil
     onLoadProgress = nil
+    let evaluations = Array(pendingEvaluations.values)
+    pendingEvaluations.removeAll()
+    for promise in evaluations { promise.reject(withError: Self.stateError()) }
     guard let webView else { return }
     webView.stopLoading()
     webView.removeFromSuperview()
@@ -266,7 +305,7 @@ final class HybridNitroWebView:
   // change it; recreating a live WKWebView would discard page/history state.
   var mediaPlaybackRequiresUserAction: Bool?
   var allowsInlineMediaPlayback: Bool?
-  // Other unsupported iOS settings remain stored for cross-platform parity.
+  // Session settings are captured before the first source. Remount to change them.
   var incognito: Bool?
   var sharedCookiesEnabled: Bool?
   var domStorageEnabled: Bool?
@@ -304,7 +343,11 @@ final class HybridNitroWebView:
   /// view's data store.
   func clearCache() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    (webView?.configuration.websiteDataStore ?? WKWebsiteDataStore.default()).removeData(
+    guard let store = webView?.configuration.websiteDataStore, !isDropped else {
+      promise.reject(withError: Self.stateError())
+      return promise
+    }
+    store.removeData(
       ofTypes: Self.cacheDataTypes(),
       modifiedSince: .distantPast
     ) {
@@ -344,31 +387,35 @@ final class HybridNitroWebView:
 
   func evaluateJavaScript(code: String) throws -> Promise<String> {
     let promise = Promise<String>()
-    guard let webView else {
-      promise.reject(withError: NSError(domain: "NitroWebView", code: -1,
-        userInfo: [NSLocalizedDescriptionKey: "WebView is not mounted"]))
-      return promise
+    DispatchQueue.main.async { [weak self] in
+      guard let self, !self.isDropped, let webView = self.webView else {
+        promise.reject(withError: Self.stateError())
+        return
+      }
+      guard self.mountedSettings?.javaScript == true else {
+        promise.reject(withError: Self.stateError("JavaScript is disabled for this WebView."))
+        return
+      }
+      let id = UUID()
+      self.pendingEvaluations[id] = promise
+      self.evaluator.evaluate(code: code, in: webView,
+        resolve: { [weak self] result in
+          self?.pendingEvaluations.removeValue(forKey: id)?.resolve(withResult: result)
+        },
+        reject: { [weak self] error in
+          self?.pendingEvaluations.removeValue(forKey: id)?.reject(withError: error)
+        })
     }
-    evaluator.evaluate(
-      code: code,
-      in: webView,
-      resolve: { result in promise.resolve(withResult: result) },
-      reject: { error in promise.reject(withError: error) }
-    )
     return promise
   }
 
-  /// Fire-and-forget JS execution — no result, no completion. Mirrors
-  /// react-native-webview's `injectJavaScript` (`nil` completion handler).
   func injectJavaScript(code: String) throws {
+    guard !isDropped, mountedSettings?.javaScript == true else { return }
     webView?.evaluateJavaScript(code, completionHandler: nil)
   }
 
-  /// Deliver a native→web message. iOS dispatches a DOM `message` event on
-  /// `window` (RNCWebViewImpl.m:1113). The statement is built + escaped by
-  /// the shared `NitroWebViewPostMessage` builder, then evaluated
-  /// fire-and-forget.
   func postMessage(data: String) throws {
+    guard !isDropped, mountedSettings?.javaScript == true else { return }
     webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
   }
 
@@ -387,8 +434,15 @@ final class HybridNitroWebView:
   /// the macOS host against real `HTTPCookie` instances.
   func getCookies(url: String) throws -> Promise<[Cookie]> {
     let promise = Promise<[Cookie]>()
+    guard NitroWebViewCookieFilter.validCookieURL(url) != nil else {
+      promise.reject(withError: Self.stateError("Cookie URL must be an absolute HTTP(S) URL."))
+      return promise
+    }
+    guard let store = webView?.configuration.websiteDataStore.httpCookieStore, !isDropped else {
+      promise.reject(withError: Self.stateError())
+      return promise
+    }
     let scope = NitroWebViewCookieFilter.urlScope(forUrl: url)
-    let store = (webView?.configuration.websiteDataStore ?? WKWebsiteDataStore.default()).httpCookieStore
     store.getAllCookies { cookies in
       let filtered: [Cookie] = cookies.compactMap { httpCookie in
         guard NitroWebViewCookieFilter.cookieMatches(httpCookie, scope: scope)
@@ -402,6 +456,14 @@ final class HybridNitroWebView:
 
   func setCookie(url: String, cookie: Cookie) throws -> Promise<Void> {
     let promise = Promise<Void>()
+    guard NitroWebViewCookieFilter.validCookieURL(url) != nil else {
+      promise.reject(withError: Self.stateError("Cookie URL must be an absolute HTTP(S) URL."))
+      return promise
+    }
+    guard let store = webView?.configuration.websiteDataStore.httpCookieStore, !isDropped else {
+      promise.reject(withError: Self.stateError())
+      return promise
+    }
     guard let httpCookie = Self.toHTTPCookie(cookie, fallbackUrl: url) else {
       promise.reject(withError: NSError(
         domain: "NitroWebView",
@@ -411,14 +473,13 @@ final class HybridNitroWebView:
       ))
       return promise
     }
-    let store = WKWebsiteDataStore.default().httpCookieStore
     store.setCookie(httpCookie) {
       promise.resolve(withResult: ())
     }
     return promise
   }
 
-  /// Drop every cookie stored in the default data store via the
+  /// Drop every cookie stored in this view's data store via the
   /// `WKWebsiteDataStore` bulk-removal API.
   ///
   /// `modifiedSince: .distantPast` is the canonical "everything ever" lower
@@ -430,7 +491,11 @@ final class HybridNitroWebView:
   /// empty jar).
   func clearCookies() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    WKWebsiteDataStore.default().removeData(
+    guard let store = webView?.configuration.websiteDataStore, !isDropped else {
+      promise.reject(withError: Self.stateError())
+      return promise
+    }
+    store.removeData(
       ofTypes: [WKWebsiteDataTypeCookies],
       modifiedSince: .distantPast
     ) {
@@ -527,7 +592,8 @@ final class HybridNitroWebView:
   /// `injectedJavaScriptBeforeContentLoaded` changes (both drive this
   /// method via `didSet`).
   private func reinstallUserScripts() {
-    guard let controller = webView?.configuration.userContentController else { return }
+    guard mountedSettings?.javaScript == true,
+      let controller = webView?.configuration.userContentController else { return }
     controller.removeAllUserScripts()
 
     // 1. bridge bootstrap — always present.

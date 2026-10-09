@@ -108,10 +108,10 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `source` | `WebViewSource` | `{ uri, headers? }` or `{ html, baseUrl? }`. Drives navigation. Required. |
 | `defaultHeaders` | `Record<string, string>` | Global HTTP headers attached to every main-frame navigation request. Per-request `source.headers` win on key conflict. |
 | `userAgent` | `string` | Overrides the platform default UA for every request (main-frame + sub-resource). `undefined` / empty restores the WebKit / Chromium default. |
-| `javaScriptEnabled` | `boolean` | Enable JS. Default `true`. Android: mutable. iOS: **no-op** - Nitro delivers props after `WKWebView` init, so this is never applied. |
+| `javaScriptEnabled` | `boolean` | Enable JS. Default `true`. Android: mutable. iOS: initial setting; remount to change. False disables bridge and injected scripts. |
 | `domStorageEnabled` | `boolean` | Enable `localStorage` / `sessionStorage`. Default `true`. Android: mutable. iOS: always on (no-op). |
 | `cacheEnabled` | `boolean` | HTTP cache. Android: `cacheMode` `LOAD_DEFAULT` / `LOAD_NO_CACHE`. iOS: `URLRequest.cachePolicy` on the next `source` load. |
-| `incognito` | `boolean` | Non-persistent store. iOS: **no-op** - Nitro delivers props after `WKWebView` init, so `nonPersistent()` is never applied. Android: no first-class mode; cookies stay process-global. |
+| `incognito` | `boolean` | iOS: a separate non-persistent store per mount; remount to change. Android: true emits an error and blocks source loading. |
 | `scrollEnabled` | `boolean` | iOS-only: `scrollView.isScrollEnabled` (mutable). Android: no-op (RNW does not implement it). |
 | `bounces` | `boolean` | iOS-only: `scrollView.bounces` (mutable). Android: no-op. |
 | `scalesPageToFit` | `boolean` | Android-only: `loadWithOverviewMode` + `useWideViewPort`. iOS: no-op. |
@@ -119,7 +119,7 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `allowsInlineMediaPlayback` | `boolean` | iOS-only: play video inline (`false` by default). Requires HTML `playsinline`. Applied on initial mount; remount with a new `key` to change it. Android: inline by default, with HTML video fullscreen supported. |
 | `allowsBackForwardNavigationGestures` | `boolean` | iOS-only: back/forward swipe gestures (mutable). Android: no-op. |
 | `thirdPartyCookiesEnabled` | `boolean` | Android-only: `setAcceptThirdPartyCookies` for this WebView (mutable). iOS: no-op. |
-| `sharedCookiesEnabled` | `boolean` | iOS-only: **no-op** - Nitro delivers props after `WKWebView` init, so sharing `HTTPCookieStorage` is never applied. Android: no-op (one process-wide store). |
+| `sharedCookiesEnabled` | `boolean` | iOS: import app cookies once before the first load; remount to change. Cannot combine with incognito. Android: ignored. |
 | `injectedJavaScript` | `string` | Fire-and-forget script run at document-END on every page load. |
 | `injectedJavaScriptBeforeContentLoaded` | `string` | Script run at document-START, before the page's own scripts. iOS: `WKUserScript(.atDocumentStart)` (hard before-any-script guarantee). Android: `WebViewCompat.addDocumentStartJavaScript` when the WebView supports `DOCUMENT_START_SCRIPT`, else `evaluateJavascript` in `onPageStarted` (early, but not a strict before-first-script guarantee). Main frame only. |
 | `onLoadStart` | `(event: WebViewLoadEvent) => void` | Fired when the WebView begins loading content. |
@@ -560,3 +560,28 @@ features used. Camera/microphone web capture requires a supported WKWebView vers
 microphone, and location available. Android deny mode checks that origin policy
 still blocks access after OS permissions have been granted. Location timeout or
 unavailable hardware is a FAIL, not a simulated success.
+
+### Session settings and cookie scope
+
+On iOS, `incognito`, `javaScriptEnabled`, and `sharedCookiesEnabled` are initial
+settings, applied before the first source loads. Change the React `key` to change
+them. A live change emits `NitroWebViewConfiguration` and blocks a new source in
+that prop batch. Each incognito mount gets a separate in-memory store. Combining
+incognito and shared cookies is an error. Android rejects `incognito=true` and
+starts no source request; its CookieManager remains process-wide.
+
+`sharedCookiesEnabled` imports non-expired app cookies once, before the first
+request. It does not synchronize later changes. Imported cookies replace matching
+name/domain/path entries. JavaScript-disabled iOS views have no message/history
+bridge or injected user scripts, and `evaluateJavaScript` rejects.
+
+Cookie APIs require absolute HTTP(S) URLs. On iOS all cookie and cache methods
+use the mounted view's selected store. Clearing a private store does not clear
+another private store. Persistent iOS views share the default store, and Android
+views share CookieManager, so `clearCookies()` affects other views in that store.
+Cache clearing removes resource cache only, leaving cookies and DOM storage.
+
+```tsx
+<NitroWebView key={`session-${sessionId}`} incognito={privateSession}
+  source={{ uri: 'https://example.com' }} />
+```

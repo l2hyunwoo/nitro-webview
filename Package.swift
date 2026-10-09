@@ -58,6 +58,7 @@ let package = Package(
         // Extracted from `HybridNitroWebView` so it can be exercised on
         // the macOS host without linking the Nitro/WKWebView-bound class.
         "NitroWebViewCookieFilter.swift",
+        "NitroWebViewSessionSettings.swift",
         // Same rationale as the cookie filter — `HybridNitroWebView`
         // can't be linked into this SwiftPM harness, so the parser lives
         // standalone and is re-exposed on the hybrid class via
