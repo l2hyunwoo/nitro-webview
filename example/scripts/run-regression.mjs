@@ -23,6 +23,8 @@ const commonCases = [
   'navigation-allow',
   'navigation-block',
   'navigation-delayed-false',
+  'navigation-handler-throw',
+  'navigation-handler-reject',
   'origin-whitelist-block',
   'post-body-once',
   'redirect-once',
@@ -353,7 +355,7 @@ async function run(platform, device) {
             ...process.env,
             CI: 'true',
             NODE_OPTIONS:
-              `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=1536`.trim(),
+              `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=768`.trim(),
           },
         },
       );

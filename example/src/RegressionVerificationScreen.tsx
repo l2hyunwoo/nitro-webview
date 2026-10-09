@@ -648,6 +648,65 @@ export function RegressionVerificationScreen() {
       ]);
     }
 
+    for (const [name, fail] of [
+      [
+        'navigation-handler-throw',
+        () => {
+          throw new Error('fixture navigation handler throw');
+        },
+      ],
+      [
+        'navigation-handler-reject',
+        () => Promise.reject(new Error('fixture navigation handler reject')),
+      ],
+    ] as const) {
+      tests.push([
+        name,
+        async () => {
+          const view = await mount(`/${name}`, {}, request => {
+            if (!request.url.includes('/target')) return true;
+            return fail();
+          });
+          await ready(view);
+          click(view);
+          await until(
+            () => view.decisions.some(target => target.includes('/target')),
+            'failing navigation callback',
+          );
+          const decision = view.decisionTimings.find(timing =>
+            timing.url.includes('/target'),
+          );
+          check(decision, 'failing target decision timing is missing');
+          await until(
+            () => decision.settledAt !== undefined,
+            'failing navigation callback settlement',
+          );
+          check(
+            view.decisions.filter(target => target.includes('/target')).length ===
+              1 &&
+              decision.error !== undefined,
+            `target hook did not fail exactly once: ${decision.error ?? 'no error'}`,
+          );
+          await ready(view, '/target');
+          const requests = (await records()).filter(
+            request => request.path === '/target',
+          );
+          check(
+            requests.length === 1 && requests[0]?.method === 'GET',
+            `failed handler target requests: ${JSON.stringify(requests)}`,
+          );
+          const eventCount = view.events.length;
+          await unmount();
+          await delay(250);
+          check(
+            view.events.length === eventCount,
+            'unmount emitted an extra load event after the failed handler',
+          );
+          return `target hook failed once (${decision.error}); fail-open loaded one GET target and unmount emitted no extra event`;
+        },
+      ]);
+    }
+
     tests.push(
       [
         'origin-whitelist-block',

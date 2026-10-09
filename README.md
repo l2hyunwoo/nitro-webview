@@ -511,13 +511,13 @@ node --test example/scripts/__tests__/*.test.mjs
 
 The runner uses `agent-device@0.17.4` to open the app and select `Run regression`.
 It starts the fixture on port 8098 and Metro on port 8081. Its Metro process uses
-two workers and a 1536 MiB Node heap limit. It can reuse Metro from this example
+two workers and a 768 MiB Node heap limit. It can reuse Metro from this example
 directory, leaving that process running. It refuses an unrelated Metro process.
 Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
 runner's own processes and session, leaving the device booted.
 
-The runner polls for up to 240 seconds. Success requires all 19 named Android cases
-or all 22 named iOS cases, with `complete: true` and every `ok: true`. Missing,
+The runner polls for up to 240 seconds. Success requires all 21 named Android cases
+or all 24 named iOS cases, with `complete: true` and every `ok: true`. Missing,
 incomplete, duplicate, or failed cases make the command fail. Android includes an
 actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
 The history case uses a real native tap because
