@@ -46,6 +46,7 @@ let package = Package(
       sources: [
         "NitroWebViewDialogCompletion.swift",
         "NitroWebViewNavigationDecisions.swift",
+        "NitroWebViewMainThread.swift",
         "NitroWebViewSourceHandler.swift",
         "NitroWebViewMessageHandler.swift",
         // Second WKScriptMessageHandler for the SPA history shim. Like the

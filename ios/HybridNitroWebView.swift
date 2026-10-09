@@ -369,26 +369,44 @@ final class HybridNitroWebView:
     didSet { reinstallUserScripts() }
   }
 
-  func goBack() throws { webView?.goBack() }
-  func goForward() throws { webView?.goForward() }
-  func reload() throws { webView?.reload() }
-  func stopLoading() throws {
-    let stop: () -> Void = { [weak self] in
-      self?.sourceHandler.cancelPendingLoad()
-      self?.navigationDelegate.cancelPendingDecisions()
-      self?.webView?.stopLoading()
+  func goBack() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.webView?.goBack()
     }
-    if Thread.isMainThread { stop() }
-    else { DispatchQueue.main.async(execute: stop) }
+  }
+
+  func goForward() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.webView?.goForward()
+    }
+  }
+
+  func reload() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.webView?.reload()
+    }
+  }
+
+  func stopLoading() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.sourceHandler.cancelPendingLoad()
+      self.navigationDelegate.cancelPendingDecisions()
+      self.webView?.stopLoading()
+    }
   }
 
   /// Clear the cache-shaped record types (`Self.cacheDataTypes()`) from the
   /// view's data store.
   func clearCache() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    guard let store = webView?.configuration.websiteDataStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     store.removeData(
       ofTypes: Self.cacheDataTypes(),
@@ -396,25 +414,33 @@ final class HybridNitroWebView:
     ) {
       promise.resolve(withResult: ())
     }
+    }
     return promise
   }
 
-  /// Documented no-op: `WKWebView.backForwardList` is read-only with no
-  /// public prune/clear API. Resolves so the cross-platform `Promise<void>`
-  /// contract still settles (react-native-webview exposes `clearHistory` on
-  /// Android only). See the spec JSDoc.
+  /// Documented no-op for mounted views: `WKWebView.backForwardList` has no
+  /// public prune/clear API. Unmounted instances reject like other methods.
   func clearHistory() throws -> Promise<Void> {
     let promise = Promise<Void>()
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, self.webView != nil else {
+        promise.reject(withError: Self.stateError())
+        return
+      }
     promise.resolve(withResult: ())
+    }
     return promise
   }
 
   func requestFocus() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    // becomeFirstResponder must run on the main thread. Discard the Bool:
-    // `false` means "already first responder / window not key", not an error.
-    DispatchQueue.main.async {
-      _ = self.webView?.becomeFirstResponder()
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let webView = self.webView else {
+        promise.reject(withError: Self.stateError())
+        return
+      }
+      // The responder's Bool does not indicate an evaluation failure.
+      _ = webView.becomeFirstResponder()
       promise.resolve(withResult: ())
     }
     return promise
@@ -453,13 +479,17 @@ final class HybridNitroWebView:
   }
 
   func injectJavaScript(code: String) throws {
-    guard !isDropped, mountedSettings?.javaScript == true else { return }
-    webView?.evaluateJavaScript(code, completionHandler: nil)
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, self.mountedSettings?.javaScript == true else { return }
+      self.webView?.evaluateJavaScript(code, completionHandler: nil)
+    }
   }
 
   func postMessage(data: String) throws {
-    guard !isDropped, mountedSettings?.javaScript == true else { return }
-    webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, self.mountedSettings?.javaScript == true else { return }
+      self.webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
+    }
   }
 
   // MARK: - Cookie API
@@ -481,9 +511,10 @@ final class HybridNitroWebView:
       promise.reject(withError: Self.stateError("Cookie URL must be an absolute HTTP(S) URL."))
       return promise
     }
-    guard let store = webView?.configuration.websiteDataStore.httpCookieStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore.httpCookieStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     let scope = NitroWebViewCookieFilter.urlScope(forUrl: url)
     store.getAllCookies { cookies in
@@ -494,6 +525,7 @@ final class HybridNitroWebView:
       }
       promise.resolve(withResult: filtered)
     }
+    }
     return promise
   }
 
@@ -503,9 +535,10 @@ final class HybridNitroWebView:
       promise.reject(withError: Self.stateError("Cookie URL must be an absolute HTTP(S) URL."))
       return promise
     }
-    guard let store = webView?.configuration.websiteDataStore.httpCookieStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore.httpCookieStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     guard let httpCookie = Self.toHTTPCookie(cookie, fallbackUrl: url) else {
       promise.reject(withError: NSError(
@@ -514,10 +547,11 @@ final class HybridNitroWebView:
         userInfo: [NSLocalizedDescriptionKey:
           "Could not construct HTTPCookie from supplied fields"]
       ))
-      return promise
+        return
     }
     store.setCookie(httpCookie) {
       promise.resolve(withResult: ())
+    }
     }
     return promise
   }
@@ -534,15 +568,17 @@ final class HybridNitroWebView:
   /// empty jar).
   func clearCookies() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    guard let store = webView?.configuration.websiteDataStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     store.removeData(
       ofTypes: [WKWebsiteDataTypeCookies],
       modifiedSince: .distantPast
     ) {
       promise.resolve(withResult: ())
+    }
     }
     return promise
   }
