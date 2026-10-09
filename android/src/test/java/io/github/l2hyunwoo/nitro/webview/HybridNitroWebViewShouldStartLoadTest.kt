@@ -1,211 +1,206 @@
 package io.github.l2hyunwoo.nitro.webview
 
+import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
+import com.margelo.nitro.nitrowebview.WebViewNavigationType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/**
- * JUnit tests for the Android-side `onShouldStartLoadWithRequest`
- * plumbing. The Nitro `Promise<Boolean>` cannot be instantiated in plain
- * JVM unit tests (its `then` / `catch` paths cross a JNI boundary), so
- * the suite drives the wait-loop through the
- * [HybridNitroWebView.awaitBooleanWithTimeout] seam — a pure-Kotlin
- * driver extracted from [HybridNitroWebView.awaitShouldStart].
- *
- * Coverage (one JUnit per behavior plus an extra timeout-elapsed pin):
- *   1. JS allow  -> awaitBooleanWithTimeout returns `true`.
- *   2. JS block  -> awaitBooleanWithTimeout returns `false`.
- *   3. Timeout   -> awaitBooleanWithTimeout returns `true` (default-allow).
- *   4. Reject    -> awaitBooleanWithTimeout returns `true` (default-allow).
- *   5. Late      -> a resolution that arrives AFTER the wait window does
- *                   not corrupt the result the waiter observed.
- *   6. Constant  -> SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS == 250L (RNW
- *                   parity pin).
- */
+/** Exercises the production wait helper without Nitro Promise JNI. */
 class HybridNitroWebViewShouldStartLoadTest {
-  // region: timeout constant pin
+  private class Clock {
+    var nanos = 0L
+    var reads = 0
+    val waits = mutableListOf<Long>()
+    var duringWait: ((Long) -> Unit)? = null
 
-  @Test
-  fun `timeoutConstant_is250ms_mirroringRNW`() {
-    assertEquals(
-      "SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS must be 250ms (mirrors react-native-webview).",
-      250L,
-      HybridNitroWebView.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
+    fun await(
+      subscribe: (onResolve: (Boolean) -> Unit, onReject: (Throwable) -> Unit) -> Unit,
+    ): Boolean = HybridNitroWebView.awaitBooleanWithTimeout(
+      timeoutMs = 250L,
+      nanoTime = { reads += 1; nanos },
+      waitFor = { _, remaining ->
+        waits += remaining
+        val action = duringWait
+        if (action == null) nanos += remaining else action(remaining)
+      },
+      subscribe = subscribe,
     )
   }
 
-  // region: synchronous allow
-
-  /**
-   * `subscribe` resolves synchronously with `true`. The wait-loop sees
-   * the result on its first check inside the synchronized block and
-   * returns `true` immediately. No sleep, no timeout exposure.
-   */
   @Test
-  fun `awaitBoolean_resolveTrue_returnsTrue_andDoesNotWait`() {
-    val start = System.currentTimeMillis()
-    val result =
-      HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = 500L, // generous — we should never reach the deadline.
-        subscribe = { onResolve, _ -> onResolve(true) },
-      )
-    val elapsed = System.currentTimeMillis() - start
-    assertEquals("synchronous resolve(true) must return true", true, result)
-    assertTrue(
-      "synchronous resolve(true) must NOT block for the timeout window (was ${elapsed}ms)",
-      elapsed < 250L,
-    )
+  fun `nominal timeout remains 250ms`() {
+    assertEquals(250L, HybridNitroWebView.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS)
   }
 
-  // region: synchronous block
-
-  /**
-   * `subscribe` resolves synchronously with `false`. The wait-loop
-   * returns `false` (which the caller flips into `shouldOverrideUrlLoading
-   * == true` to BLOCK the navigation).
-   */
   @Test
-  fun `awaitBoolean_resolveFalse_returnsFalse_andDoesNotWait`() {
-    val start = System.currentTimeMillis()
-    val result =
-      HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = 500L,
-        subscribe = { onResolve, _ -> onResolve(false) },
-      )
-    val elapsed = System.currentTimeMillis() - start
-    assertEquals("synchronous resolve(false) must return false", false, result)
-    assertTrue(
-      "synchronous resolve(false) must NOT block for the timeout window (was ${elapsed}ms)",
-      elapsed < 250L,
-    )
-  }
-
-  // region: timeout default-allow
-
-  /**
-   * `subscribe` never invokes the resolve/reject callbacks — the wait
-   * window must elapse and the helper must default to `true`. Real-time
-   * waits are inherent here; we use a deliberately small window (50ms)
-   * so the test runs fast.
-   */
-  @Test
-  fun `awaitBoolean_noResolution_defaultsToAllow_afterWaitWindowElapses`() {
-    val window = 50L
-    val start = System.currentTimeMillis()
-    val result =
-      HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = window,
-        subscribe = { _, _ ->
-          // Never resolve.
-        },
-      )
-    val elapsed = System.currentTimeMillis() - start
-    assertEquals(
-      "no resolution within the wait window must default to true (allow)",
-      true,
-      result,
-    )
-    assertTrue(
-      "wait window must have elapsed before returning (was ${elapsed}ms, expected >= ${window}ms)",
-      elapsed >= window,
-    )
-  }
-
-  // region: rejection default-allow
-
-  /**
-   * `subscribe` invokes the reject callback. A rejected Promise must
-   * NOT block the navigation — mirrors RNW's default-allow behavior so
-   * a buggy JS handler can't strand the WebView on a blank page.
-   */
-  @Test
-  fun `awaitBoolean_rejection_defaultsToAllow_andDoesNotWait`() {
-    val start = System.currentTimeMillis()
-    val result =
-      HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = 500L,
-        subscribe = { _, onReject -> onReject(RuntimeException("simulated JS error")) },
-      )
-    val elapsed = System.currentTimeMillis() - start
-    assertEquals(
-      "a rejected Promise must default to true (allow), mirroring RNW",
-      true,
-      result,
-    )
-    assertTrue(
-      "rejection must NOT block for the timeout window (was ${elapsed}ms)",
-      elapsed < 250L,
-    )
-  }
-
-  // region: async resolution from background thread
-
-  /**
-   * `subscribe` schedules the resolution on a background executor that
-   * delivers ~25 ms later — well inside the 250 ms RNW window. The
-   * waiter must unblock on the `notifyAll` and return the resolved
-   * value.
-   */
-  @Test
-  fun `awaitBoolean_backgroundResolution_unblocksWaiter_andReturnsResolvedValue`() {
-    val executor = Executors.newSingleThreadScheduledExecutor()
-    try {
-      val result =
-        HybridNitroWebView.awaitBooleanWithTimeout(
-          timeoutMs = 250L,
-          subscribe = { onResolve, _ ->
-            executor.schedule(
-              { onResolve(false) },
-              25L,
-              TimeUnit.MILLISECONDS,
-            )
-          },
-        )
-      assertEquals(
-        "background resolve(false) must unblock the waiter and return false",
-        false,
-        result,
-      )
-    } finally {
-      executor.shutdownNow()
+  fun `immediate allow or block does not wait`() {
+    for (value in listOf(true, false)) {
+      val clock = Clock()
+      assertEquals(value, clock.await { resolve, _ -> resolve(value) })
+      assertTrue(clock.waits.isEmpty())
     }
   }
 
-  // region: late resolution must not corrupt verdict
-
-  /**
-   * A resolution that arrives AFTER the wait window already elapsed
-   * must not retroactively flip the verdict the waiter returned. The
-   * waiter has already exited the `synchronized` block and any further
-   * `onResolve` calls fire into a no-longer-observed state. This pins
-   * the absence of cross-call contamination.
-   */
   @Test
-  fun `awaitBoolean_lateResolution_doesNotAffectAlreadyReturnedVerdict`() {
-    var resolverHolder: ((Boolean) -> Unit)? = null
-    val first =
-      HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = 30L,
-        subscribe = { onResolve, _ ->
-          // Stash the callback so the test can fire it AFTER the window
-          // elapses, simulating a JS Promise that resolves too late.
-          resolverHolder = onResolve
-        },
-      )
-    assertEquals(
-      "no resolution before the deadline must default to allow",
-      true,
-      first,
-    )
+  fun `response before deadline decides navigation`() {
+    val clock = Clock()
+    var resolve: ((Boolean) -> Unit)? = null
+    clock.duringWait = {
+      clock.nanos += TimeUnit.MILLISECONDS.toNanos(249L)
+      resolve!!(false)
+    }
+    assertFalse(clock.await { onResolve, _ -> resolve = onResolve })
+    assertEquals(listOf(TimeUnit.MILLISECONDS.toNanos(250L)), clock.waits)
+  }
 
-    // Fire the late resolution AFTER the waiter has returned. The
-    // captured callback runs synchronously on the test thread, so we
-    // observe what happens: it must NOT throw and the verdict already
-    // returned to the caller cannot be changed.
-    resolverHolder?.invoke(false)
-    // No further assertion needed — the contract is that the caller's
-    // earlier verdict (true) is final.
+  @Test
+  fun `callback and subscription time consume the same budget`() {
+    val clock = Clock()
+    assertTrue(clock.await { _, _ -> clock.nanos += TimeUnit.MILLISECONDS.toNanos(100L) })
+    assertEquals(listOf(TimeUnit.MILLISECONDS.toNanos(150L)), clock.waits)
+  }
+
+  @Test
+  fun `response at deadline fails open without another wait`() {
+    val clock = Clock()
+    assertTrue(clock.await { resolve, _ ->
+      clock.nanos += TimeUnit.MILLISECONDS.toNanos(250L)
+      resolve(false)
+    })
+    assertTrue(clock.waits.isEmpty())
+  }
+
+  @Test
+  fun `spurious wakeups only wait the remaining budget`() {
+    val clock = Clock()
+    clock.duringWait = { remaining ->
+      clock.nanos += minOf(remaining, TimeUnit.MILLISECONDS.toNanos(100L))
+    }
+    assertTrue(clock.await { _, _ -> })
+    assertEquals(listOf(250L, 150L, 50L).map(TimeUnit.MILLISECONDS::toNanos), clock.waits)
+  }
+
+  @Test
+  fun `rejection fails open without waiting`() {
+    val clock = Clock()
+    assertTrue(clock.await { _, reject -> reject(RuntimeException("JS rejection")) })
+    assertTrue(clock.waits.isEmpty())
+  }
+
+  @Test
+  fun `first completion is final`() {
+    val clock = Clock()
+    assertFalse(clock.await { resolve, reject ->
+      resolve(false)
+      reject(RuntimeException("duplicate"))
+      resolve(true)
+    })
+    assertTrue(clock.waits.isEmpty())
+  }
+
+  @Test
+  fun `subscription failure fails open and seals late completions`() {
+    val clock = Clock()
+    var resolve: ((Boolean) -> Unit)? = null
+    assertTrue(clock.await { onResolve, _ ->
+      resolve = onResolve
+      throw Exception("subscription failed")
+    })
+    val reads = clock.reads
+    resolve!!(false)
+    assertEquals(reads, clock.reads)
+    assertTrue(clock.waits.isEmpty())
+  }
+
+  @Test
+  fun `hook invocation failure fails open`() {
+    val payload = ShouldStartLoadRequest(
+      "https://example.com/", WebViewNavigationType.OTHER, null, true, true,
+    )
+    assertTrue(HybridNitroWebView.awaitShouldStart(
+      hook = { throw IllegalStateException("callback failed") },
+      payload = payload,
+    ))
+  }
+
+  @Test(expected = AssertionError::class)
+  fun `fatal errors propagate`() {
+    Clock().await { _, _ -> throw AssertionError("fatal native failure") }
+  }
+
+  @Test
+  fun `timeout seals late resolution and rejection`() {
+    val clock = Clock()
+    var resolve: ((Boolean) -> Unit)? = null
+    var reject: ((Throwable) -> Unit)? = null
+    assertTrue(clock.await { onResolve, onReject ->
+      resolve = onResolve
+      reject = onReject
+    })
+    val reads = clock.reads
+    resolve!!(false)
+    reject!!(RuntimeException("too late"))
+    assertEquals("sealed callbacks must not read or mutate decision state", reads, clock.reads)
+  }
+
+  @Test
+  fun `interrupted wait fails open restores interrupt and seals completion`() {
+    val clock = Clock()
+    var resolve: ((Boolean) -> Unit)? = null
+    clock.duringWait = { throw InterruptedException("wait interrupted") }
+    try {
+      assertTrue(clock.await { onResolve, _ -> resolve = onResolve })
+      assertTrue(Thread.currentThread().isInterrupted)
+      val reads = clock.reads
+      resolve!!(false)
+      assertEquals(reads, clock.reads)
+    } finally {
+      Thread.interrupted()
+    }
+  }
+
+  @Test
+  fun `interrupted callback fails open and restores interrupt`() {
+    try {
+      assertTrue(Clock().await { _, _ -> throw InterruptedException("callback interrupted") })
+      assertTrue(Thread.currentThread().isInterrupted)
+    } finally {
+      Thread.interrupted()
+    }
+  }
+
+  @Test
+  fun `interruption fails open even if completion races with monitor wakeup`() {
+    val clock = Clock()
+    var resolve: ((Boolean) -> Unit)? = null
+    clock.duringWait = {
+      resolve!!(false)
+      throw InterruptedException("interrupted while reacquiring monitor")
+    }
+    try {
+      assertTrue(clock.await { onResolve, _ -> resolve = onResolve })
+      assertTrue(Thread.currentThread().isInterrupted)
+    } finally {
+      Thread.interrupted()
+    }
+  }
+
+  @Test
+  fun `real background completion wakes the monitor`() {
+    val executor = Executors.newSingleThreadScheduledExecutor()
+    try {
+      assertFalse(HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = 1000L,
+        subscribe = { resolve, _ ->
+          executor.schedule({ resolve(false) }, 10L, TimeUnit.MILLISECONDS)
+        },
+      ))
+    } finally {
+      executor.shutdownNow()
+    }
   }
 }

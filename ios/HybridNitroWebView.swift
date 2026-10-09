@@ -39,8 +39,8 @@ final class HybridNitroWebView:
   /// `dispatchShouldStart`; the Promise's boolean result decides whether
   /// the platform commits to the navigation (`true` → `.allow`, `false` →
   /// `.cancel`). No timeout is applied — the stashed `decisionHandler`
-  /// stays parked in `pendingDecisions` until the Promise resolves
-  /// (mirroring react-native-webview's iOS behavior).
+  /// stays parked until the Promise settles, loading stops, the view is
+  /// dropped or its content process terminates.
   var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest) -> Promise<Bool>)?
 
   /// Opt-in flag for sub-frame navigation interception. On iOS this has no
@@ -190,6 +190,8 @@ final class HybridNitroWebView:
   """
 
   func onDropView() {
+    isDropped = true
+    navigationDelegate.cancelPendingDecisions()
     uiDelegate.dialogs.cancel()
     progressObservation?.invalidate()
     progressObservation = nil
@@ -197,7 +199,6 @@ final class HybridNitroWebView:
     onLoad = nil
     onLoadEnd = nil
     onLoadProgress = nil
-    isDropped = true
     guard let webView else { return }
     webView.stopLoading()
     webView.removeFromSuperview()
@@ -290,7 +291,14 @@ final class HybridNitroWebView:
   func goBack() throws { webView?.goBack() }
   func goForward() throws { webView?.goForward() }
   func reload() throws { webView?.reload() }
-  func stopLoading() throws { webView?.stopLoading() }
+  func stopLoading() throws {
+    let stop: () -> Void = { [weak self] in
+      self?.navigationDelegate.cancelPendingDecisions()
+      self?.webView?.stopLoading()
+    }
+    if Thread.isMainThread { stop() }
+    else { DispatchQueue.main.async(execute: stop) }
+  }
 
   /// Clear the cache-shaped record types (`Self.cacheDataTypes()`) from the
   /// view's data store.
@@ -602,12 +610,11 @@ final class HybridNitroWebView:
       owner?.emitNavigationState()
     }
 
-    /// In-memory map of WKNavigationAction → its WebKit-supplied
-    /// `decisionHandler` closure, parked while the JS-side Promise from
-    /// `onShouldStartLoadWithRequest` resolves. There is NO timeout — the
-    /// closure stays here indefinitely until JS calls back, mirroring
-    /// react-native-webview's iOS lockIdentifier round-trip semantics.
-    private var pendingDecisions: [ObjectIdentifier: (WKNavigationActionPolicy) -> Void] = [:]
+    private let pendingDecisions = NitroWebViewNavigationDecisions()
+
+    func cancelPendingDecisions() {
+      pendingDecisions.cancelAll()
+    }
 
     /// In-flight blob downloads keyed by `WKDownload` identity. Holds the
     /// chosen temp-file destination + the download's response so
@@ -646,8 +653,7 @@ final class HybridNitroWebView:
     /// Navigation-interception entry point. When the host has no
     /// `onShouldStartLoadWithRequest` callback installed, every navigation
     /// is allowed without JS round-trip. When the callback is installed:
-    ///   1. Park `decisionHandler` keyed by the navigation action's
-    ///      identity so it survives across the async hop.
+    ///   1. Park `decisionHandler` under a fresh ID across the async hop.
     ///   2. Build the cross-platform `ShouldStartLoadRequest` payload
     ///      (URL, navigation-type mapping, iOS-only fields).
     ///   3. Hand the payload to the host's `dispatchShouldStart` helper
@@ -657,31 +663,33 @@ final class HybridNitroWebView:
       decidePolicyFor navigationAction: WKNavigationAction,
       decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
+      guard let owner = owner, !owner.isDropped else {
+        decisionHandler(.cancel)
+        return
+      }
       // New-window handling must run BEFORE the should-start parking below.
       // A `target=_blank` / `window.open` with no target frame that is
       // cancelled here never reaches `createWebViewWith`, so onOpenWindow has
       // to fire from this spot too (react-native-webview parity). When
       // onOpenWindow is unset, fall through to the normal path so the default
       // in-place load still happens.
-      if let owner = owner,
-         owner.onOpenWindow != nil,
+      if owner.onOpenWindow != nil,
          navigationAction.targetFrame == nil {
         let url = navigationAction.request.url?.absoluteString ?? ""
         owner.emitOpenWindow(targetUrl: url)
         decisionHandler(.cancel)
         return
       }
-      guard let owner = owner, owner.onShouldStartLoadWithRequest != nil else {
+      guard owner.onShouldStartLoadWithRequest != nil else {
         decisionHandler(.allow)
         return
       }
-      let key = ObjectIdentifier(navigationAction)
-      pendingDecisions[key] = decisionHandler
+      let id = pendingDecisions.park { allow in
+        decisionHandler(allow ? .allow : .cancel)
+      }
       let payload = HybridNitroWebView.shouldStartPayload(for: navigationAction)
-      owner.dispatchShouldStart(payload) { [weak self] allow in
-        guard let self = self else { return }
-        let handler = self.pendingDecisions.removeValue(forKey: key)
-        handler?(allow ? .allow : .cancel)
+      owner.dispatchShouldStart(payload) { [weak pendingDecisions] allow in
+        pendingDecisions?.resolve(id, allow: allow)
       }
     }
 
@@ -758,6 +766,7 @@ final class HybridNitroWebView:
     /// crash-vs-reclaim discriminator on iOS. JS typically responds by
     /// calling `reload()` (the same WKWebView instance is reusable).
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+      cancelPendingDecisions()
       owner?.onRenderProcessGone?(
         NitroWebViewRenderProcessGoneEvent(
           nativeEvent: NitroWebViewRenderProcessGoneNativeEvent(didCrash: nil)

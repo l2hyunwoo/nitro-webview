@@ -399,26 +399,25 @@ export interface NitroWebViewProps extends HybridViewProps {
   onError?: (event: NitroWebViewErrorEvent) => void
 
   /**
-   * Navigation-interception hook. Fired before the WebView commits to a
-   * navigation. Return `true` to allow the navigation, `false` to silently
-   * cancel it. JS implementations may be `async` — the bridge transparently
-   * awaits any returned thenable before applying the decision, so the spec
-   * declares the synchronous return type while still admitting an async
-   * implementation.
+   * Decide requests delivered by the platform navigation hook. Return `true`
+   * to allow or `false` to cancel silently. The native bridge accepts Promise
+   * decisions. Promise rejection allows the request on both platforms.
    *
    *   - iOS (WKWebView): wired through
    *     `webView(_:decidePolicyFor:decisionHandler:)`. The native
-   *     `decisionHandler` is stashed in an in-memory map keyed by request and
-   *     resolved when the JS handler's return value settles. No timeout — the
-   *     handler stays stashed indefinitely until JS resolves (mirrors
-   *     react-native-webview).
+   *     `decisionHandler` is stored under a unique decision ID. There is no
+   *     library timeout: an unresolved Promise can keep navigation pending
+   *     while the view is active. `stopLoading()`, view removal and content
+   *     process termination cancel pending decisions exactly once. Late
+   *     results are ignored. Another navigation does not cancel pending
+   *     iframe decisions.
    *   - Android (WebViewClient): wired through
    *     `shouldOverrideUrlLoading(WebView, WebResourceRequest)`. The native
-   *     side blocks on a `synchronized.wait` with a 250 ms window. When JS
-   *     resolves inside the window, its boolean determines the return value.
-   *     When the window elapses without a resolution the navigation defaults
-   *     to allow (mirrors RNW's
-   *     `SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
+   *     side uses a nominal 250 ms monotonic budget, starting before callback
+   *     invocation and Promise subscription. An in-budget result decides.
+   *     Timeout, interruption and recoverable callback/subscription failure
+   *     allow the request. Late results are ignored. Callback execution and
+   *     OS scheduling cannot be preempted, so total UI delay can exceed 250 ms.
    *
    * When the prop is unset every navigation is allowed (allow-all default).
    * Blocked navigations are silently cancelled — no new event is emitted
@@ -427,9 +426,12 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Sub-frame (iframe) navigations surface here with `isTopFrame: false`;
    * on Android that only happens when
    * {@linkcode NitroWebViewProps.interceptSubframeNavigation} is `true`
-   * (main-frame navigations always surface). SPA `history.pushState` /
-   * `replaceState` route changes do NOT surface here — a pushState is not a
-   * navigation the platform can veto, so it surfaces via
+   * for requests delivered by the platform hook. Android app-initiated
+   * `source` loads and POST requests do not trigger this hook. Subresources
+   * are outside its contract. Neither this callback nor the origin allowlist
+   * helpers provide a complete network security boundary.
+   * SPA `history.pushState` / `replaceState` route changes do NOT surface
+   * here. The platform cannot veto them, so they surface via
    * {@linkcode NitroWebViewProps.onNavigationStateChange} instead.
    * `target=_blank` / `window.open` surfaces via
    * {@linkcode NitroWebViewProps.onOpenWindow}.
@@ -443,12 +445,12 @@ export interface NitroWebViewProps extends HybridViewProps {
    * {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest} too, not just
    * main-frame navigations. Default `false`.
    *
-   * Android note: each intercepted sub-frame navigation blocks the WebView
-   * (UI) thread up to 250 ms awaiting the JS decision (see
-   * `onShouldStartLoadWithRequest`). On an iframe-heavy page these blocks
+   * Android note: each intercepted sub-frame navigation uses a nominal
+   * 250 ms wait budget (see `onShouldStartLoadWithRequest`). Callback execution
+   * and scheduling can exceed that budget. On an iframe-heavy page these waits
    * stack serially and risk jank / ANR — which is why sub-frame
    * interception is off by default on Android. Main-frame navigation is
-   * unaffected by this flag and is always intercepted.
+   * unaffected by this flag within the platform hook's coverage.
    *
    * iOS has no such cost: `decidePolicyFor` parks its decision handler
    * asynchronously per navigation action, so sub-frame navigations already
@@ -640,7 +642,7 @@ export interface NitroWebViewMethods extends HybridViewMethods {
   goForward(): void
   /** Reload the current page. */
   reload(): void
-  /** Stop loading the current page. */
+  /** Stop the current load. On iOS, also cancel current pending navigation decisions. */
   stopLoading(): void
   /**
    * Evaluate arbitrary JavaScript inside the WebView and resolve with the
