@@ -20,7 +20,7 @@ const result = (platform = 'ios') => ({
 
 test('accepts completed production result schema', () => {
   assert.equal(validateRegressionResults(result(), 'ios'), 21);
-  assert.equal(validateRegressionResults(result('android'), 'android'), 17);
+  assert.equal(validateRegressionResults(result('android'), 'android'), 18);
 });
 
 test('incomplete, missing, empty and cross-platform results never pass', () => {
@@ -36,6 +36,20 @@ test('incomplete, missing, empty and cross-platform results never pass', () => {
 });
 
 test('partial coverage and fixture-connection placeholder never pass', () => {
+  const android = result('android');
+  assert.throws(
+    () =>
+      validateRegressionResults(
+        {
+          ...android,
+          cases: android.cases.filter(
+            item => item.name !== 'android-renderer-recovery',
+          ),
+        },
+        'android',
+      ),
+    /missing: android-renderer-recovery/,
+  );
   assert.throws(
     () =>
       validateRegressionResults(

@@ -12,6 +12,7 @@ import type {
   NitroWebViewErrorEvent,
   NitroWebViewMethods,
   NitroWebViewProps,
+  NitroWebViewRenderProcessGoneEvent,
   ShouldStartLoadRequest,
   WebViewLoadEvent,
   WebViewMessageEvent,
@@ -63,6 +64,7 @@ type Observation = {
   httpStatuses: number[];
   states: WebViewNavigationState[];
   decisions: string[];
+  rendererEvents: NitroWebViewRenderProcessGoneEvent['nativeEvent'][];
 };
 
 function check(value: unknown, detail: string): asserts value {
@@ -192,6 +194,7 @@ export function RegressionVerificationScreen() {
         httpStatuses: [],
         states: [],
         decisions: [],
+        rendererEvents: [],
       };
     }
 
@@ -749,6 +752,91 @@ export function RegressionVerificationScreen() {
           return 'one config error, no rejected-source request; the preexisting cookie survived';
         },
       ]);
+      tests.push([
+        'android-renderer-recovery',
+        async () => {
+          const crashed = await mount('/renderer-before');
+          await ready(crashed);
+          const oldRef = ref(crashed);
+          const before = await records();
+          check(
+            before.length === 1 && before[0]?.method === 'GET',
+            'renderer fixture did not load exactly once with GET',
+          );
+          const pending = oldRef
+            .evaluateJavaScript(
+              '(()=>{const end=Date.now()+5000;while(Date.now()<end){};return "too late"})()',
+            )
+            .then(
+              () => false,
+              () => true,
+            );
+          await delay(50);
+          crashed.source = { uri: 'chrome://crash' };
+          await show([crashed]);
+          await until(
+            () => crashed.rendererEvents.length > 0,
+            'actual Android renderer crash',
+            15000,
+          );
+          check(
+            crashed.rendererEvents.length === 1 &&
+              crashed.rendererEvents[0]?.didCrash === true,
+            'renderer crash did not emit exactly one didCrash=true event',
+          );
+          // Remove the already destroyed native child through Fabric too.
+          await unmount();
+          check(
+            await bounded(pending, 'renderer evaluation cancellation'),
+            'pending evaluation fulfilled after renderer exit',
+          );
+          oldRef.reload();
+          oldRef.goBack();
+          oldRef.goForward();
+          oldRef.stopLoading();
+          oldRef.postMessage('stale renderer ref');
+          oldRef.injectJavaScript('document.title="stale renderer ref"');
+          await rejects(
+            oldRef.evaluateJavaScript('1 + 1'),
+            'stale renderer evaluation',
+          );
+          await delay(300);
+          check(
+            (await records()).length === before.length,
+            'renderer cleanup or stale methods automatically replayed a request',
+          );
+          const fresh = await mount('/renderer-retry');
+          check(
+            fresh.key !== crashed.key && ref(fresh) !== oldRef,
+            'explicit retry did not create a fresh key and native ref',
+          );
+          await ready(fresh);
+          const payload = `renderer-retry:${runID}`;
+          ref(fresh).postMessage(payload);
+          await until(
+            () => fresh.messages.includes(`echo:${payload}`),
+            'fresh renderer message roundtrip',
+          );
+          const after = await records();
+          check(
+            after.length === before.length + 1 &&
+              after.filter(request => request.path === '/renderer-before')
+                .length === 1 &&
+              after.filter(
+                request =>
+                  request.path === '/renderer-retry' &&
+                  request.method === 'GET',
+              ).length === 1,
+            'explicit renderer retry replayed the old source or loaded more than once',
+          );
+          check(
+            crashed.rendererEvents.length === 1 &&
+              fresh.rendererEvents.length === 0,
+            'renderer exit duplicated or the fresh renderer failed',
+          );
+          return 'actual renderer crash emitted once; pending/stale evaluation rejected, Fabric removal survived, and only explicit fresh GET retry loaded and echoed';
+        },
+      ]);
     }
 
     if (Platform.OS === 'ios') {
@@ -1014,7 +1102,7 @@ export function RegressionVerificationScreen() {
           const observations = liveViews.current
             .map(
               view =>
-                `events=${view.events.join(',')}; errors=${view.errors.map(item => `${item.domain}:${item.code}:${item.description.slice(0, 160)}`).join(',')}; http=${view.httpStatuses.join(',')}; messages=${view.messages.length}`,
+                `events=${view.events.join(',')}; errors=${view.errors.map(item => `${item.domain}:${item.code}:${item.description.slice(0, 160)}`).join(',')}; http=${view.httpStatuses.join(',')}; messages=${view.messages.length}; renderer=${view.rendererEvents.map(item => String(item.didCrash)).join(',')}`,
             )
             .join(' | ');
           result = {
@@ -1117,6 +1205,11 @@ export function RegressionVerificationScreen() {
               onMessage={callback((event: WebViewMessageEvent) => {
                 view.messages.push(event.nativeEvent.data);
               })}
+              onRenderProcessGone={callback(
+                (event: NitroWebViewRenderProcessGoneEvent) => {
+                  view.rendererEvents.push(event.nativeEvent);
+                },
+              )}
               onNavigationStateChange={callback(
                 (state: WebViewNavigationState) => {
                   view.states.push(state);

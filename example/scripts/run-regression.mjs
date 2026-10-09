@@ -28,7 +28,11 @@ const commonCases = [
   'history-back-forward',
 ];
 export const expectedRegressionCases = {
-  android: [...commonCases, 'android-incognito-rejection'],
+  android: [
+    ...commonCases,
+    'android-incognito-rejection',
+    'android-renderer-recovery',
+  ],
   ios: [
     ...commonCases,
     'ios-evaluation-error',
