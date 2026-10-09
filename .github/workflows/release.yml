@@ -48,8 +48,11 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: yarn typecheck
 
-      - name: Build library (yarn prepare)
-        run: yarn prepare
+      - name: Verify generated native bindings
+        run: yarn check:codegen
+
+      - name: Check tarball and isolated public types
+        run: yarn test:package
 
       - name: Verify build artifacts
         run: |
@@ -301,8 +304,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare)
-        run: yarn prepare
+      - name: Verify generated native bindings
+        run: yarn check:codegen
+
+      - name: Check tarball and isolated public types
+        run: yarn test:package
 
       - name: Verify build artifacts
         run: |

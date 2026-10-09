@@ -59,7 +59,7 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
@@ -78,7 +78,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: example/android
-        run: ./gradlew :app:assembleDebug --no-daemon --build-cache
+        run: ./gradlew :app:assembleDebug --no-daemon --build-cache --max-workers=2 -PreactNativeArchitectures=x86_64
 
       - name: Stop Gradle daemon
         working-directory: example/android
@@ -173,7 +173,7 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
@@ -224,6 +224,7 @@ jobs:
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,id=$SIM_UDID" \
             -derivedDataPath build \
+            -jobs 2 \
             CODE_SIGNING_ALLOWED=NO \
             build
 
