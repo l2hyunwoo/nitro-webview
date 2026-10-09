@@ -35,6 +35,8 @@ test('candidate bundle restores an unpushed version commit and verifies its exac
   try {
     mkdirSync(repository)
     git('init', '--quiet')
+    // Prevent background maintenance from racing temporary-directory cleanup.
+    git('config', 'maintenance.auto', 'false')
     git('config', 'user.name', 'Candidate test')
     git('config', 'user.email', 'candidate@example.invalid')
     writeFileSync(join(repository, 'package.json'), manifest('0.1.0'))
@@ -45,6 +47,8 @@ test('candidate bundle restores an unpushed version commit and verifies its exac
       'clone',
       '--quiet',
       '--no-local',
+      '--config',
+      'maintenance.auto=false',
       repository,
       checkout,
     ])
