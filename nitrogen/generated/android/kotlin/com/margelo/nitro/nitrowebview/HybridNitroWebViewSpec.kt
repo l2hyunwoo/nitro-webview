@@ -239,13 +239,13 @@ abstract class HybridNitroWebViewSpec: HybridView() {
       onError = value?.let { it }
     }
   
-  abstract var onShouldStartLoadWithRequest: ((event: ShouldStartLoadRequest) -> Promise<Boolean>)?
+  abstract var onShouldStartLoadWithRequest: ((event: ShouldStartLoadRequest, decide: ((allow: Boolean?) -> Unit)?) -> Unit)?
   
-  private var onShouldStartLoadWithRequest_cxx: Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest?
+  private var onShouldStartLoadWithRequest_cxx: Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______?
     @Keep
     @DoNotStrip
     get() {
-      return onShouldStartLoadWithRequest?.let { Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_java(it) }
+      return onShouldStartLoadWithRequest?.let { Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow_______java(it) }
     }
     @Keep
     @DoNotStrip

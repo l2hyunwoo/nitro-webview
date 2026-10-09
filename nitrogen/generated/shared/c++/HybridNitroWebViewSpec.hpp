@@ -55,13 +55,13 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
-#include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
 #include "OpenWindowEvent.hpp"
 #include "FileDownloadEvent.hpp"
 #include "NitroWebViewHttpErrorEvent.hpp"
 #include "NitroWebViewRenderProcessGoneEvent.hpp"
 #include "NitroWebViewScrollEvent.hpp"
+#include <NitroModules/Promise.hpp>
 #include "Cookie.hpp"
 
 namespace margelo::nitro::nitrowebview {
@@ -143,8 +143,8 @@ namespace margelo::nitro::nitrowebview {
       virtual void setOnMessage(const std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>& onMessage) = 0;
       virtual std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>> getOnError() = 0;
       virtual void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) = 0;
-      virtual std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> getOnShouldStartLoadWithRequest() = 0;
-      virtual void setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) = 0;
+      virtual std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>> getOnShouldStartLoadWithRequest() = 0;
+      virtual void setOnShouldStartLoadWithRequest(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>& onShouldStartLoadWithRequest) = 0;
       virtual std::optional<bool> getInterceptSubframeNavigation() = 0;
       virtual void setInterceptSubframeNavigation(std::optional<bool> interceptSubframeNavigation) = 0;
       virtual std::optional<std::function<void(const OpenWindowEvent& /* event */)>> getOnOpenWindow() = 0;

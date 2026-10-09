@@ -29,7 +29,6 @@
 #include "WebViewNavigationState.hpp"
 #include "WebViewMessageEvent.hpp"
 #include "NitroWebViewErrorEvent.hpp"
-#include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
 #include "OpenWindowEvent.hpp"
 #include "FileDownloadEvent.hpp"
@@ -85,7 +84,7 @@ namespace margelo::nitro::nitrowebview::views {
     CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;
     CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
     CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
-    CachedProp<std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>> onShouldStartLoadWithRequest;
+    CachedProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>> onShouldStartLoadWithRequest;
     CachedProp<std::optional<bool>> interceptSubframeNavigation;
     CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>> onOpenWindow;
     CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;

@@ -48,12 +48,12 @@ final class HybridNitroWebView:
   var onScroll: ((NitroWebViewScrollEvent) -> Void)?
   /// JS-side navigation-interception hook. When non-nil, every main-frame
   /// navigation surfaces a `ShouldStartLoadRequest` payload to JS via
-  /// `dispatchShouldStart`; the Promise's boolean result decides whether
+  /// `dispatchShouldStart`; the resolver's boolean result decides whether
   /// the platform commits to the navigation (`true` → `.allow`, `false` →
   /// `.cancel`). No timeout is applied — the stashed `decisionHandler`
-  /// stays parked until the Promise settles, loading stops, the view is
+  /// stays parked until the resolver runs, loading stops, the view is
   /// dropped or its content process terminates.
-  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest) -> Promise<Bool>)?
+  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest, ((Bool?) -> Void)?) -> Void)?
 
   /// Opt-in flag for sub-frame navigation interception. On iOS this has no
   /// effect: `decidePolicyFor` already parks its decision handler
@@ -766,7 +766,7 @@ final class HybridNitroWebView:
     ///   2. Build the cross-platform `ShouldStartLoadRequest` payload
     ///      (URL, navigation-type mapping, iOS-only fields).
     ///   3. Hand the payload to the host's `dispatchShouldStart` helper
-    ///      which resolves the Promise and dequeues the handler.
+    ///      which passes a resolver that dequeues the handler.
     func webView(
       _ webView: WKWebView,
       decidePolicyFor navigationAction: WKNavigationAction,
@@ -1072,10 +1072,7 @@ final class HybridNitroWebView:
       complete(true)
       return
     }
-    let promise = hook(payload)
-    promise
-      .then { allow in complete(allow) }
-      .catch { _ in complete(true) }
+    hook(payload) { allow in complete(allow ?? false) }
   }
 
   /// Build the cross-platform navigation payload from a WKNavigationAction.

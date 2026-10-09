@@ -381,9 +381,12 @@ export interface NitroWebViewProps extends HybridViewProps {
   onError?: (event: NitroWebViewErrorEvent) => void
 
   /**
-   * Decide requests delivered by the platform navigation hook. Return `true`
-   * to allow or `false` to cancel silently. The native bridge accepts Promise
-   * decisions. Promise rejection allows the request on both platforms.
+   * Internal resolver bridge for requests delivered by the platform navigation
+   * hook. The public component accepts boolean or Promise<boolean> and calls
+   * `decide` after settlement. Undefined indicates a thrown/rejected callback
+   * or an invalid result: Android allows the request; iOS cancels it.
+   * Native always supplies `decide`; its optional type lets Nitrogen 0.35.9
+   * generate an escaping Swift closure without a generator patch.
    *
    *   - iOS (WKWebView): wired through
    *     `webView(_:decidePolicyFor:decisionHandler:)`. The native
@@ -420,7 +423,10 @@ export interface NitroWebViewProps extends HybridViewProps {
    *
    * Out of scope for the MVP: per-request `originWhitelist` override.
    */
-  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean
+  onShouldStartLoadWithRequest?: (
+    event: ShouldStartLoadRequest,
+    decide: ((allow: boolean | undefined) => void) | undefined
+  ) => void
 
   /**
    * Opt-in: intercept sub-frame (iframe) navigations through

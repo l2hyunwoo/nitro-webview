@@ -403,7 +403,7 @@ class HybridNitroWebView(
    * `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
    */
   override var onShouldStartLoadWithRequest: (
-    (event: ShouldStartLoadRequest) -> Promise<Boolean>
+    (event: ShouldStartLoadRequest, decide: ((allow: Boolean?) -> Unit)?) -> Unit
   )? = null
 
   /**
@@ -1005,7 +1005,7 @@ class HybridNitroWebView(
    * Bridge between [ClientImpl.shouldOverrideUrlLoading] and the JS hook.
    *
    * Implementation contract:
-   *   1. Start the monotonic budget before invoking `hook(payload)`.
+   *   1. Start the monotonic budget before invoking `hook(payload, decide)`.
    *   2. Wait only for the remaining budget while the Promise's
    *      `then`/`catch` callbacks notify the lock. Callback execution and
    *      OS scheduling can exceed the nominal budget.
@@ -1020,10 +1020,16 @@ class HybridNitroWebView(
    * Boolean before the WebView can decide whether to commit.
    */
   internal fun dispatchShouldStart(
-    hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
+    hook: (event: ShouldStartLoadRequest, decide: ((allow: Boolean?) -> Unit)?) -> Unit,
     payload: ShouldStartLoadRequest,
     timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
-  ): Boolean = Companion.awaitShouldStart(hook, payload, timeoutMs)
+  ): Boolean {
+    return Companion.awaitShouldStart({ request ->
+      val promise = Promise<Boolean>()
+      hook(request) { allow -> promise.resolve(allow ?: true) }
+      promise
+    }, payload, timeoutMs)
+  }
 
   private inner class BridgeInterface {
     @JavascriptInterface

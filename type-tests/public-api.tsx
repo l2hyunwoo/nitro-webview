@@ -38,6 +38,7 @@ const sync: OnShouldStartLoadWithRequest = (event) => event.isTopFrame !== false
 const asyncDecision: OnShouldStartLoadWithRequest = async (event) =>
   event.url.startsWith('https:')
 const guard: OriginWhitelistGuard = wrapWithOriginWhitelist(sync)
+const nativeRef = React.createRef<React.ComponentRef<typeof NitroWebView>>()
 
 export const publicProps: NitroWebViewProps[] = [
   {
@@ -57,9 +58,15 @@ export const publicProps: NitroWebViewProps[] = [
 export const publicJSX = [
   <NitroWebView
     key="sync"
+    ref={nativeRef}
     hybridRef={callback((ref: NitroWebViewType) => ref.reload())}
     source={publicProps[0]!.source}
     onShouldStartLoadWithRequest={callback(sync)}
+  />,
+  <NitroWebView
+    key="unset"
+    source={publicProps[0]!.source}
+    onShouldStartLoadWithRequest={callback(undefined)}
   />,
   <NitroWebView
     key="async"

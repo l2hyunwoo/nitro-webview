@@ -1,29 +1,5 @@
-import { getHostComponent, type HybridView } from 'react-native-nitro-modules'
-import type {
-  NitroWebViewMethods,
-  NitroWebViewProps as NativeNitroWebViewProps,
-} from './specs/NitroWebView.nitro'
-import NitroWebViewConfig from '../nitrogen/generated/shared/json/NitroWebViewConfig.json'
-import type { OnShouldStartLoadWithRequest } from './originWhitelist'
-
-/** Public callback type; the codegen declaration retains its native ABI. */
-export interface NitroWebViewProps extends Omit<
-  NativeNitroWebViewProps,
-  'onShouldStartLoadWithRequest'
-> {
-  onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest
-}
-
-export type NitroWebViewType = HybridView<
-  NitroWebViewProps,
-  NitroWebViewMethods
->
-
-/** React component for the Nitro-backed WebView. */
-export const NitroWebView = getHostComponent<
-  NitroWebViewProps,
-  NitroWebViewMethods
->('NitroWebView', () => NitroWebViewConfig)
+export { NitroWebView } from './NitroWebView'
+export type { NitroWebViewProps, NitroWebViewType } from './NitroWebView'
 
 export { callback } from 'react-native-nitro-modules'
 

@@ -833,14 +833,14 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
-  public final var onShouldStartLoadWithRequest: bridge.std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______ {
+  public final var onShouldStartLoadWithRequest: bridge.std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______ {
     @inline(__always)
     get {
-      return { () -> bridge.std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______ in
+      return { () -> bridge.std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______ in
         if let __unwrappedValue = self.__implementation.onShouldStartLoadWithRequest {
-          return bridge.create_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______({ () -> bridge.Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest in
-            let __closureWrapper = Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(__unwrappedValue)
-            return bridge.create_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(__closureWrapper.toUnsafe())
+          return bridge.create_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______({ () -> bridge.Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______ in
+            let __closureWrapper = Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(__unwrappedValue)
+            return bridge.create_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(__closureWrapper.toUnsafe())
           }())
         } else {
           return .init()
@@ -849,34 +849,22 @@ open class HybridNitroWebViewSpec_cxx {
     }
     @inline(__always)
     set {
-      self.__implementation.onShouldStartLoadWithRequest = { () -> ((_ event: ShouldStartLoadRequest) -> Promise<Bool>)? in
-        if bridge.has_value_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_std__shared_ptr_Promise_bool___const_ShouldStartLoadRequest_____event______(newValue)
-          return { () -> (ShouldStartLoadRequest) -> Promise<Bool> in
-            let __wrappedFunction = bridge.wrap_Func_std__shared_ptr_Promise_bool___ShouldStartLoadRequest(__unwrapped)
-            return { (__event: ShouldStartLoadRequest) -> Promise<Bool> in
-              let __result = __wrappedFunction.call(__event)
-              return { () -> Promise<Bool> in
-                let __promise = Promise<Bool>()
-                let __resolver = { (__result: Bool) in
-                  __promise.resolve(withResult: __result)
+      self.__implementation.onShouldStartLoadWithRequest = { () -> ((_ event: ShouldStartLoadRequest, _ decide: ((_ allow: Bool?) -> Void)?) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(newValue)
+          return { () -> (ShouldStartLoadRequest, ((Bool?) -> Void)?) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(__unwrapped)
+            return { (__event: ShouldStartLoadRequest, __decide: ((_ allow: Bool?) -> Void)?) -> Void in
+              __wrappedFunction.call(__event, { () -> bridge.std__optional_std__function_void_std__optional_bool_____allow______ in
+                if let __unwrappedValue = __decide {
+                  return bridge.create_std__optional_std__function_void_std__optional_bool_____allow______({ () -> bridge.Func_void_std__optional_bool_ in
+                    let __closureWrapper = Func_void_std__optional_bool_(__unwrappedValue)
+                    return bridge.create_Func_void_std__optional_bool_(__closureWrapper.toUnsafe())
+                  }())
+                } else {
+                  return .init()
                 }
-                let __rejecter = { (__error: Error) in
-                  __promise.reject(withError: __error)
-                }
-                let __resolverCpp = { () -> bridge.Func_void_bool in
-                  let __closureWrapper = Func_void_bool(__resolver)
-                  return bridge.create_Func_void_bool(__closureWrapper.toUnsafe())
-                }()
-                let __rejecterCpp = { () -> bridge.Func_void_std__exception_ptr in
-                  let __closureWrapper = Func_void_std__exception_ptr(__rejecter)
-                  return bridge.create_Func_void_std__exception_ptr(__closureWrapper.toUnsafe())
-                }()
-                let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_bool__(__result)
-                __promiseHolder.addOnResolvedListenerCopy(__resolverCpp)
-                __promiseHolder.addOnRejectedListener(__rejecterCpp)
-                return __promise
-              }()
+              }())
             }
           }()
         } else {

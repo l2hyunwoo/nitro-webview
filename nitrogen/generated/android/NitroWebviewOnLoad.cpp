@@ -21,7 +21,8 @@
 #include "JFunc_void_WebViewNavigationState.hpp"
 #include "JFunc_void_WebViewMessageEvent.hpp"
 #include "JFunc_void_NitroWebViewErrorEvent.hpp"
-#include "JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest.hpp"
+#include "JFunc_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______.hpp"
+#include "JFunc_void_std__optional_bool_.hpp"
 #include "JFunc_void_OpenWindowEvent.hpp"
 #include "JFunc_void_FileDownloadEvent.hpp"
 #include "JFunc_void_NitroWebViewHttpErrorEvent.hpp"
@@ -58,7 +59,8 @@ void registerAllNatives() {
   margelo::nitro::nitrowebview::JFunc_void_WebViewNavigationState_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_WebViewMessageEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_NitroWebViewErrorEvent_cxx::registerNatives();
-  margelo::nitro::nitrowebview::JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::registerNatives();
+  margelo::nitro::nitrowebview::JFunc_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow_______cxx::registerNatives();
+  margelo::nitro::nitrowebview::JFunc_void_std__optional_bool__cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_OpenWindowEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_FileDownloadEvent_cxx::registerNatives();
   margelo::nitro::nitrowebview::JFunc_void_NitroWebViewHttpErrorEvent_cxx::registerNatives();
