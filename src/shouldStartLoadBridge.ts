@@ -1,5 +1,8 @@
 import type { OnShouldStartLoadWithRequest } from './originWhitelist'
-import type { ShouldStartLoadRequest } from './specs/NitroWebView.nitro'
+import type {
+  ShouldStartLoadDecision,
+  ShouldStartLoadRequest,
+} from './specs/NitroWebView.nitro'
 
 /** Send the settled JS result through a native resolver, never as a return value. */
 export function createShouldStartLoadBridge(
@@ -7,19 +10,19 @@ export function createShouldStartLoadBridge(
 ) {
   return (
     request: ShouldStartLoadRequest,
-    decide: ((allow: boolean | undefined) => void) | undefined
+    decision: ShouldStartLoadDecision
   ): void => {
-    if (decide === undefined) return
     let result: boolean | Promise<boolean>
     try {
       result = handler(request)
     } catch {
-      decide(undefined)
+      decision.resolve(undefined)
       return
     }
     Promise.resolve(result).then(
-      (allow) => decide(typeof allow === 'boolean' ? allow : undefined),
-      () => decide(undefined)
+      (allow) =>
+        decision.resolve(typeof allow === 'boolean' ? allow : undefined),
+      () => decision.resolve(undefined)
     )
   }
 }

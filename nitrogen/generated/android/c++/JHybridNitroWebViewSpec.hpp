@@ -102,8 +102,8 @@ namespace margelo::nitro::nitrowebview {
     void setOnMessage(const std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>& onMessage) override;
     std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>> getOnError() override;
     void setOnError(const std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>& onError) override;
-    std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>> getOnShouldStartLoadWithRequest() override;
-    void setOnShouldStartLoadWithRequest(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>& onShouldStartLoadWithRequest) override;
+    std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>> getOnShouldStartLoadWithRequest() override;
+    void setOnShouldStartLoadWithRequest(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>& onShouldStartLoadWithRequest) override;
     std::optional<bool> getInterceptSubframeNavigation() override;
     void setInterceptSubframeNavigation(std::optional<bool> interceptSubframeNavigation) override;
     std::optional<std::function<void(const OpenWindowEvent& /* event */)>> getOnOpenWindow() override;

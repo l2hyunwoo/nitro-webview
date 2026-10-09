@@ -41,6 +41,7 @@ import com.margelo.nitro.nitrowebview.NitroWebViewScrollEvent
 import com.margelo.nitro.nitrowebview.NitroWebViewScrollNativeEvent
 import com.margelo.nitro.nitrowebview.OpenWindowEvent
 import com.margelo.nitro.nitrowebview.OpenWindowNativeEvent
+import com.margelo.nitro.nitrowebview.ShouldStartLoadDecision
 import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
 import com.margelo.nitro.nitrowebview.UriSource
 import com.margelo.nitro.nitrowebview.WebViewLoadEvent
@@ -403,7 +404,7 @@ class HybridNitroWebView(
    * `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
    */
   override var onShouldStartLoadWithRequest: (
-    (event: ShouldStartLoadRequest, decide: ((allow: Boolean?) -> Unit)?) -> Unit
+    (event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision) -> Unit
   )? = null
 
   /**
@@ -1005,7 +1006,7 @@ class HybridNitroWebView(
    * Bridge between [ClientImpl.shouldOverrideUrlLoading] and the JS hook.
    *
    * Implementation contract:
-   *   1. Start the monotonic budget before invoking `hook(payload, decide)`.
+   *   1. Start the monotonic budget before invoking `hook(payload, decision)`.
    *   2. Wait only for the remaining budget while the Promise's
    *      `then`/`catch` callbacks notify the lock. Callback execution and
    *      OS scheduling can exceed the nominal budget.
@@ -1020,13 +1021,13 @@ class HybridNitroWebView(
    * Boolean before the WebView can decide whether to commit.
    */
   internal fun dispatchShouldStart(
-    hook: (event: ShouldStartLoadRequest, decide: ((allow: Boolean?) -> Unit)?) -> Unit,
+    hook: (event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision) -> Unit,
     payload: ShouldStartLoadRequest,
     timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
   ): Boolean {
     return Companion.awaitShouldStart({ request ->
       val promise = Promise<Boolean>()
-      hook(request) { allow -> promise.resolve(allow ?: true) }
+      hook(request, ShouldStartLoadDecision { allow -> promise.resolve(allow ?: true) })
       promise
     }, payload, timeoutMs)
   }

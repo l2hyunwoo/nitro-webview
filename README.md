@@ -189,7 +189,7 @@ Object key order and JSON whitespace are not part of the contract.
 The package root exports HTTP error, renderer exit, scroll, and open-window events, including their nested payload types and `WebViewPoint`.
 Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions. The React component forwards its standard `ref` and passes `hybridRef` through to the native view. Set `onShouldStartLoadWithRequest` through React props; assigning it directly through `hybridRef` bypasses the component's result bridge and is unsupported.
 
-The 0.2 candidate changes the internal native navigation callback ABI to a request plus a completion resolver. The React component settles the user's boolean or Promise before calling that resolver. Rebuild the native app when upgrading; mixing an older native binary with this JS component is unsupported. Public callback, event, and method signatures remain unchanged.
+The 0.2 candidate changes the internal native navigation callback ABI to a request plus a completion object. The React component settles the user's boolean or Promise before calling the object's resolver. Rebuild the native app when upgrading; mixing an older native binary with this JS component is unsupported. Public callback, event, and method signatures remain unchanged.
 
 #### `WebViewSource`
 
@@ -227,7 +227,7 @@ type WebViewNavigationType =
 
 `isTopFrame` is populated on both platforms (`targetFrame?.isMainFrame` on iOS, `WebResourceRequest.isForMainFrame` on Android). `mainDocumentURL` and `hasTargetFrame` remain iOS-only and are `undefined` on Android; Android always reports `navigationType: 'other'`.
 
-The callback can return a boolean or a `Promise<boolean>`. A thrown error, Promise rejection, or invalid runtime result uses the platform fallback: Android allows the request; iOS cancels it.
+The callback can return a boolean or a `Promise<boolean>`. A thrown error, Promise rejection, or invalid runtime result allows the request on both platforms.
 
 - **Android:** the native callback uses a nominal 250 ms wait budget, starting before callback invocation and Promise subscription. Timeout, interruption, and recoverable callback or subscription failures allow the request. Late results are ignored. Callback execution and OS scheduling can exceed this budget, so 250 ms is not a maximum UI delay.
 - **iOS:** there is no library timeout. An unresolved Promise can keep its navigation pending while the view remains active. `stopLoading()`, view removal, and content process termination cancel pending decisions. Each WebKit handler completes once, and late results are ignored. Starting another navigation does not cancel other pending iframe decisions.

@@ -38,6 +38,8 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct OpenWindowEvent; }
 // Forward declaration of `OpenWindowNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct OpenWindowNativeEvent; }
+// Forward declaration of `ShouldStartLoadDecision` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadDecision; }
 // Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `UriSource` to properly resolve imports.
@@ -81,6 +83,7 @@ namespace NitroWebview { class HybridNitroWebViewSpec_cxx; }
 #include "NitroWebViewScrollNativeEvent.hpp"
 #include "OpenWindowEvent.hpp"
 #include "OpenWindowNativeEvent.hpp"
+#include "ShouldStartLoadDecision.hpp"
 #include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"
@@ -457,55 +460,40 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     return Func_void_std__optional_bool__Wrapper(std::move(value));
   }
   
-  // pragma MARK: std::optional<std::function<void(std::optional<bool> /* allow */)>>
+  // pragma MARK: std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>
   /**
-   * Specialized version of `std::optional<std::function<void(std::optional<bool> / * allow * /)>>`.
+   * Specialized version of `std::function<void(const ShouldStartLoadRequest&, const ShouldStartLoadDecision&)>`.
    */
-  using std__optional_std__function_void_std__optional_bool_____allow______ = std::optional<std::function<void(std::optional<bool> /* allow */)>>;
-  inline std::optional<std::function<void(std::optional<bool> /* allow */)>> create_std__optional_std__function_void_std__optional_bool_____allow______(const std::function<void(std::optional<bool> /* allow */)>& value) noexcept {
-    return std::optional<std::function<void(std::optional<bool> /* allow */)>>(value);
-  }
-  inline bool has_value_std__optional_std__function_void_std__optional_bool_____allow______(const std::optional<std::function<void(std::optional<bool> /* allow */)>>& optional) noexcept {
-    return optional.has_value();
-  }
-  inline std::function<void(std::optional<bool> /* allow */)> get_std__optional_std__function_void_std__optional_bool_____allow______(const std::optional<std::function<void(std::optional<bool> /* allow */)>>& optional) noexcept {
-    return optional.value();
-  }
-  
-  // pragma MARK: std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>
+  using Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision = std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>;
   /**
-   * Specialized version of `std::function<void(const ShouldStartLoadRequest&, const std::optional<std::function<void(std::optional<bool>)>>&)>`.
+   * Wrapper class for a `std::function<void(const ShouldStartLoadRequest& / * event * /, const ShouldStartLoadDecision& / * decision * /)>`, this can be used from Swift.
    */
-  using Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______ = std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>;
-  /**
-   * Wrapper class for a `std::function<void(const ShouldStartLoadRequest& / * event * /, const std::optional<std::function<void(std::optional<bool> / * allow * /)>>& / * decide * /)>`, this can be used from Swift.
-   */
-  class Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow_______Wrapper final {
+  class Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision_Wrapper final {
   public:
-    explicit Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow_______Wrapper(std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>&& func): _function(std::make_unique<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>(std::move(func))) {}
-    inline void call(ShouldStartLoadRequest event, std::optional<std::function<void(std::optional<bool> /* allow */)>> decide) const noexcept {
-      _function->operator()(event, decide);
+    explicit Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision_Wrapper(std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>&& func): _function(std::make_unique<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>(std::move(func))) {}
+    inline void call(ShouldStartLoadRequest event, ShouldStartLoadDecision decision) const noexcept {
+      _function->operator()(event, decision);
     }
   private:
-    std::unique_ptr<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>> _function;
+    std::unique_ptr<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>> _function;
   } SWIFT_NONCOPYABLE;
-  Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______ create_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow_______Wrapper wrap_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______ value) noexcept {
-    return Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow_______Wrapper(std::move(value));
+  Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision create_Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision_Wrapper wrap_Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision(Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision value) noexcept {
+    return Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision_Wrapper(std::move(value));
   }
   
-  // pragma MARK: std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>
+  // pragma MARK: std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>
   /**
-   * Specialized version of `std::optional<std::function<void(const ShouldStartLoadRequest& / * event * /, const std::optional<std::function<void(std::optional<bool> / * allow * /)>>& / * decide * /)>>`.
+   * Specialized version of `std::optional<std::function<void(const ShouldStartLoadRequest& / * event * /, const ShouldStartLoadDecision& / * decision * /)>>`.
    */
-  using std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______ = std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>;
-  inline std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>> create_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(const std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>& value) noexcept {
-    return std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>(value);
+  using std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______ = std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>;
+  inline std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>> create_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______(const std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>& value) noexcept {
+    return std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>(value);
   }
-  inline bool has_value_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>& optional) noexcept {
+  inline bool has_value_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>& optional) noexcept {
     return optional.has_value();
   }
-  inline std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)> get_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>>& optional) noexcept {
+  inline std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)> get_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>& optional) noexcept {
     return optional.value();
   }
   

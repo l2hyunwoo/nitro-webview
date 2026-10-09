@@ -62,11 +62,11 @@ namespace margelo::nitro::nitrowebview::bridge::swift {
     };
   }
   
-  // pragma MARK: std::function<void(const ShouldStartLoadRequest& /* event */, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& /* decide */)>
-  Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______ create_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = NitroWebview::Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const ShouldStartLoadRequest& event, const std::optional<std::function<void(std::optional<bool> /* allow */)>>& decide) mutable -> void {
-      swiftClosure.call(event, decide);
+  // pragma MARK: std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>
+  Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision create_Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = NitroWebview::Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const ShouldStartLoadRequest& event, const ShouldStartLoadDecision& decision) mutable -> void {
+      swiftClosure.call(event, decision);
     };
   }
   

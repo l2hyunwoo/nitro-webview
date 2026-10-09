@@ -53,7 +53,7 @@ final class HybridNitroWebView:
   /// `.cancel`). No timeout is applied — the stashed `decisionHandler`
   /// stays parked until the resolver runs, loading stops, the view is
   /// dropped or its content process terminates.
-  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest, ((Bool?) -> Void)?) -> Void)?
+  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest, ShouldStartLoadDecision) -> Void)?
 
   /// Opt-in flag for sub-frame navigation interception. On iOS this has no
   /// effect: `decidePolicyFor` already parks its decision handler
@@ -1072,7 +1072,7 @@ final class HybridNitroWebView:
       complete(true)
       return
     }
-    hook(payload) { allow in complete(allow ?? false) }
+    hook(payload, ShouldStartLoadDecision(resolve: { allow in complete(allow ?? true) }))
   }
 
   /// Build the cross-platform navigation payload from a WKNavigationAction.

@@ -833,14 +833,14 @@ open class HybridNitroWebViewSpec_cxx {
     }
   }
   
-  public final var onShouldStartLoadWithRequest: bridge.std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______ {
+  public final var onShouldStartLoadWithRequest: bridge.std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______ {
     @inline(__always)
     get {
-      return { () -> bridge.std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______ in
+      return { () -> bridge.std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______ in
         if let __unwrappedValue = self.__implementation.onShouldStartLoadWithRequest {
-          return bridge.create_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______({ () -> bridge.Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______ in
-            let __closureWrapper = Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(__unwrappedValue)
-            return bridge.create_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(__closureWrapper.toUnsafe())
+          return bridge.create_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______({ () -> bridge.Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision in
+            let __closureWrapper = Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision(__unwrappedValue)
+            return bridge.create_Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision(__closureWrapper.toUnsafe())
           }())
         } else {
           return .init()
@@ -849,22 +849,13 @@ open class HybridNitroWebViewSpec_cxx {
     }
     @inline(__always)
     set {
-      self.__implementation.onShouldStartLoadWithRequest = { () -> ((_ event: ShouldStartLoadRequest, _ decide: ((_ allow: Bool?) -> Void)?) -> Void)? in
-        if bridge.has_value_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(newValue) {
-          let __unwrapped = bridge.get_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_std__optional_std__function_void_std__optional_bool_____allow___________decide______(newValue)
-          return { () -> (ShouldStartLoadRequest, ((Bool?) -> Void)?) -> Void in
-            let __wrappedFunction = bridge.wrap_Func_void_ShouldStartLoadRequest_std__optional_std__function_void_std__optional_bool_____allow______(__unwrapped)
-            return { (__event: ShouldStartLoadRequest, __decide: ((_ allow: Bool?) -> Void)?) -> Void in
-              __wrappedFunction.call(__event, { () -> bridge.std__optional_std__function_void_std__optional_bool_____allow______ in
-                if let __unwrappedValue = __decide {
-                  return bridge.create_std__optional_std__function_void_std__optional_bool_____allow______({ () -> bridge.Func_void_std__optional_bool_ in
-                    let __closureWrapper = Func_void_std__optional_bool_(__unwrappedValue)
-                    return bridge.create_Func_void_std__optional_bool_(__closureWrapper.toUnsafe())
-                  }())
-                } else {
-                  return .init()
-                }
-              }())
+      self.__implementation.onShouldStartLoadWithRequest = { () -> ((_ event: ShouldStartLoadRequest, _ decision: ShouldStartLoadDecision) -> Void)? in
+        if bridge.has_value_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______(newValue) {
+          let __unwrapped = bridge.get_std__optional_std__function_void_const_ShouldStartLoadRequest_____event_____const_ShouldStartLoadDecision_____decision______(newValue)
+          return { () -> (ShouldStartLoadRequest, ShouldStartLoadDecision) -> Void in
+            let __wrappedFunction = bridge.wrap_Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision(__unwrapped)
+            return { (__event: ShouldStartLoadRequest, __decision: ShouldStartLoadDecision) -> Void in
+              __wrappedFunction.call(__event, __decision)
             }
           }()
         } else {

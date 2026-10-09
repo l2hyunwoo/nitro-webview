@@ -26,9 +26,11 @@ describe('createShouldStartLoadBridge', () => {
           return async ? Promise.resolve(value) : value
         })
         await new Promise<void>((resolve) => {
-          const result = bridge(request, (allow) => {
-            decisions.push(allow)
-            resolve()
+          const result = bridge(request, {
+            resolve(allow) {
+              decisions.push(allow)
+              resolve()
+            },
           })
           assert.equal(result, undefined)
         })
@@ -48,9 +50,11 @@ describe('createShouldStartLoadBridge', () => {
         return Promise.reject(error)
       })
       await new Promise<void>((resolve) => {
-        bridge(request, (allow) => {
-          decisions.push(allow)
-          resolve()
+        bridge(request, {
+          resolve(allow) {
+            decisions.push(allow)
+            resolve()
+          },
         })
       })
       await setImmediate()
@@ -64,8 +68,10 @@ describe('createShouldStartLoadBridge', () => {
       settle = resolve
     })
     const decisions: (boolean | undefined)[] = []
-    createShouldStartLoadBridge(() => pending)(request, (allow) => {
-      decisions.push(allow)
+    createShouldStartLoadBridge(() => pending)(request, {
+      resolve(allow) {
+        decisions.push(allow)
+      },
     })
     await setImmediate()
     assert.deepEqual(decisions, [])
@@ -77,7 +83,7 @@ describe('createShouldStartLoadBridge', () => {
   it('forwards an origin guard denial through the native resolver', async () => {
     const guard = createOriginWhitelistGuard(['https://allowed.example'])
     const allow = await new Promise<boolean | undefined>((resolve) => {
-      createShouldStartLoadBridge(guard)(request, resolve)
+      createShouldStartLoadBridge(guard)(request, { resolve })
     })
     assert.equal(allow, false)
   })
@@ -86,7 +92,7 @@ describe('createShouldStartLoadBridge', () => {
     it(`normalizes a runtime ${JSON.stringify(value)} result to undefined`, async () => {
       const handler = (() => value) as unknown as OnShouldStartLoadWithRequest
       const allow = await new Promise<boolean | undefined>((resolve) => {
-        createShouldStartLoadBridge(handler)(request, resolve)
+        createShouldStartLoadBridge(handler)(request, { resolve })
       })
       assert.equal(allow, undefined)
     })
@@ -96,7 +102,7 @@ describe('createShouldStartLoadBridge', () => {
     const handler = (() =>
       Promise.resolve('false')) as unknown as OnShouldStartLoadWithRequest
     const allow = await new Promise<boolean | undefined>((resolve) => {
-      createShouldStartLoadBridge(handler)(request, resolve)
+      createShouldStartLoadBridge(handler)(request, { resolve })
     })
     assert.equal(allow, undefined)
   })
@@ -110,19 +116,12 @@ describe('createShouldStartLoadBridge', () => {
       },
     })) as unknown as OnShouldStartLoadWithRequest
     const decisions: (boolean | undefined)[] = []
-    createShouldStartLoadBridge(handler)(request, (allow) => {
-      decisions.push(allow)
+    createShouldStartLoadBridge(handler)(request, {
+      resolve(allow) {
+        decisions.push(allow)
+      },
     })
     await setImmediate()
     assert.deepEqual(decisions, [false])
-  })
-
-  it('ignores a missing internal resolver without invoking the user callback', () => {
-    let calls = 0
-    createShouldStartLoadBridge(() => {
-      calls += 1
-      return true
-    })(request, undefined)
-    assert.equal(calls, 0)
   })
 })

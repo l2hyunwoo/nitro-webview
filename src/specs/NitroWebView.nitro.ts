@@ -35,10 +35,10 @@ export type WebViewNavigationType =
  * Payload delivered to {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest}
  * before the platform commits to a navigation.
  *
- * The handler returns `Promise<boolean>` — resolve with `true` to allow the
- * navigation, `false` to silently cancel it. Unlike react-native-webview the
- * payload does NOT include a `lockIdentifier`: Nitro's Promise return value
- * replaces RNW's round-trip through `shouldStartLoadWithLockIdentifier`.
+ * The public handler returns `boolean | Promise<boolean>`: `true` allows the
+ * navigation and `false` silently cancels it. The React component settles the
+ * result through an internal decision bridge. The payload has no public
+ * `lockIdentifier` or decision command.
  *
  * Optional iOS-only fields:
  *   - `mainDocumentURL` — `WKNavigationAction.request.mainDocumentURL`.
@@ -78,6 +78,11 @@ export interface ShouldStartLoadRequest {
    * `target=_blank` / new-window navigations).
    */
   hasTargetFrame?: boolean
+}
+
+/** Internal completion object; native owns the pending navigation decision. */
+export interface ShouldStartLoadDecision {
+  resolve: (allow: boolean | undefined) => void
 }
 
 /** Read-only navigation state surfaced to JS via callbacks. */
@@ -383,10 +388,9 @@ export interface NitroWebViewProps extends HybridViewProps {
   /**
    * Internal resolver bridge for requests delivered by the platform navigation
    * hook. The public component accepts boolean or Promise<boolean> and calls
-   * `decide` after settlement. Undefined indicates a thrown/rejected callback
-   * or an invalid result: Android allows the request; iOS cancels it.
-   * Native always supplies `decide`; its optional type lets Nitrogen 0.35.9
-   * generate an escaping Swift closure without a generator patch.
+   * `decision.resolve` after settlement. Undefined indicates a thrown/rejected
+   * callback or invalid result; both platforms allow the request. The completion
+   * object avoids nested function-parameter conversion in Nitrogen 0.35.9.
    *
    *   - iOS (WKWebView): wired through
    *     `webView(_:decidePolicyFor:decisionHandler:)`. The native
@@ -425,7 +429,7 @@ export interface NitroWebViewProps extends HybridViewProps {
    */
   onShouldStartLoadWithRequest?: (
     event: ShouldStartLoadRequest,
-    decide: ((allow: boolean | undefined) => void) | undefined
+    decision: ShouldStartLoadDecision
   ) => void
 
   /**
