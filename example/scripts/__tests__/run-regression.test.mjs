@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import {
   expectedRegressionCases,
   isPlatformRegressionArtifact,
+  stopOwnedChild,
   validateRegressionResults,
   validateRegressionInteraction,
 } from '../run-regression.mjs';
@@ -163,4 +165,53 @@ test('artifact cleanup matches only this platform regression evidence', () => {
     false,
   );
   assert.equal(isPlatformRegressionArtifact('unrelated.log', 'ios'), false);
+});
+
+test('cleanup never signals an already closed process group', async t => {
+  const kill = t.mock.method(process, 'kill', () => true);
+  await stopOwnedChild({ closed: true, child: { pid: 123 } });
+  assert.equal(kill.mock.callCount(), 0);
+});
+
+test('graceful close prevents a second signal to a reused process group', async t => {
+  const owned = { closed: false, child: new EventEmitter() };
+  owned.child.pid = 123;
+  const kill = t.mock.method(process, 'kill', () => {
+    setImmediate(() => {
+      owned.closed = true;
+      owned.child.emit('close');
+    });
+    return true;
+  });
+  await stopOwnedChild(owned);
+  assert.deepEqual(
+    kill.mock.calls.map(call => call.arguments),
+    [[-123, 'SIGTERM']],
+  );
+});
+
+test('cleanup escalates only while an owned process group remains open', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const kill = t.mock.method(process, 'kill', () => true);
+  const child = new EventEmitter();
+  child.pid = 123;
+  const stopping = stopOwnedChild({ closed: false, child });
+  t.mock.timers.tick(2000);
+  await stopping;
+  assert.deepEqual(
+    kill.mock.calls.map(call => call.arguments),
+    [
+      [-123, 'SIGTERM'],
+      [-123, 'SIGKILL'],
+    ],
+  );
+});
+
+test('cleanup reports permission errors instead of treating them as success', async t => {
+  t.mock.method(process, 'kill', () => {
+    throw Object.assign(new Error('permission denied'), { code: 'EPERM' });
+  });
+  await assert.rejects(stopOwnedChild({ closed: false, child: { pid: 123 } }), {
+    code: 'EPERM',
+  });
 });

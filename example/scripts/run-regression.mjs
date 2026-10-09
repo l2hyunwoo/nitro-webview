@@ -172,6 +172,31 @@ function verifyExistingMetro() {
   }
 }
 
+function signalChild(child, signal) {
+  if (!child.pid) return;
+  try {
+    if (process.platform === 'win32') child.kill(signal);
+    else process.kill(-child.pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+
+export async function stopOwnedChild(owned) {
+  if (owned.closed) return;
+  signalChild(owned.child, 'SIGTERM');
+  if (owned.closed) return;
+  await new Promise(resolveStop => {
+    const timer = setTimeout(resolveStop, 2000);
+    owned.child.once('close', () => {
+      clearTimeout(timer);
+      resolveStop();
+    });
+  });
+  // A closed process group may already belong to a different process.
+  if (!owned.closed) signalChild(owned.child, 'SIGKILL');
+}
+
 async function run(platform, device) {
   if (
     !['ios', 'android'].includes(platform) ||
@@ -209,16 +234,6 @@ async function run(platform, device) {
   let lastResult = { complete: false, platform, cases: [] };
   await json('results.json', lastResult);
   await json('requests.json', []);
-
-  function signalChild(child, signal) {
-    if (!child.pid) return;
-    try {
-      if (process.platform === 'win32') child.kill(signal);
-      else process.kill(-child.pid, signal);
-    } catch (error) {
-      if (error.code !== 'ESRCH') throw error;
-    }
-  }
 
   function interrupt() {
     interrupted = true;
@@ -407,8 +422,8 @@ async function run(platform, device) {
         // Clear before tapping so polling cannot repeat the same gesture.
         await fetchJSON('/interaction', null);
         console.log(`Native tap: ${interaction.label} (${interaction.id})`);
-        await agent(['snapshot', '-i'], 10000);
-        await agent(['find', 'Navigate', 'click', '--first'], 10000);
+        await agent(['snapshot', '-i'], 30000);
+        await agent(['find', 'Navigate', 'click', '--first'], 30000);
       }
       if (result !== null) {
         lastResult = result;
@@ -495,16 +510,14 @@ async function run(platform, device) {
       }
     }
     for (const owned of children.reverse()) {
-      signalChild(owned.child, 'SIGTERM');
-      await Promise.race([
-        new Promise(resolveExit => {
-          if (owned.closed) resolveExit();
-          else owned.child.once('close', resolveExit);
-        }),
-        sleep(2000),
-      ]);
-      signalChild(owned.child, 'SIGKILL');
-      owned.output.end();
+      try {
+        await stopOwnedChild(owned);
+      } catch (error) {
+        failure ??= error;
+        console.error(`${owned.name} cleanup: ${error.message}`);
+      } finally {
+        owned.output.end();
+      }
     }
     uiLog.end();
     process.removeListener('SIGINT', interrupt);

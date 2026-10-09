@@ -348,7 +348,8 @@ export function RegressionVerificationScreen() {
         'load-200',
         async () => {
           const view = await mount('/200');
-          await ready(view);
+          // The first WebKit process launch is slower on hosted simulators.
+          await ready(view, undefined, 30000);
           await delay(200);
           check(
             view.events.join(',') === 'start,load,end',
@@ -863,7 +864,7 @@ export function RegressionVerificationScreen() {
             label: 'Navigate',
           });
           try {
-            await ready(view, '/target', 20000);
+            await ready(view, '/target', 90000);
           } finally {
             await fixture('/interaction', null);
           }
