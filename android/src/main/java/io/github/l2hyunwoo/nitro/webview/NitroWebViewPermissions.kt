@@ -86,22 +86,28 @@ internal class NitroWebViewPermissions(
 
   private fun requestRuntime(permissions: List<String>, complete: () -> Unit) {
     val missing = permissions.filterNot(::granted)
-    if (missing.isEmpty()) { complete(); return }
+    if (missing.isEmpty()) {
+      complete()
+      return
+    }
     val host = activity()
-    if (host == null || busy.containsKey(host)) { complete(); return }
+    if (host == null || busy.containsKey(host)) {
+      complete()
+      return
+    }
     // ReactActivity owns one PermissionListener. Do not overwrite another WebView's request.
-    val token = Any()
-    busy[host] = token
+    val permissionRequestToken = Any()
+    busy[host] = permissionRequestToken
     try {
       host.requestPermissions(missing.toTypedArray(), REQUEST_CODE, PermissionListener { code, _, _ ->
         if (code != REQUEST_CODE) false else {
-          if (busy[host] === token) busy.remove(host)
+          if (busy[host] === permissionRequestToken) busy.remove(host)
           complete()
           true
         }
       })
     } catch (_: RuntimeException) {
-      if (busy[host] === token) busy.remove(host)
+      if (busy[host] === permissionRequestToken) busy.remove(host)
       complete()
     }
   }

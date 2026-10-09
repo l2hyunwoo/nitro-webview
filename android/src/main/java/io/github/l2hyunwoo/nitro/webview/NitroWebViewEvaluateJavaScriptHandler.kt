@@ -20,7 +20,12 @@ interface JavaScriptEvaluator {
  * (Android's `evaluateJavascript` already delivers a JSON-encoded string).
  */
 class NitroWebViewEvaluateJavaScriptHandler {
-  private val pending = mutableMapOf<Any, Pair<(String) -> Unit, (Throwable) -> Unit>>()
+  private class EvaluationCallbacks(
+    val resolve: (String) -> Unit,
+    val reject: (Throwable) -> Unit,
+  )
+
+  private val pending = mutableMapOf<Any, EvaluationCallbacks>()
   private var disposedError: Throwable? = null
 
   fun evaluate(
@@ -29,15 +34,19 @@ class NitroWebViewEvaluateJavaScriptHandler {
     resolve: (String) -> Unit,
     reject: (Throwable) -> Unit,
   ) {
-    disposedError?.let { reject(it); return }
-    val token = Any()
-    pending[token] = resolve to reject
+    disposedError?.let {
+      reject(it)
+      return
+    }
+    // Identical code can have multiple pending evaluations; each needs its own identity.
+    val evaluationToken = Any()
+    pending[evaluationToken] = EvaluationCallbacks(resolve, reject)
     try {
       evaluator.evaluateJavaScriptPayload(code) { rawResult ->
-        pending.remove(token)?.first?.invoke(normalize(rawResult))
+        pending.remove(evaluationToken)?.resolve?.invoke(normalize(rawResult))
       }
     } catch (t: Throwable) {
-      pending.remove(token)?.second?.invoke(t)
+      pending.remove(evaluationToken)?.reject?.invoke(t)
     }
   }
 
@@ -46,7 +55,7 @@ class NitroWebViewEvaluateJavaScriptHandler {
     disposedError = error
     val callbacks = pending.values.toList()
     pending.clear()
-    callbacks.forEach { it.second(error) }
+    callbacks.forEach { it.reject(error) }
   }
 
   companion object {

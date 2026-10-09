@@ -46,6 +46,35 @@ private class Outcome {
 class NitroWebViewEvaluateJavaScriptHandlerTest {
 
   @Test
+  fun `identical pending evaluations settle independently and only once`() {
+    val handler = NitroWebViewEvaluateJavaScriptHandler()
+    val callbacks = mutableListOf<(String?) -> Unit>()
+    val evaluator = object : JavaScriptEvaluator {
+      override fun evaluateJavaScriptPayload(code: String, resultCallback: (String?) -> Unit) {
+        assertEquals("same()", code)
+        callbacks.add(resultCallback)
+      }
+    }
+    val outcome = Outcome()
+    repeat(2) {
+      handler.evaluate("same()", evaluator, outcome.resolve, outcome.reject)
+    }
+
+    callbacks[1]("2")
+    callbacks[1]("duplicate")
+    assertEquals("2", outcome.resolved)
+    assertEquals(1, outcome.resolveCount)
+    assertEquals(0, outcome.rejectCount)
+
+    val error = IllegalStateException("destroyed")
+    handler.dispose(error)
+    callbacks[0]("late")
+    assertEquals(1, outcome.resolveCount)
+    assertEquals(1, outcome.rejectCount)
+    assertSame(error, outcome.rejected)
+  }
+
+  @Test
   fun `dispose rejects pending evaluations once and ignores late results`() {
     val handler = NitroWebViewEvaluateJavaScriptHandler()
     val callbacks = mutableListOf<(String?) -> Unit>()

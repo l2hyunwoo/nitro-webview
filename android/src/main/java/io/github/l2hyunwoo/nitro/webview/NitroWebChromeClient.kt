@@ -103,7 +103,10 @@ open class NitroWebChromeClient(
   private val fullscreenVideo = NitroFullscreenVideo()
 
   override fun onShowCustomView(view: View, callback: CustomViewCallback) {
-    if (disposed) { callback.onCustomViewHidden(); return }
+    if (disposed) {
+      callback.onCustomViewHidden()
+      return
+    }
     fullscreenVideo.show(hostActivity ?: activityResolver.resolveActivity(), webViewProvider(), view, callback)
   }
 
@@ -186,7 +189,10 @@ open class NitroWebChromeClient(
       ): Boolean {
         if (!childWindows.remove(subView)) return true
         // Finish after this callback unwinds, even when the child was never attached.
-        mainHandler.post { subView.webViewClient = WebViewClient(); subView.destroy() }
+        mainHandler.post {
+          subView.webViewClient = WebViewClient()
+          subView.destroy()
+        }
         if (disposed) return true
         val url = request.url?.toString()
         if (url != null) {
@@ -229,7 +235,10 @@ open class NitroWebChromeClient(
     fullscreenVideo.hide()
     val children = childWindows.toList()
     childWindows.clear()
-    children.forEach { it.webViewClient = WebViewClient(); it.destroy() }
+    children.forEach {
+      it.webViewClient = WebViewClient()
+      it.destroy()
+    }
   }
 
   override fun onShowFileChooser(

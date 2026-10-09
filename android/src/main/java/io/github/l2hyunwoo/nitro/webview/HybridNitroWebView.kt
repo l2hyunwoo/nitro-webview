@@ -77,28 +77,31 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   private val mainHandler = Handler(Looper.getMainLooper())
   @Volatile private var destroyed = false
 
-  private fun stateError() = IllegalStateException(
+  private fun destroyedViewException() = IllegalStateException(
     "NitroWebViewState: This WebView is destroyed. Remount it with a new React key.",
   )
 
   private fun warnDestroyed() {
-    if (BuildConfig.DEBUG) Log.w("NitroWebView", stateError().message!!)
+    if (BuildConfig.DEBUG) Log.w("NitroWebView", destroyedViewException().message!!)
   }
 
   private fun postIfAvailable(action: () -> Unit) {
-    if (destroyed) { warnDestroyed(); return }
+    if (destroyed) {
+      warnDestroyed()
+      return
+    }
     mainHandler.post { if (!destroyed) action() }
   }
 
-  private fun <T> withView(action: (Promise<T>) -> Unit): Promise<T> {
+  private inline fun <T> withView(crossinline action: (Promise<T>) -> Unit): Promise<T> {
     val promise = Promise<T>()
     if (destroyed) {
       warnDestroyed()
-      promise.reject(stateError())
+      promise.reject(destroyedViewException())
       return promise
     }
     mainHandler.post {
-      if (destroyed) promise.reject(stateError())
+      if (destroyed) promise.reject(destroyedViewException())
       else action(promise)
     }
     return promise
@@ -619,7 +622,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     onScroll = null
     onOpenWindow = null
     onShouldStartLoadWithRequest = null
-    evaluator.dispose(stateError())
+    evaluator.dispose(destroyedViewException())
     webChromeClient.dispose()
     documentStartScriptHandler?.remove()
     documentStartScriptHandler = null
