@@ -3402,7 +3402,7 @@ __metadata:
     react-native-nitro-modules: "npm:0.35.9"
     typescript: "npm:^6.0.3"
   peerDependencies:
-    react: ^19.2.3
+    react: 19.2.3
     react-native: ~0.85.3
     react-native-nitro-modules: ^0.35.9
   languageName: unknown

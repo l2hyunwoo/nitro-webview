@@ -5,7 +5,8 @@ Use the README from your installed package version when comparing published beha
 
 ## Dependencies and native architecture
 
-The candidate peer ranges are React Native `~0.85.3`, React `^19.2.3`, and Nitro Modules `^0.35.9`.
+The candidate peer ranges are React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`.
+RN 0.85.3 checks that React matches its embedded renderer version 19.2.3 exactly.
 Native views require the New Architecture. The development runtime and Nitrogen generator are both pinned to `0.35.9`.
 Both boundary combinations need native builds and device checks before these ranges are confirmed.
 See the [support matrix](README.md#support-candidate).
@@ -67,11 +68,14 @@ Cookie URL methods require valid HTTP(S) URLs.
 ## Navigation timing and public callbacks
 
 Public navigation callbacks accept `boolean | Promise<boolean>`. Continue to wrap component callbacks in `callback(...)`.
+Rebuild the native app: the component now forwards settled results through an internal decision resolver.
+Set navigation callbacks through React props; assigning them directly through the hybrid ref bypasses this bridge.
 Android waits against a nominal 250 ms budget. Timeout, rejection, and interruption retain the allow fallback.
 The budget does not preempt a slow callback or guarantee a strict maximum delay.
 Subframe interception remains opt-in and can add waiting time on iframe-heavy pages.
 
 iOS has no library timeout for a pending decision. It waits until the Promise settles while the view remains active.
+Thrown or rejected callbacks retain the allow fallback on both platforms.
 Unmount, content-process termination, and `stopLoading()` cancel pending decisions.
 Late results do not replay or cancel an already completed navigation.
 Android's platform hook does not cover app-initiated `loadUrl` calls or POST requests.

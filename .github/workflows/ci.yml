@@ -115,7 +115,7 @@ jobs:
             rn: 0.85.3
             nitro: 0.35.9
           - label: upper
-            react: 19.2.8
+            react: 19.2.3
             rn: 0.85.3
             nitro: 0.35.10
     env:

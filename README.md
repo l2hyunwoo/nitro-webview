@@ -51,7 +51,7 @@ Native views require React Native's New Architecture. The candidate dependency r
 | Dependency | Candidate peer range | Development pin |
 | --- | --- | --- |
 | React Native | `~0.85.3` | `0.85.3` |
-| React | `^19.2.3` | `19.2.3` |
+| React | `19.2.3` | `19.2.3` |
 | Nitro Modules | `^0.35.9` | `0.35.9` |
 | Nitrogen generator | Development only | `0.35.9` |
 
@@ -60,8 +60,9 @@ The initial boundary combinations are below. Native results are pending and do n
 | Boundary | React Native | React | Nitro Modules | Native builds and device smoke |
 | --- | --- | --- | --- | --- |
 | Lower | `0.85.3` | `19.2.3` | `0.35.9` | Pending |
-| Upper candidate selected 2026-10-10 | `0.85.3` | `19.2.8` | `0.35.10` | Pending |
+| Upper candidate selected 2026-10-10 | `0.85.3` | `19.2.3` | `0.35.10` | Pending |
 
+RN 0.85.3 embeds React renderer 19.2.3 and checks the exact React version at runtime, so this candidate pins React 19.2.3.
 RN 0.85.3 requires Android API 24 or later and iOS 15.1 or later.
 These requirements come from its `gradle/libs.versions.toml` and `scripts/cocoapods/helpers.rb` files.
 Use Node.js 22.13 or later in the Node 22 line for the development checks.
