@@ -117,14 +117,19 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           emulator-boot-timeout: 240
-          script: bash ./example/scripts/run-harness-android-ci.sh
+          script: |
+            set -euo pipefail
+            adb wait-for-device
+            SERIAL=$(adb get-serialno)
+            adb -s "$SERIAL" install -r example/android/app/build/outputs/apk/debug/app-debug.apk
+            node example/scripts/run-regression.mjs android "$SERIAL"
 
-      - name: Upload logcat on failure
-        if: failure()
+      - name: Upload Android regression evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-logcat
-          path: example/artifacts/logcat-crash.txt
+          name: android-regression
+          path: example/artifacts/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -232,39 +237,17 @@ jobs:
           echo "Installing $APP_PATH"
           xcrun simctl install "$SIM_UDID" "$APP_PATH"
 
-      - name: Install coreutils (gtimeout)
-        run: brew install coreutils
+      - name: Run AppRegistry regressions (iOS)
+        run: node example/scripts/run-regression.mjs ios "$SIM_UDID"
 
-      - name: Run E2E harness (iOS)
-        working-directory: example
-        env:
-          CI: 'true'
-        run: |
-          set -euo pipefail
-          # Point the harness at the built .app so it installs on whichever
-          # simulator UDID it resolves by name+OS (several may share the name).
-          HARNESS_APP_PATH=$(find ios/build/Build/Products -name 'example.app' -type d | head -1)
-          export HARNESS_APP_PATH
-          echo "HARNESS_APP_PATH=$HARNESS_APP_PATH"
-          node ./e2e-server.mjs & E2E_SRV=$!
-          HEALTHY=0
-          for _ in $(seq 1 30); do
-            if curl -sf "http://127.0.0.1:${E2E_PORT}/health" >/dev/null; then HEALTHY=1; break; fi
-            sleep 1
-          done
-          if [ "$HEALTHY" -ne 1 ]; then
-            echo "::error::e2e-server did not become healthy within 30s"
-            kill "$E2E_SRV" 2>/dev/null || true
-            exit 1
-          fi
-          set +e
-          # macOS has no GNU timeout by default (unlike the Android job's
-          # ubuntu runner) -- gtimeout from coreutils is the equivalent.
-          gtimeout --foreground --kill-after=30s 720s yarn test:e2e:ios
-          STATUS=$?
-          set -e
-          kill "$E2E_SRV" 2>/dev/null || true
-          exit "$STATUS"
+      - name: Upload iOS regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-regression
+          path: example/artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Capture simulator screenshot on failure
         if: failure()
