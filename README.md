@@ -325,16 +325,23 @@ import type {
 | `DEFAULT_ORIGIN_WHITELIST` | `readonly ['http://*', 'https://*']` | Frozen. Mirrors `react-native-webview`'s documented default. |
 | `originMatches(url, patterns)` | `(string, readonly string[]) => boolean` | Returns `true` iff the **origin** (`scheme://host[:port]`) of `url` matches one of the glob `patterns`. `*` is the only wildcard. Case-insensitive on scheme + host. Empty pattern list returns `false`. Unparseable URL returns `false`. |
 | `createOriginWhitelistGuard(patterns?, inner?)` | `(readonly string[], OnShouldStartLoadWithRequest?) => OriginWhitelistGuard` | Builds a guard that rejects non-matching origins immediately and delegates matching ones to `inner` (or allows them when `inner` is absent). |
-| `wrapWithOriginWhitelist(handler, patterns?)` | `(OnShouldStartLoadWithRequest, readonly string[]?) => OnShouldStartLoadWithRequest` | Fast-path wrapper: when `patterns === DEFAULT_ORIGIN_WHITELIST` (by reference), the returned guard short-circuits `true` and `handler` is never invoked. Otherwise delegates straight to `handler(event)`. |
+| `wrapWithOriginWhitelist(handler, patterns?)` | `(OnShouldStartLoadWithRequest, readonly string[]?) => OriginWhitelistGuard` | Uses the same policy as `createOriginWhitelistGuard(patterns, handler)`, including with the shared or copied default patterns. |
+
+`OnShouldStartLoadWithRequest` accepts `boolean | Promise<boolean>`. Both guards return `Promise<boolean>` and propagate handler throws or rejections.
+The URL parser removes default ports (`http:80`, `https:443`). Patterns remain literal apart from case and `*` matching.
+For example, `https://example.com:443/page` matches `https://example.com`, while the pattern `https://example.com:443` does not.
 
 ```ts
-import { wrapWithOriginWhitelist, DEFAULT_ORIGIN_WHITELIST } from 'nitro-webview'
+import { wrapWithOriginWhitelist } from 'nitro-webview'
 
 const handler = wrapWithOriginWhitelist(
-  (event) => !event.url.startsWith('https://example.org/'),
-  DEFAULT_ORIGIN_WHITELIST,
+  (event) => new URL(event.url).hostname !== 'example.org',
 )
 ```
+
+The helper checks only URLs delivered to the navigation callback. It does not validate initial `source`, Android POST requests, subresources, or message origins.
+This helper is not a network ACL. Android allows navigation if the native decision wait times out or the callback rejects.
+Default HTTP(S) patterns still consult the handler, so returning `false` blocks a matching event.
 
 ### Source helpers
 

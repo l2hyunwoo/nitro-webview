@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 
 import {
   DEFAULT_ORIGIN_WHITELIST,
+  createOriginWhitelistGuard,
   originMatches,
   wrapWithOriginWhitelist,
 } from '../originWhitelist.ts'
+import type { OnShouldStartLoadWithRequest } from '../originWhitelist.ts'
 import type { ShouldStartLoadRequest } from '../specs/NitroWebView.nitro.ts'
 
 /**
@@ -41,6 +43,23 @@ describe('originMatches — exact origin matches', () => {
         'https://third.com',
       ]),
       true
+    )
+  })
+
+  it('removes explicit default ports before matching', () => {
+    assert.equal(
+      originMatches('http://example.com:80/path', ['http://example.com']),
+      true
+    )
+    assert.equal(
+      originMatches('https://example.com:443/path', ['https://example.com']),
+      true
+    )
+    assert.equal(
+      originMatches('https://example.com:443/path', [
+        'https://example.com:443',
+      ]),
+      false
     )
   })
 
@@ -169,107 +188,6 @@ describe('DEFAULT_ORIGIN_WHITELIST — exact value and behaviour', () => {
       originMatches('ftp://example.com/file', DEFAULT_ORIGIN_WHITELIST),
       false
     )
-  })
-})
-
-/**
- * `wrapWithOriginWhitelist(handler, patterns)` returns a
- * Promise<boolean> guard that:
- *
- *   1. Resolves `true` (allow) WITHOUT invoking `handler` when `patterns`
- *      is the exported `DEFAULT_ORIGIN_WHITELIST` reference.
- *   2. Delegates to `handler(event)` and returns its result verbatim for
- *      any other `patterns` array.
- *
- * Both branches are exercised below with a spy `handler` so we can
- * directly assert call-count and return-value propagation.
- */
-describe('wrapWithOriginWhitelist — default allowlist short-circuit', () => {
-  it('resolves true without invoking handler when patterns === DEFAULT_ORIGIN_WHITELIST', async () => {
-    let invocationCount = 0
-    const handler = async (_event: ShouldStartLoadRequest) => {
-      invocationCount += 1
-      // If the fast-path branch fails to short-circuit, this `false`
-      // would propagate to the caller and the assertion below would
-      // observe it.
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler, DEFAULT_ORIGIN_WHITELIST)
-    const event: ShouldStartLoadRequest = {
-      url: 'https://example.com/path',
-      navigationType: 'click',
-    }
-    const result = await guard(event)
-    assert.equal(result, true)
-    assert.equal(invocationCount, 0)
-  })
-
-  it('defaults patterns to DEFAULT_ORIGIN_WHITELIST and short-circuits when omitted', async () => {
-    let invocationCount = 0
-    const handler = async (_event: ShouldStartLoadRequest) => {
-      invocationCount += 1
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler)
-    const result = await guard({
-      url: 'https://anywhere.test',
-      navigationType: 'other',
-    })
-    assert.equal(result, true)
-    assert.equal(invocationCount, 0)
-  })
-})
-
-describe('wrapWithOriginWhitelist — non-default patterns delegate to handler', () => {
-  it('invokes handler exactly once and returns its boolean verbatim (true branch)', async () => {
-    const seenEvents: ShouldStartLoadRequest[] = []
-    const handler = async (event: ShouldStartLoadRequest) => {
-      seenEvents.push(event)
-      return true
-    }
-    const guard = wrapWithOriginWhitelist(handler, ['https://example.com'])
-    const event: ShouldStartLoadRequest = {
-      url: 'https://example.com/page',
-      navigationType: 'click',
-    }
-    const result = await guard(event)
-    assert.equal(result, true)
-    assert.equal(seenEvents.length, 1)
-    assert.deepEqual(seenEvents[0], event)
-  })
-
-  it('invokes handler and returns its boolean verbatim (false branch)', async () => {
-    let invocationCount = 0
-    const handler = async (_event: ShouldStartLoadRequest) => {
-      invocationCount += 1
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler, ['https://only-this.test'])
-    const result = await guard({
-      url: 'https://evil.test/bad',
-      navigationType: 'click',
-    })
-    assert.equal(result, false)
-    assert.equal(invocationCount, 1)
-  })
-
-  it('treats a structurally equal but non-identical array as the non-default branch', async () => {
-    // The contract is reference equality against the exported constant,
-    // not deep equality. An equivalent literal must fall through to the
-    // handler.
-    let invocationCount = 0
-    const handler = async (_event: ShouldStartLoadRequest) => {
-      invocationCount += 1
-      return false
-    }
-    const equivalentLiteral: readonly string[] = ['http://*', 'https://*']
-    const guard = wrapWithOriginWhitelist(handler, equivalentLiteral)
-    const result = await guard({
-      url: 'https://example.com',
-      navigationType: 'other',
-    })
-    assert.equal(result, false)
-    assert.equal(invocationCount, 1)
   })
 })
 
@@ -573,9 +491,7 @@ describe('originMatches — wildcard host match cases ()', () => {
  *     pattern matches the literal origin string `'file://'`.
  *   - `data:` URLs are opaque — there is no host component. Against the
  *     documented default allowlist (`['http://*', 'https://*']`) they must
- *     short-circuit to `false`, and `wrapWithOriginWhitelist` must still
- *     short-circuit to `true` when the caller has explicitly opted into the
- *     default (the wrapper bypasses origin checks entirely on the fast path).
+ *     return `false`, including when used by either origin guard.
  */
 describe("originMatches — scheme-only 'file*' pattern", () => {
   // Single glob entry covering every file:// URL — the canonical RNW
@@ -713,256 +629,175 @@ describe("originMatches — 'data:' URL short-circuit behavior", () => {
   })
 })
 
-describe("wrapWithOriginWhitelist — 'data:' event short-circuit on the default fast path", () => {
-  it("resolves true without invoking handler for a 'data:' URL when patterns === DEFAULT_ORIGIN_WHITELIST", async () => {
-    // The wrapper's fast path is by-reference: when the caller passes the
-    // exported default, every event short-circuits to `true` without the
-    // handler ever running, REGARDLESS of the URL's scheme. This locks
-    // the documented behaviour for `data:` payloads on the fast path —
-    // origin matching is intentionally bypassed.
-    let invocationCount = 0
-    const handler = async (_event: ShouldStartLoadRequest) => {
-      invocationCount += 1
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler, DEFAULT_ORIGIN_WHITELIST)
-    const result = await guard({
-      url: 'data:text/html,<h1>hi</h1>',
-      navigationType: 'other',
-    })
-    assert.equal(result, true)
-    assert.equal(invocationCount, 0)
-  })
+const guardFactories = [
+  { name: 'createOriginWhitelistGuard', create: createOriginWhitelistGuard },
+  {
+    name: 'wrapWithOriginWhitelist',
+    create: (
+      patterns: readonly string[] | undefined,
+      handler: OnShouldStartLoadWithRequest
+    ) => wrapWithOriginWhitelist(handler, patterns),
+  },
+]
 
-  it("delegates to handler for a 'data:' URL when patterns is a non-default array", async () => {
-    // When the caller supplies any other patterns array (even structurally
-    // equivalent to the default), the wrapper falls through to the handler
-    // verbatim — origin matching is NOT performed by `wrapWithOriginWhitelist`
-    // itself, which is the documented contract.
-    let lastSeenUrl: string | null = null
-    const handler = async (event: ShouldStartLoadRequest) => {
-      lastSeenUrl = event.url
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler, ['https://example.com'])
-    const result = await guard({
-      url: 'data:text/plain,abc',
-      navigationType: 'other',
-    })
-    assert.equal(result, false)
-    assert.equal(lastSeenUrl, 'data:text/plain,abc')
-  })
-})
-
-/**
- * * `wrapWithOriginWhitelist` forwarding behavior.
- *
- * Contract under test:
- *
- *   1. When `patterns` is the exported `DEFAULT_ORIGIN_WHITELIST` reference,
- *      URLs whose origin matches the documented http(s) default allowlist
- *      BYPASS the user handler — the wrapper short-circuits to `true`
- *      without ever calling `handler`. This is the "matching URLs bypass it"
- *      half of the AC.
- *   2. When `patterns` is any non-default array, every event is FORWARDED to
- *      the user handler verbatim — including the original `ShouldStartLoadRequest`
- *      payload, with no transformation. The handler's `Promise<boolean>`
- *      return value is propagated as the guard's result. This is the
- *      "non-matching URLs are passed to the user handler" half of the AC.
- *
- * Note: the wrapper's discriminator is by-reference equality against
- * `DEFAULT_ORIGIN_WHITELIST` (`patterns === DEFAULT_ORIGIN_WHITELIST`). The
- * "matching" vs "non-matching" distinction is therefore expressed at the
- * patterns-array level: passing the exported default constant means "match
- * all (bypass handler)"; passing any other array means "do not match by
- * default, hand the decision off to the user handler".
- *
- * This block is dedicated to the forwarding contract — the simpler
- * default-short-circuit and delegate-verbatim cases are covered elsewhere in
- * this file; the assertions below pin the AC-level behavior end-to-end with
- * a single spy handler that records every event it observes.
- */
-describe('wrapWithOriginWhitelist — forwarding behavior ()', () => {
-  // A. Matching (default fast-path): handler is BYPASSED
-  it('bypasses the handler for every event when patterns === DEFAULT_ORIGIN_WHITELIST', async () => {
-    const seenEvents: ShouldStartLoadRequest[] = []
-    const handler: OnShouldStartLoadWithRequestUnderTest = async (event) => {
-      seenEvents.push(event)
-      // If the wrapper failed to short-circuit, this `false` would surface
-      // as the guard's resolved value and the allow assertion below would
-      // observe it.
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler, DEFAULT_ORIGIN_WHITELIST)
-
-    const events: ShouldStartLoadRequest[] = [
-      { url: 'https://example.com/a', navigationType: 'click' },
-      { url: 'http://example.com/b', navigationType: 'reload' },
-      { url: 'https://api.example.com:8443/c', navigationType: 'formsubmit' },
-      // Even a non-http(s) URL is bypassed on the fast path — the wrapper's
-      // discriminator is the patterns reference, not the URL's origin.
-      { url: 'data:text/plain,abc', navigationType: 'other' },
-    ]
-
-    for (const event of events) {
-      assert.equal(await guard(event), true)
-    }
-    assert.equal(
-      seenEvents.length,
-      0,
-      'handler must never be invoked on the default fast path'
-    )
-  })
-
-  it('bypasses the handler when patterns argument is omitted (default-parameter fast path)', async () => {
-    let invocationCount = 0
-    const handler: OnShouldStartLoadWithRequestUnderTest = async () => {
-      invocationCount += 1
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler) // no patterns -> default
-
-    assert.equal(
-      await guard({ url: 'https://example.com', navigationType: 'click' }),
-      true
-    )
-    assert.equal(
-      await guard({ url: 'http://localhost:8080', navigationType: 'reload' }),
-      true
-    )
-    assert.equal(invocationCount, 0)
-  })
-
-  // B. Non-matching (custom patterns): handler is FORWARDED to
-  it('forwards every event to the user handler verbatim when patterns is a non-default array', async () => {
-    const seenEvents: ShouldStartLoadRequest[] = []
-    const handler: OnShouldStartLoadWithRequestUnderTest = async (event) => {
-      seenEvents.push(event)
-      // Echo a deterministic decision so we can assert verbatim return-value
-      // propagation below.
-      return event.url.startsWith('https://allow.test')
-    }
-    const guard = wrapWithOriginWhitelist(handler, ['https://allow.test'])
-
-    const inputs: ShouldStartLoadRequest[] = [
-      { url: 'https://allow.test/page', navigationType: 'click' },
-      { url: 'https://block.test/bad', navigationType: 'reload' },
-      {
-        url: 'https://allow.test/with-frame',
-        navigationType: 'formsubmit',
-        mainDocumentURL: 'https://allow.test/parent',
-        isTopFrame: true,
-        hasTargetFrame: false,
-      },
-    ]
-
-    const results = []
-    for (const event of inputs) {
-      results.push(await guard(event))
-    }
-
-    // Every event reached the handler.
-    assert.equal(seenEvents.length, inputs.length)
-    // The handler received the EXACT payloads — no transformation, no clone.
-    assert.deepEqual(seenEvents, inputs)
-    for (let i = 0; i < inputs.length; i++) {
-      assert.strictEqual(
-        seenEvents[i],
-        inputs[i],
-        'wrapper must pass the original event reference through unchanged'
-      )
-    }
-    // The handler's per-event boolean is propagated verbatim.
-    assert.deepEqual(results, [true, false, true])
-  })
-
-  it('forwards exactly once per invocation (no duplicate / dropped calls)', async () => {
-    let invocationCount = 0
-    const handler: OnShouldStartLoadWithRequestUnderTest = async () => {
-      invocationCount += 1
-      return true
-    }
-    const guard = wrapWithOriginWhitelist(handler, ['https://example.com'])
-
-    await guard({ url: 'https://example.com/x', navigationType: 'click' })
-    await guard({ url: 'https://other.test/y', navigationType: 'reload' })
-    await guard({ url: 'https://third.test/z', navigationType: 'other' })
-
-    assert.equal(invocationCount, 3)
-  })
-
-  it("forwards even when the URL would NOT match the array's contents (wrapper does not pre-filter)", async () => {
-    // Documents the contract that `wrapWithOriginWhitelist` does not itself
-    // perform origin matching on the non-default branch — the user handler
-    // is the sole authority on the verdict. Callers who want pre-filtering
-    // should reach for `createOriginWhitelistGuard` instead.
-    let lastSeenUrl: string | null = null
-    const handler: OnShouldStartLoadWithRequestUnderTest = async (event) => {
-      lastSeenUrl = event.url
-      return false
-    }
-    const guard = wrapWithOriginWhitelist(handler, [
-      'https://only-allowed.test',
-    ])
-    const result = await guard({
-      url: 'https://totally-different.test/path',
-      navigationType: 'click',
-    })
-    // Handler decided false → guard resolves false.
-    assert.equal(result, false)
-    // Handler still saw the event — wrapper did not pre-reject based on
-    // origin mismatch.
-    assert.equal(lastSeenUrl, 'https://totally-different.test/path')
-  })
-
-  it('treats a structurally equal but non-identical default-shape array as the forwarding branch', async () => {
-    // Mirrors reference-identity contract, restated here from the
-    // forwarding side: even an array with the same shape as the default
-    // (`['http://*', 'https://*']`) is forwarded if it is not the exported
-    // constant.
-    const seenEvents: ShouldStartLoadRequest[] = []
-    const handler: OnShouldStartLoadWithRequestUnderTest = async (event) => {
-      seenEvents.push(event)
-      return true
-    }
-    const lookalike: readonly string[] = ['http://*', 'https://*']
-    assert.notStrictEqual(
-      lookalike,
+for (const { name, create } of guardFactories) {
+  describe(`${name} — origin and handler decisions`, () => {
+    const defaultVariants = [
+      undefined,
       DEFAULT_ORIGIN_WHITELIST,
-      'pre-condition: lookalike must NOT be the exported reference'
-    )
-    const guard = wrapWithOriginWhitelist(handler, lookalike)
+      [...DEFAULT_ORIGIN_WHITELIST],
+    ]
 
+    it('honors a false handler with omitted, shared, and copied defaults', async () => {
+      let calls = 0
+      for (const patterns of defaultVariants) {
+        const guard = create(patterns, () => {
+          calls += 1
+          return false
+        })
+        assert.equal(
+          await guard({ url: 'https://example.com', navigationType: 'click' }),
+          false
+        )
+      }
+      assert.equal(calls, defaultVariants.length)
+    })
+
+    it('rejects non-HTTP(S) and invalid URLs with every default variant', async () => {
+      let calls = 0
+      for (const patterns of defaultVariants) {
+        const guard = create(patterns, () => {
+          calls += 1
+          return true
+        })
+        for (const url of [
+          'file:///etc/passwd',
+          'ftp://example.com/file',
+          'data:text/plain,abc',
+          'about:blank',
+          'not a url',
+          '',
+          '/relative/path',
+        ]) {
+          assert.equal(await guard({ url, navigationType: 'other' }), false)
+        }
+      }
+      assert.equal(calls, 0)
+    })
+
+    it('rejects custom-pattern misses even when the handler would allow', async () => {
+      let calls = 0
+      const guard = create(['https://example.com'], () => {
+        calls += 1
+        return true
+      })
+      assert.equal(
+        await guard({
+          url: 'https://other.test/path',
+          navigationType: 'click',
+        }),
+        false
+      )
+      assert.equal(calls, 0)
+    })
+
+    it('rejects every URL with an empty list without invoking the handler', async () => {
+      let calls = 0
+      const guard = create([], () => {
+        calls += 1
+        return true
+      })
+      assert.equal(
+        await guard({ url: 'https://example.com', navigationType: 'click' }),
+        false
+      )
+      assert.equal(calls, 0)
+    })
+
+    it('rejects a parse failure even with a universal pattern', async () => {
+      let calls = 0
+      const guard = create(['*'], () => {
+        calls += 1
+        return true
+      })
+      assert.equal(
+        await guard({ url: 'not a url', navigationType: 'other' }),
+        false
+      )
+      assert.equal(calls, 0)
+    })
+
+    const decisions = [
+      { name: 'sync true', handler: () => true, expected: true },
+      { name: 'sync false', handler: () => false, expected: false },
+      { name: 'async true', handler: async () => true, expected: true },
+      { name: 'async false', handler: async () => false, expected: false },
+    ]
+    for (const { name: decision, handler, expected } of decisions) {
+      it(`returns ${decision} and passes each original event exactly once`, async () => {
+        let calls = 0
+        const event: ShouldStartLoadRequest = Object.freeze({
+          url: 'https://example.com/path',
+          navigationType: 'formsubmit',
+          mainDocumentURL: 'https://example.com/parent',
+          isTopFrame: false,
+          hasTargetFrame: true,
+        })
+        const snapshot = { ...event }
+        const guard = create(['https://example.com'], (received) => {
+          calls += 1
+          assert.strictEqual(received, event)
+          return handler()
+        })
+        assert.equal(await guard(event), expected)
+        assert.equal(calls, 1)
+        assert.deepEqual(event, snapshot)
+      })
+    }
+
+    for (const asyncFailure of [false, true]) {
+      it(`propagates a ${asyncFailure ? 'rejected Promise' : 'sync throw'}`, async () => {
+        const error = new Error('handler failed')
+        let calls = 0
+        const guard = create(DEFAULT_ORIGIN_WHITELIST, () => {
+          calls += 1
+          if (asyncFailure) return Promise.reject(error)
+          throw error
+        })
+        await assert.rejects(
+          guard({ url: 'https://example.com', navigationType: 'click' }),
+          (received: unknown) => received === error
+        )
+        assert.equal(calls, 1)
+      })
+    }
+  })
+}
+
+describe('createOriginWhitelistGuard — no inner callback', () => {
+  it('allows matching HTTP(S) URLs and rejects unsupported defaults', async () => {
+    const guard = createOriginWhitelistGuard()
+    for (const url of ['http://example.com', 'https://example.com']) {
+      assert.equal(await guard({ url, navigationType: 'other' }), true)
+    }
+    for (const url of ['file:///tmp/index.html', 'not a url']) {
+      assert.equal(await guard({ url, navigationType: 'other' }), false)
+    }
+  })
+
+  it('applies custom and empty patterns without an inner callback', async () => {
     const event: ShouldStartLoadRequest = {
       url: 'https://example.com',
-      navigationType: 'other',
+      navigationType: 'click',
     }
-    const result = await guard(event)
-    assert.equal(result, true)
-    assert.equal(seenEvents.length, 1)
-    assert.strictEqual(seenEvents[0], event)
-  })
-
-  it('propagates a rejected handler promise as a rejected guard promise', async () => {
-    // The wrapper does not swallow handler errors on the forwarding branch —
-    // failures surface to the caller so the WebView host can react (e.g. log
-    // & treat as deny). This pins the documented "no transformation" contract.
-    const sentinel = new Error('handler boom')
-    const handler: OnShouldStartLoadWithRequestUnderTest = async () => {
-      throw sentinel
-    }
-    const guard = wrapWithOriginWhitelist(handler, ['https://example.com'])
-
-    await assert.rejects(
-      guard({ url: 'https://example.com/x', navigationType: 'click' }),
-      (err: unknown) => err === sentinel
+    assert.equal(
+      await createOriginWhitelistGuard(['https://example.com'])(event),
+      true
     )
+    assert.equal(
+      await createOriginWhitelistGuard(['https://other.test'])(event),
+      false
+    )
+    assert.equal(await createOriginWhitelistGuard([])(event), false)
   })
 })
-
-// Locally-narrowed alias of the public type so the spy handlers can
-// be annotated without re-importing the public `OnShouldStartLoadWithRequest`
-// at the top of the file (keeps the imports diff minimal).
-type OnShouldStartLoadWithRequestUnderTest = (
-  event: ShouldStartLoadRequest
-) => Promise<boolean>
