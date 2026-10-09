@@ -523,9 +523,11 @@ actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
 The history case uses a real native tap because
 [Chromium can skip history entries created without user activation](https://chromium.googlesource.com/chromium/src/+/refs/heads/lkgr/docs/history_manipulation_intervention.md).
 
-Evidence is saved in `example/artifacts/`: `<platform>-regression-results.json`,
-`<platform>-regression-requests.json`, and UI, fixture, and Metro logs. Failures also
-save a screenshot and native logs when available. Fixture request records include
+Each run first removes only prior evidence with its own `<platform>-regression-`
+prefix. Evidence is saved in `example/artifacts/`: `<platform>-regression-results.json`,
+`<platform>-regression-requests.json`, `<platform>-regression-success.png`, and UI,
+fixture, and Metro logs. A successful run fails if it cannot save its device screenshot.
+Failures also save a screenshot and native logs when available. Fixture request records include
 cookie names and authorization match/count fields, without cookie or authorization
 values.
 

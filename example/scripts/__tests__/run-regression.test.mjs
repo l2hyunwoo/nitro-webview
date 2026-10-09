@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   expectedRegressionCases,
+  isPlatformRegressionArtifact,
   validateRegressionResults,
   validateRegressionInteraction,
 } from '../run-regression.mjs';
@@ -150,4 +151,16 @@ test('native interaction accepts only an identified Navigate tap', () => {
     { id: 'history-1', label: 'Navigate --shutdown' },
   ])
     assert.throws(() => validateRegressionInteraction(value));
+});
+
+test('artifact cleanup matches only this platform regression evidence', () => {
+  assert.equal(
+    isPlatformRegressionArtifact('ios-regression-success.png', 'ios'),
+    true,
+  );
+  assert.equal(
+    isPlatformRegressionArtifact('android-regression-native.log', 'ios'),
+    false,
+  );
+  assert.equal(isPlatformRegressionArtifact('unrelated.log', 'ios'), false);
 });

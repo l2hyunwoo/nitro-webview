@@ -1,5 +1,5 @@
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { createWriteStream, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
@@ -99,6 +99,18 @@ export function validateRegressionInteraction(value) {
   return { id: value.id, label: 'Navigate' };
 }
 
+export function isPlatformRegressionArtifact(name, platform) {
+  return name.startsWith(`${platform}-regression-`);
+}
+
+async function clearPlatformRegressionArtifacts(artifacts, platform) {
+  for (const entry of await readdir(artifacts, { withFileTypes: true })) {
+    if (entry.isFile() && isPlatformRegressionArtifact(entry.name, platform)) {
+      await rm(join(artifacts, entry.name), { force: true });
+    }
+  }
+}
+
 async function fetchJSON(path, body) {
   const response = await fetch(`${fixtureURL}${path}`, {
     signal: AbortSignal.timeout(5000),
@@ -172,6 +184,7 @@ async function run(platform, device) {
   }
   const artifacts = join(exampleDir, 'artifacts');
   await mkdir(artifacts, { recursive: true });
+  await clearPlatformRegressionArtifacts(artifacts, platform);
   const artifact = suffix =>
     join(artifacts, `${platform}-regression-${suffix}`);
   const json = (suffix, value) =>
@@ -412,6 +425,7 @@ async function run(platform, device) {
         if (result.complete === true) {
           checkChildren();
           const count = validateRegressionResults(result, platform);
+          await agent(['screenshot', artifact('success.png')], 30000);
           console.log(`COMPLETE PASS: ${count} ${platform} cases`);
           finished = true;
           break;
