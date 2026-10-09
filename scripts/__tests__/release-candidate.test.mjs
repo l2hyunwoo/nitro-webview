@@ -53,6 +53,13 @@ test('candidate bundle restores an unpushed version commit and verifies its exac
     git('add', 'package.json')
     git('commit', '--quiet', '-m', 'version')
     const sha = git('rev-parse', 'HEAD')
+    const untracked = join(repository, 'index-extra.js')
+    writeFileSync(untracked, 'export const extra = true\n')
+    assert.throws(
+      () => createCandidate(repository, artifact),
+      /Release source must match the committed files/
+    )
+    rmSync(untracked)
     const metadata = createCandidate(repository, artifact)
     assert.equal(metadata.source_sha, sha)
     assert.equal(metadata.version, '0.2.0')

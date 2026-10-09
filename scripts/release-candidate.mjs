@@ -58,7 +58,7 @@ export function readCandidate(directory, expectedSha) {
 
 export function createCandidate(repository, directory) {
   assert.equal(
-    run('git', ['status', '--porcelain', '--untracked-files=no'], repository),
+    run('git', ['status', '--porcelain', '--untracked-files=all'], repository),
     '',
     'Release source must match the committed files'
   )
