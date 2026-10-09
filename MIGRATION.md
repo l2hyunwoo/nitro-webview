@@ -8,7 +8,7 @@ Use the README from your installed package version when comparing published beha
 The candidate peer ranges are React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`.
 RN 0.85.3 checks that React matches its embedded renderer version 19.2.3 exactly.
 Native views require the New Architecture. The development runtime and Nitrogen generator are both pinned to `0.35.9`.
-Both boundary combinations need native builds and device checks before these ranges are confirmed.
+Both listed boundary combinations passed native builds and device checks on Android 15 and iOS 26.5; other OS and dependency versions remain unverified.
 See the [support matrix](README.md#support-candidate).
 
 ## JavaScript evaluation returns JSON
