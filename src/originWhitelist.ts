@@ -8,7 +8,7 @@ import type { ShouldStartLoadRequest } from './specs/NitroWebView.nitro'
  */
 export type OnShouldStartLoadWithRequest = (
   event: ShouldStartLoadRequest
-) => Promise<boolean>
+) => boolean | Promise<boolean>
 
 /**
  * Function returned by {@linkcode createOriginWhitelistGuard}. Behaves
@@ -16,7 +16,9 @@ export type OnShouldStartLoadWithRequest = (
  * {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest} prop:
  * resolves `true` to allow the navigation, `false` to silently cancel.
  */
-export type OriginWhitelistGuard = OnShouldStartLoadWithRequest
+export type OriginWhitelistGuard = (
+  event: ShouldStartLoadRequest
+) => Promise<boolean>
 
 /**
  * Default origin allowlist used when an integrator wants the
@@ -57,9 +59,8 @@ export const DEFAULT_ORIGIN_WHITELIST: readonly string[] = Object.freeze([
  *
  *   1. The URL is normalised to its origin BEFORE matching. The path,
  *      query string, fragment, and userinfo are stripped. The default
- *      port for the scheme is preserved verbatim if present in the URL
- *      (we do not infer / strip default ports — keep the comparison
- *      lexical against what the caller wrote).
+ *      port is removed by the URL parser (HTTP 80, HTTPS 443). Non-default
+ *      ports remain. Patterns are compared as written, apart from case.
  *   2. Each pattern is a glob where `*` matches any run of characters
  *      (including the empty string) but NEVER spans across what a real
  *      URL parser would consider an origin boundary — i.e. `*` is
@@ -108,8 +109,7 @@ function extractOrigin(url: string): string | null {
   }
   // `URL.protocol` includes the trailing colon (`'https:'`); `URL.host`
   // already contains `host[:port]` when a non-default port is present.
-  // We rebuild the origin lexically so we do not rely on `URL.origin`,
-  // which normalises (e.g. lower-cases) inconsistently across engines.
+  // Keep scheme-only matching for URLs whose `URL.origin` is opaque.
   return `${parsed.protocol}//${parsed.host}`
 }
 
@@ -138,7 +138,8 @@ function globMatch(input: string, pattern: string): boolean {
  *   1. If `event.url`'s origin does NOT match any entry in [patterns],
  *      resolve `false` immediately — the user callback is never invoked.
  *   2. If the URL matches the allowlist AND [inner] is supplied, the
- *      result of `inner(event)` decides the final allow/cancel verdict.
+ *      sync or async result of `inner(event)` decides the final verdict.
+ *      Throws and rejected Promises propagate as guard rejections.
  *   3. If the URL matches the allowlist AND [inner] is absent, resolve
  *      `true` (the default RNW behavior: any whitelisted origin is
  *      allowed).
@@ -157,6 +158,10 @@ function globMatch(input: string, pattern: string): boolean {
  * The default `patterns` argument is
  * {@linkcode DEFAULT_ORIGIN_WHITELIST} (every http/https origin is
  * allowed — RNW parity).
+ *
+ * Only `event.url` is checked. This does not validate initial `source`,
+ * Android POST requests, subresources, or message origins. Native callback
+ * coverage and fallback rules still apply. This is not a network ACL.
  */
 export function createOriginWhitelistGuard(
   patterns: readonly string[] = DEFAULT_ORIGIN_WHITELIST,
@@ -172,48 +177,17 @@ export function createOriginWhitelistGuard(
 }
 
 /**
- * Wrap a user-supplied [handler] with a fast-path short-circuit for the
- * default origin allowlist.
+ * Apply the same origin policy as {@linkcode createOriginWhitelistGuard},
+ * preserving the existing handler-first argument order.
  *
- * Semantics:
- *
- *   1. When [patterns] is the exact
- *      {@linkcode DEFAULT_ORIGIN_WHITELIST} reference, the returned guard
- *      resolves `true` immediately for every event — `handler` is NEVER
- *      invoked. This mirrors react-native-webview's behaviour where the
- *      documented default allowlist (`http://*` / `https://*`) is treated
- *      as "allow everything, do not consult the JS callback".
- *   2. Otherwise the guard delegates straight to `handler(event)` and
- *      returns its `Promise<boolean>` verbatim. No origin matching, no
- *      transformation — `wrapWithOriginWhitelist` is intentionally a
- *      thin pass-through for the non-default case so integrators wanting
- *      richer per-pattern matching can compose
- *      {@linkcode createOriginWhitelistGuard} or
- *      {@linkcode originMatches} themselves.
- *
- * The comparison is by-reference (`===`) against
- * {@linkcode DEFAULT_ORIGIN_WHITELIST}, not a structural equality check.
- * Callers who want the fast path must pass the exported constant
- * verbatim; constructing an equivalent array literal will fall through
- * to the `handler` branch.
- *
- * @param handler User-supplied
- *   {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest} callback
- *   invoked when [patterns] is not the default allowlist.
- * @param patterns Origin allowlist. Defaults to
- *   {@linkcode DEFAULT_ORIGIN_WHITELIST}, which triggers the fast-path
- *   "allow all" branch.
- * @returns A drop-in
- *   {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest} guard.
+ * Non-matching URLs resolve `false` without invoking `handler`. Matching
+ * URLs receive the handler's sync or async decision. Throws and rejected
+ * Promises propagate as guard rejections. The guard checks only events
+ * delivered by the native navigation callback.
  */
 export function wrapWithOriginWhitelist(
   handler: OnShouldStartLoadWithRequest,
   patterns: readonly string[] = DEFAULT_ORIGIN_WHITELIST
-): OnShouldStartLoadWithRequest {
-  return async (event) => {
-    if (patterns === DEFAULT_ORIGIN_WHITELIST) {
-      return true
-    }
-    return handler(event)
-  }
+): OriginWhitelistGuard {
+  return createOriginWhitelistGuard(patterns, handler)
 }

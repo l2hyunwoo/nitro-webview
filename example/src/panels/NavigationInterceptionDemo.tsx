@@ -170,8 +170,9 @@ export function NavigationInterceptionDemo() {
         <Text style={styles.hint}>
           Tap &quot;Open nav demo page&quot;, then in the WebView tap the green
           or red link. example.com is allowed; example.org is blocked silently
-          (the WebView stays on the demo page). Android requires user-initiated
-          taps — programmatic loads bypass `shouldOverrideUrlLoading`.
+          (the WebView stays on the demo page). This callback checks only delivered
+          navigation events. It does not cover initial source, Android POST
+          requests, subresources, or message origins, and is not a network ACL.
         </Text>
       </ScrollView>
     </SafeAreaView>
