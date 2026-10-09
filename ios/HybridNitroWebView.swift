@@ -570,46 +570,10 @@ final class HybridNitroWebView:
     }
   }
 
-  /// Merge `defaults` and `perRequest` headers with per-request taking
-  /// precedence on key conflict. Comparison is **case-insensitive**: when
-  /// both maps carry the same logical header with different casing, only
-  /// the per-request entry survives (preserving its casing). This is the
-  /// contract documented on `NitroWebViewProps.defaultHeaders`.
-  ///
-  /// Implementation note: the final union step uses Swift's
-  /// `Dictionary(_:uniquingKeysWith:)` initializer with a "last-wins"
-  /// (`{ _, new in new }`) policy so that for any key collision the
-  /// per-request value replaces the default value. This is the canonical
-  /// Swift idiom for a right-biased dictionary merge. The preceding
-  /// filter strips defaults whose key matches a per-request key under a
-  /// case-insensitive comparison so that, e.g., `Authorization` in
-  /// `defaults` does not survive when `authorization` is in `perRequest`.
   static func mergeHeaders(
-    defaults: [String: String]?,
-    perRequest: [String: String]?
-  ) -> [String: String] {
-    let d = defaults ?? [:]
-    let r = perRequest ?? [:]
-    if r.isEmpty { return d }
-    if d.isEmpty { return r }
-
-    var conflictingLower: Set<String> = []
-    for k in r.keys { conflictingLower.insert(k.lowercased()) }
-
-    // Drop defaults whose key collides (case-insensitive) with a
-    // per-request key — those will be supplied by `r` below.
-    let filteredDefaults = d.filter { !conflictingLower.contains($0.key.lowercased()) }
-
-    // Right-biased union: concatenate the filtered defaults with the
-    // per-request pairs and feed them to `Dictionary(_:uniquingKeysWith:)`
-    // with a last-wins resolver. The resolver is the explicit
-    // "source.headers wins" point. After the case-insensitive filter
-    // above, the only collisions reaching the resolver are exact-key
-    // duplicates between `r` and itself, which is a no-op — but the
-    // resolver guarantees the contract regardless.
-    let pairs = filteredDefaults.map { ($0.key, $0.value) }
-      + r.map { ($0.key, $0.value) }
-    return Dictionary(pairs, uniquingKeysWith: { _, new in new })
+    defaults: [String: String]?, perRequest: [String: String]?
+  ) throws -> [String: String] {
+    try NitroWebViewSourceHandler.mergeHeaders(defaults: defaults, perRequest: perRequest)
   }
 
   /// Rebuild the `WKUserContentController`'s user-script list in a fixed

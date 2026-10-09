@@ -30,7 +30,7 @@ A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin n
 ### What changes
 
 - Event props must be wrapped in `callback(...)` from `react-native-nitro-modules` so Nitro can dispatch them on the right thread.
-- `onShouldStartLoadWithRequest` returns `Promise<boolean>` directly — no `lockIdentifier` round-trip. `async` callbacks are awaited transparently.
+- `onShouldStartLoadWithRequest` accepts `boolean | Promise<boolean>` — no `lockIdentifier` round-trip. `async` callbacks are awaited transparently.
 - Imperative methods (`goBack`, `evaluateJavaScript`, `getCookies`, `setCookie`, `clearCookies`, …) live on the **hybrid ref** captured via the `hybridRef` prop, not on a React `ref`.
 - Native packages: `io.github.l2hyunwoo.nitrowebview` (Android) / `NitroWebView` Swift module (iOS). MIT-licensed, npm-published as `nitro-webview` (unscoped).
 
@@ -106,7 +106,7 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | Prop | Type | Notes |
 | --- | --- | --- |
 | `source` | `WebViewSource` | `{ uri, headers? }` or `{ html, baseUrl? }`. Drives navigation. Required. |
-| `defaultHeaders` | `Record<string, string>` | Global HTTP headers attached to every main-frame navigation request. Per-request `source.headers` win on key conflict. |
+| `defaultHeaders` | `Record<string, string>` | Headers for main-frame requests initiated by a `source` change. `source.headers` win case-insensitively. Duplicate logical names within either map emit `NitroWebViewSource` (-1) without loading. |
 | `userAgent` | `string` | Overrides the platform default UA for every request (main-frame + sub-resource). `undefined` / empty restores the WebKit / Chromium default. |
 | `javaScriptEnabled` | `boolean` | Enable JS. Default `true`. Android: mutable. iOS: initial setting; remount to change. False disables bridge and injected scripts. |
 | `domStorageEnabled` | `boolean` | Enable `localStorage` / `sessionStorage`. Default `true`. Android: mutable. iOS: always on (no-op). |
@@ -157,17 +157,37 @@ The hybrid ref captured by `hybridRef={callback((r) => ref.current = r)}` expose
 | `goForward()` | `void` | Navigate forward in history. |
 | `reload()` | `void` | Reload the current page. |
 | `stopLoading()` | `void` | Stop the current load. On iOS, also cancel pending navigation decisions and a source waiting for shared-cookie import. |
-| `evaluateJavaScript(code)` | `Promise<string>` | Result is the serialized string evaluation. iOS uses `String(describing:)`; Android uses the JSON-encoded `ValueCallback<String>` result. Undefined/nil surfaces as `''`. |
+| `evaluateJavaScript(code)` | `Promise<string>` | Returns JSON text on both platforms. Use `JSON.parse` once. Undefined/null return `null` as JSON text. Only JSON-compatible results are supported. |
 | `injectJavaScript(code)` | `void` | Fire-and-forget execution — no result awaited. Use for side effects only. No-op if no page is loaded. |
 | `postMessage(data)` | `void` | Push a string into the page as a DOM `message` event (`event.data === data`). Listen on **both** targets for portability: `window.addEventListener('message', ...)` (iOS) and `document.addEventListener('message', ...)` (Android). Dispatched once, no buffering. `data` is escaped safely (quotes, newlines, `</script>`, unicode). |
 | `getCookies(url)` | `Promise<Cookie[]>` | iOS returns the full attribute set. Android `CookieManager` only exposes `name` and `value` on read — other fields are left `undefined`. |
 | `setCookie(url, cookie)` | `Promise<void>` | `Cookie = { name, value, domain?, path?, expires?, secure?, httpOnly? }`. `expires` is milliseconds since epoch (`Date.now()`-compatible). |
 | `clearCookies()` | `Promise<void>` | Bulk clear via `WKWebsiteDataStore` (iOS) / `CookieManager.removeAllCookies` (Android). The promise resolves only after the platform reports completion. |
 | `clearCache()` | `Promise<void>` | Clear the disk + memory resource cache only (NOT cookies/localStorage/history). iOS scopes `removeData` to `{DiskCache, MemoryCache}`; Android calls `clearCache(true)`. |
-| `clearHistory()` | `Promise<void>` | Clear back/forward history. Android: `WebView.clearHistory()`. **iOS: no-op** — `WKWebView.backForwardList` is read-only with no public prune API (resolves without clearing; navigate to a fresh `source` for a pristine stack). |
+| `clearHistory()` | `Promise<void>` | Clear back/forward history. Android: `WebView.clearHistory()`. **iOS: no-op** — `WKWebView.backForwardList` is read-only with no public prune API (resolves without clearing; remount with a new React `key` for a pristine stack). |
 | `requestFocus()` | `Promise<void>` | Move input focus to the WebView. iOS `becomeFirstResponder()`; Android `requestFocus()`. Resolves regardless of the responder's own return value. |
 
+`evaluateJavaScript` evaluates the supplied code once. It does not wrap the code in `eval` or require CSP `unsafe-eval`.
+
+```ts
+const encoded = await ref.current.evaluateJavaScript('({ a: 1 })')
+const value = JSON.parse(encoded) // { a: 1 }
+```
+
+| JavaScript result | JSON text |
+| --- | --- |
+| `2`, `true` | `2`, `true` |
+| `'hello'` | `"hello"` (including quotes) |
+| `{ a: 1 }`, `[1, 'a']` | `{"a":1}`, `[1,"a"]` |
+| `null`, `undefined` | `null` |
+
+iOS rejects native evaluation and JSON serialization errors. Android cannot distinguish a page JavaScript exception from a null result.
+Object key order and JSON whitespace are not part of the contract.
+
 ### Types
+
+The package root exports HTTP error, renderer exit, scroll, and open-window events, including their nested payload types and `WebViewPoint`.
+Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions. Nitro's codegen declaration retains its existing native callback ABI.
 
 #### `WebViewSource`
 

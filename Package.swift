@@ -127,12 +127,7 @@ let package = Package(
       path: "iosTests/Tests/HybridNitroWebViewGetCookiesFilterTests"
     ),
     .testTarget(
-      // Unit-tests the iOS Swift header-merge function that combines
-      // `defaultHeaders` with per-request `source.headers` using
-      // `Dictionary(_:uniquingKeysWith:)` with a last-wins resolver
-      // (per-request keys override defaults on collision). Exercises a
-      // `HeaderMergeProbe` that mirrors the production implementation
-      // because the hybrid class cannot be linked into this harness.
+      // Exercises the production SourceHandler header merge, including invalid inputs.
       name: "HybridNitroWebViewHeaderMergeTests",
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewHeaderMergeTests"
@@ -172,15 +167,7 @@ let package = Package(
       path: "iosTests/Tests/HybridNitroWebViewContentDispositionParserTests"
     ),
     .testTarget(
-      // Verifies that the URI branch of `HybridNitroWebView.applySource(_:)`
-      // forwards every merged header to `URLRequest` via
-      // `setValue(_:forHTTPHeaderField:)`. Uses an `ApplySourceWireUpProbe`
-      // that mirrors the production lines byte-for-byte (build URLRequest,
-      // merge headers, setValue loop) and captures the request instead of
-      // handing it to a real WKWebView — keeping the test free of WebKit
-      // dependencies. The production class is excluded because it depends
-      // on Nitro-generated bridge symbols only available at CocoaPods
-      // install time.
+      // Exercises production request construction and final header values.
       name: "HybridNitroWebViewApplySourceWireUpTests",
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewApplySourceWireUpTests"

@@ -8,7 +8,8 @@ export type WebViewSourceMethod = 'GET' | 'POST'
  * **main-frame navigation** triggered by a `source` change. They are NOT
  * re-applied to subsequent redirects, link clicks, or sub-resource
  * requests. Per-request `headers` override any keys present in
- * `NitroWebViewProps.defaultHeaders` on conflict.
+ * `NitroWebViewProps.defaultHeaders` case-insensitively. Duplicate logical
+ * header names within either map emit NitroWebViewSource (-1) and skip loading.
  */
 export interface UriSource {
   uri: string

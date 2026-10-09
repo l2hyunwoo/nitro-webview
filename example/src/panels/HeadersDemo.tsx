@@ -39,7 +39,7 @@ const HTTPBIN_SOURCE: WebViewSource = { uri: 'https://httpbin.org' }
 
 const HEADERS_SOURCE: WebViewSource = {
   uri: 'https://httpbin.org/headers',
-  headers: { 'X-Nitro-Test': 'per-request' },
+  headers: { 'x-nitro-test': 'per-request' },
 }
 
 // ---------------------------------------------------------------------------
@@ -132,8 +132,8 @@ export function HeadersDemo() {
           />
         </View>
         <Text style={styles.hint}>
-          Expected: X-Nitro-Default: global • X-Nitro-Test: per-request (not
-          &quot;default-loses&quot;)
+          Expected: X-Nitro-Default: global • x-nitro-test: per-request. Header
+          names are case-insensitive. Duplicate names within one map reject the source.
         </Text>
       </ScrollView>
     </SafeAreaView>

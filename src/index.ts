@@ -1,9 +1,23 @@
-import { getHostComponent } from 'react-native-nitro-modules'
+import { getHostComponent, type HybridView } from 'react-native-nitro-modules'
 import type {
   NitroWebViewMethods,
-  NitroWebViewProps,
+  NitroWebViewProps as NativeNitroWebViewProps,
 } from './specs/NitroWebView.nitro'
 import NitroWebViewConfig from '../nitrogen/generated/shared/json/NitroWebViewConfig.json'
+import type { OnShouldStartLoadWithRequest } from './originWhitelist'
+
+/** Public callback type; the codegen declaration retains its native ABI. */
+export interface NitroWebViewProps extends Omit<
+  NativeNitroWebViewProps,
+  'onShouldStartLoadWithRequest'
+> {
+  onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest
+}
+
+export type NitroWebViewType = HybridView<
+  NitroWebViewProps,
+  NitroWebViewMethods
+>
 
 /** React component for the Nitro-backed WebView. */
 export const NitroWebView = getHostComponent<
@@ -21,9 +35,7 @@ export type {
 } from './specs/WebViewSource'
 
 export type {
-  NitroWebView as NitroWebViewType,
   NitroWebViewMethods,
-  NitroWebViewProps,
   WebViewLoadEvent,
   WebViewLoadProgressEvent,
   WebViewLoadProgressNativeEvent,
@@ -35,6 +47,15 @@ export type {
   NitroWebViewErrorEvent,
   NitroWebViewErrorNativeEvent,
   WebViewErrorEvent,
+  NitroWebViewHttpErrorEvent,
+  NitroWebViewHttpErrorNativeEvent,
+  NitroWebViewRenderProcessGoneEvent,
+  NitroWebViewRenderProcessGoneNativeEvent,
+  NitroWebViewScrollEvent,
+  NitroWebViewScrollNativeEvent,
+  WebViewPoint,
+  OpenWindowEvent,
+  OpenWindowNativeEvent,
   Cookie,
   FileDownload,
   FileDownloadEvent,

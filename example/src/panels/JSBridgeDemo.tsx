@@ -199,9 +199,9 @@ export function JSBridgeDemo() {
               setEvalResult(null)
               try {
                 const value = await r.evaluateJavaScript(
-                  "JSON.stringify({ title: document.title, w: window.innerWidth })",
+                  "({ title: document.title, w: window.innerWidth })",
                 )
-                setEvalResult({ ok: true, value })
+                setEvalResult({ ok: true, value: JSON.stringify(JSON.parse(value)) })
               } catch (e) {
                 setEvalResult({ ok: false, value: String(e) })
               }
@@ -210,7 +210,7 @@ export function JSBridgeDemo() {
         </View>
         <Text style={styles.hint}>
           Reads document.title and window.innerWidth from inside the WebView and
-          renders the JSON in the blue banner above.
+          parses the JSON result once, then displays it in the blue banner above.
         </Text>
       </ScrollView>
     </SafeAreaView>

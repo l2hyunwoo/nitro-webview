@@ -208,8 +208,7 @@ class HybridNitroWebView(
   /**
    * Default HTTP headers applied to every main-frame navigation triggered
    * by a `source` change. Per-request `source.headers` win on key conflict
-   * (exact-match comparison on Android; callers should use a single
-   * canonical casing per key). Mutating `defaultHeaders` alone does not
+   * (case-insensitive comparison). Mutating `defaultHeaders` alone does not
    * trigger a navigation — the next `source` update is when merged headers
    * are forwarded to `WebView.loadUrl(url, headers)`.
    */
@@ -1384,7 +1383,7 @@ class HybridNitroWebView(
     /**
      * URI-source apply pipeline. Merges [defaultHeaders] and
      * [uriSource.headers] with per-request entries overriding defaults on
-     * exact-key conflict, then forwards the merged map and the URI to
+     * case-insensitive conflict, then forwards the merged map and the URI to
      * [loader]. Extracted from [applySource] so the header-merge and
      * the `loadUrl` invocation can be exercised in unit tests via a
      * fake [UrlLoader] without a real `android.webkit.WebView`.
@@ -1395,17 +1394,9 @@ class HybridNitroWebView(
       defaultHeaders: Map<String, String>?,
       loader: UrlLoader,
     ) {
-      val merged =
-        HashMap<String, String>().apply {
-          putAll(defaultHeaders ?: emptyMap())
-          putAll(uriSource.headers ?: emptyMap())
-        }
-      val body =
-        NitroWebViewSourceHandler.postBody(
-          uriSource.uri,
-          uriSource.method?.name,
-          uriSource.body,
-          merged,
+      val merged = mergeHeaders(defaultHeaders, uriSource.headers)
+      val body = NitroWebViewSourceHandler.postBody(
+        uriSource.uri, uriSource.method?.name, uriSource.body, merged,
         )
       if (body == null) {
         loader.loadUrl(uriSource.uri, merged)
@@ -1469,28 +1460,11 @@ class HybridNitroWebView(
     @JvmStatic
     internal fun cacheModeFor(enabled: Boolean): Int = if (enabled) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_NO_CACHE
 
-    /**
-     * Merge `defaults` and `perRequest` headers with per-request taking
-     * precedence on key conflict. Comparison is **exact-match** on Android
-     * (the platform's `additionalHttpHeaders` map is forwarded as-is and
-     * the runtime never folds casing). Callers should use a single
-     * canonical casing per key.
-     */
     @JvmStatic
     internal fun mergeHeaders(
       defaults: Map<String, String>?,
       perRequest: Map<String, String>?,
-    ): Map<String, String> {
-      val d = defaults ?: emptyMap()
-      val r = perRequest ?: emptyMap()
-      if (r.isEmpty()) return d
-      if (d.isEmpty()) return r
-      val out = LinkedHashMap<String, String>(d.size + r.size)
-      out.putAll(d)
-      // per-request entries overwrite the defaults on exact-key conflict.
-      out.putAll(r)
-      return out
-    }
+    ): Map<String, String> = NitroWebViewSourceHandler.mergeHeaders(defaults, perRequest)
 
     /**
      * Parse a raw `name=value; name2=value2` cookie header (as returned by

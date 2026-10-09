@@ -26,7 +26,7 @@
 
 import React, { useRef, useState } from 'react'
 import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
-import { callback, NitroWebView } from 'nitro-webview'
+import { callback, NitroWebView, wrapWithOriginWhitelist } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
   NitroWebViewMethods,
@@ -89,14 +89,16 @@ export function NavigationInterceptionDemo() {
     at: number
   } | null>(null)
 
-  const handleShouldStartLoad = callback((event: ShouldStartLoadRequest) => {
-    const u = new URL(event.url)
-    const blocked = blockedHosts.some(
-      h => u.hostname === h || u.hostname.endsWith('.' + h)
-    )
-    setLastDecision({ url: event.url, allowed: !blocked, at: Date.now() })
-    return !blocked
-  })
+  const handleShouldStartLoad = callback(
+    wrapWithOriginWhitelist((event: ShouldStartLoadRequest) => {
+      const u = new URL(event.url)
+      const blocked = blockedHosts.some(
+        h => u.hostname === h || u.hostname.endsWith('.' + h)
+      )
+      setLastDecision({ url: event.url, allowed: !blocked, at: Date.now() })
+      return !blocked
+    })
+  )
 
   return (
     <SafeAreaView style={styles.root}>

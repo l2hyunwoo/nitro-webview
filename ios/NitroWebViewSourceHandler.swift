@@ -55,6 +55,25 @@ public final class NitroWebViewSourceHandler {
     sourceNeedsLoading = false
   }
 
+  /// Reject ambiguous input maps before applying per-request precedence.
+  public static func mergeHeaders(
+    defaults: [String: String]?, perRequest: [String: String]?
+  ) throws -> [String: String] {
+    for headers in [defaults ?? [:], perRequest ?? [:]] {
+      var seen = Set<String>()
+      for key in headers.keys {
+        guard seen.insert(key.lowercased()).inserted else {
+          throw NSError(domain: "NitroWebViewSource", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Duplicate HTTP header: \(key)"])
+        }
+      }
+    }
+    let request = perRequest ?? [:]
+    let overrides = Set(request.keys.map { $0.lowercased() })
+    return (defaults ?? [:]).filter { !overrides.contains($0.key.lowercased()) }
+      .merging(request) { _, new in new }
+  }
+
   /// Builds the request used by the actual WKWebView load path.
   public static func makeRequest(
     uri: String, method: String? = nil, body: String? = nil,
@@ -79,7 +98,9 @@ public final class NitroWebViewSourceHandler {
     var request = URLRequest(url: url, cachePolicy: cachePolicy)
     request.httpMethod = method
     if method == "POST" { request.httpBody = Data((body ?? "").utf8) }
-    for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
+    for (key, value) in try Self.mergeHeaders(defaults: nil, perRequest: headers) {
+      request.setValue(value, forHTTPHeaderField: key)
+    }
     return request
   }
 

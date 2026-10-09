@@ -167,8 +167,8 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Default HTTP headers applied to every main-frame navigation request
    * triggered by a `source` change. Per-request headers supplied via
    * `source.headers` override these on key conflict (case-insensitive on
-   * iOS, exact-match on Android — callers should use a single canonical
-   * casing per key).
+   * both platforms). Duplicate logical keys within either map emit
+   * NitroWebViewSource (-1) and prevent loading.
    *
    * Scope and limitations:
    *   - Only applied on main-frame navigation initiated by a `source`
@@ -628,10 +628,10 @@ export interface NitroWebViewMethods extends HybridViewMethods {
   stopLoading(): void
   /**
    * Evaluate arbitrary JavaScript inside the WebView and resolve with the
-   * serialized string result of the evaluation. On iOS the native side
-   * uses `String(describing:)`; on Android the result is the JSON-encoded
-   * string from `ValueCallback<String>`. An undefined/nil result surfaces
-   * as the empty string.
+   * JSON string result. Use JSON.parse once to recover the value.
+   * Undefined and null return "null". Only JSON-compatible values are
+   * supported. iOS rejects native evaluation/serialization errors. Android
+   * cannot distinguish a page exception from a null result.
    */
   evaluateJavaScript(code: string): Promise<string>
 
@@ -736,7 +736,7 @@ export interface NitroWebViewMethods extends HybridViewMethods {
    *     `about:blank` — a reload would change the current URL and drop
    *     forward entries as a side effect, which is surprising for a "clear
    *     history" call. Callers needing a pristine stack on iOS should
-   *     navigate to a fresh `source` instead. Mirrors react-native-webview,
+   *     remount the component with a new React `key`. Mirrors react-native-webview,
    *     which exposes `clearHistory` on Android only.
    */
   clearHistory(): Promise<void>
