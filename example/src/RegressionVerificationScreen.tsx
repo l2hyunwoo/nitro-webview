@@ -52,6 +52,19 @@ type Settings = Pick<
   | 'injectedJavaScriptBeforeContentLoaded'
 >;
 type Decision = (request: ShouldStartLoadRequest) => boolean | Promise<boolean>;
+type DecisionTiming = {
+  url: string;
+  invokedAt: number;
+  settledAt?: number;
+  allowed?: boolean;
+  error?: string;
+};
+type EvaluationProbe = {
+  startedAt: number;
+  settledAt?: number;
+  rejected?: boolean;
+  pendingAtRendererExit?: boolean;
+};
 type Observation = {
   key: number;
   source: WebViewSource;
@@ -65,6 +78,10 @@ type Observation = {
   states: WebViewNavigationState[];
   decisions: string[];
   rendererEvents: NitroWebViewRenderProcessGoneEvent['nativeEvent'][];
+  timeline: { at: number; event: string; url?: string }[];
+  decisionTimings: DecisionTiming[];
+  diagnostics: string[];
+  evaluationProbe?: EvaluationProbe;
 };
 
 function check(value: unknown, detail: string): asserts value {
@@ -153,6 +170,7 @@ export function RegressionVerificationScreen() {
     const completed: CaseResult[] = [];
     const runID = Date.now().toString(36);
     let caseIndex = 0;
+    let caseViews: Observation[] = [];
     const query = () => `?case=${runID}-${caseIndex}`;
     const url = (path: string) => `${origin}${path}${query()}`;
     const active = () => mounted.current;
@@ -176,7 +194,7 @@ export function RegressionVerificationScreen() {
       settings: Settings = {},
       decide?: Decision,
     ): Observation {
-      return {
+      const observation: Observation = {
         key: ++sequence.current,
         source,
         settings: {
@@ -195,7 +213,12 @@ export function RegressionVerificationScreen() {
         states: [],
         decisions: [],
         rendererEvents: [],
+        timeline: [],
+        decisionTimings: [],
+        diagnostics: [],
       };
+      caseViews.push(observation);
+      return observation;
     }
 
     async function show(next: Observation[]) {
@@ -265,6 +288,21 @@ export function RegressionVerificationScreen() {
         'evaluateJavaScript',
       );
       return JSON.parse(value);
+    }
+
+    async function pageDiagnostic(view: Observation, label: string) {
+      try {
+        const value = await bounded(
+          ref(view).evaluateJavaScript(
+            '({url:location.href,historyLength:history.length,readyState:document.readyState})',
+          ),
+          'page diagnostic',
+          2000,
+        );
+        view.diagnostics.push(`${label}: ${value}`);
+      } catch (error) {
+        view.diagnostics.push(`${label}: ${String(error)}`);
+      }
     }
 
     function click(view: Observation) {
@@ -550,6 +588,7 @@ export function RegressionVerificationScreen() {
             return pause ? delay(pause).then(() => verdict) : verdict;
           });
           await ready(view);
+          const clickedAt = Date.now();
           click(view);
           await until(
             () => view.decisions.some(target => target.includes('/target')),
@@ -561,6 +600,35 @@ export function RegressionVerificationScreen() {
           const requests = (await records()).filter(
             request => request.path === '/target',
           );
+          const requestsObservedAt = Date.now();
+          const decision = view.decisionTimings.find(timing =>
+            timing.url.includes('/target'),
+          );
+          check(decision, 'target navigation decision timing is missing');
+          await until(
+            () => decision.settledAt !== undefined,
+            'actual navigation callback settlement',
+          );
+          check(
+            decision.allowed === verdict,
+            `target callback returned ${String(decision.allowed)}: ${decision.error ?? ''}`,
+          );
+          const targetLoadedAt = view.timeline.find(
+            item => item.event === 'load' && item.url?.includes('/target?'),
+          )?.at;
+          const offset = (at?: number) =>
+            at === undefined ? 'none' : String(at - clickedAt);
+          const timingDetail = `callback invoked +${offset(decision.invokedAt)} ms, settled +${offset(decision.settledAt)} ms; native target load observed +${offset(targetLoadedAt)} ms; fixture checked +${offset(requestsObservedAt)} ms`;
+          view.diagnostics.push(timingDetail);
+          check(
+            decision.settledAt! - decision.invokedAt >= pause - 5,
+            `callback settled before its requested ${pause} ms delay: ${timingDetail}`,
+          );
+          if (pause > 250 && Platform.OS === 'android')
+            check(
+              targetLoadedAt !== undefined && targetLoadedAt - clickedAt >= 245,
+              `delayed callback allowed before the nominal 250 ms budget: ${timingDetail}`,
+            );
           check(
             requests.length === (allowed ? 1 : 0),
             `target requests: ${requests.length}, expected ${allowed ? 1 : 0}`,
@@ -570,7 +638,7 @@ export function RegressionVerificationScreen() {
               view.events.filter(event => event === 'load').length === 1,
               'cancelled navigation emitted success',
             );
-          return `${pause} ms callback; ${allowed ? 'one target request' : 'no target request'} on ${Platform.OS}`;
+          return `${pause} ms callback; ${allowed ? 'one target request' : 'no target request'} on ${Platform.OS}; ${timingDetail}`;
         },
       ]);
     }
@@ -644,11 +712,12 @@ export function RegressionVerificationScreen() {
             return true;
           });
           await ready(view);
+          await pageDiagnostic(view, 'before history navigation');
           click(view);
           await ready(view, '/target');
-          await until(
-            () => view.states.at(-1)?.canGoBack === true,
-            'back history',
+          await pageDiagnostic(view, 'before goBack');
+          view.diagnostics.push(
+            `native before goBack: ${JSON.stringify(view.states.at(-1))}`,
           );
           const initial = await records();
           check(
@@ -667,6 +736,7 @@ export function RegressionVerificationScreen() {
               state.canGoForward
             );
           }, 'history goBack');
+          await pageDiagnostic(view, 'after goBack');
           ref(view).goForward();
           await until(() => {
             const state = view.states.at(-1);
@@ -676,12 +746,13 @@ export function RegressionVerificationScreen() {
               state.canGoBack
             );
           }, 'history goForward');
+          await pageDiagnostic(view, 'after goForward');
           const final = await records();
           check(
             final.every(request => request.method === 'GET'),
             'history unexpectedly issued a non-GET request',
           );
-          return `back/forward restored both URLs; fixture recorded ${final.length} GET requests`;
+          return `back/forward restored both URLs and native history flags; fixture recorded ${final.length} GET requests; ${view.diagnostics.join('; ')}`;
         },
       ],
     );
@@ -763,13 +834,23 @@ export function RegressionVerificationScreen() {
             before.length === 1 && before[0]?.method === 'GET',
             'renderer fixture did not load exactly once with GET',
           );
+          const probe: EvaluationProbe = { startedAt: Date.now() };
+          crashed.evaluationProbe = probe;
           const pending = oldRef
             .evaluateJavaScript(
               '(()=>{const end=Date.now()+5000;while(Date.now()<end){};return "too late"})()',
             )
             .then(
-              () => false,
-              () => true,
+              () => {
+                probe.settledAt = Date.now();
+                probe.rejected = false;
+                return false;
+              },
+              () => {
+                probe.settledAt = Date.now();
+                probe.rejected = true;
+                return true;
+              },
             );
           await delay(50);
           crashed.source = { uri: 'chrome://crash' };
@@ -786,9 +867,17 @@ export function RegressionVerificationScreen() {
           );
           // Remove the already destroyed native child through Fabric too.
           await unmount();
+          const rejected = await bounded(
+            pending,
+            'renderer evaluation cancellation',
+          );
           check(
-            await bounded(pending, 'renderer evaluation cancellation'),
-            'pending evaluation fulfilled after renderer exit',
+            probe.pendingAtRendererExit !== undefined,
+            'evaluation status was not captured at the renderer callback',
+          );
+          check(
+            !probe.pendingAtRendererExit || rejected,
+            `evaluation pending at renderer callback later fulfilled: ${JSON.stringify(probe)}`,
           );
           oldRef.reload();
           oldRef.goBack();
@@ -834,7 +923,10 @@ export function RegressionVerificationScreen() {
               fresh.rendererEvents.length === 0,
             'renderer exit duplicated or the fresh renderer failed',
           );
-          return 'actual renderer crash emitted once; pending/stale evaluation rejected, Fabric removal survived, and only explicit fresh GET retry loaded and echoed';
+          const evaluationDetail = probe.pendingAtRendererExit
+            ? 'evaluation pending at renderer callback rejected'
+            : `busy evaluation ${rejected ? 'rejected' : 'fulfilled'} before renderer callback (${probe.settledAt! - probe.startedAt} ms)`;
+          return `actual renderer crash emitted once; ${evaluationDetail}; stale evaluation rejected, Fabric removal survived, and only explicit fresh GET retry loaded and echoed`;
         },
       ]);
     }
@@ -1088,6 +1180,7 @@ export function RegressionVerificationScreen() {
       for (const [name, test] of tests) {
         if (!active()) return;
         caseIndex += 1;
+        caseViews = [];
         setCurrent(name);
         const started = Date.now();
         let result: CaseResult;
@@ -1099,10 +1192,20 @@ export function RegressionVerificationScreen() {
             durationMs: Date.now() - started,
           };
         } catch (error) {
-          const observations = liveViews.current
+          await Promise.all(
+            liveViews.current
+              .filter(
+                view =>
+                  view.ref &&
+                  view.settings.javaScriptEnabled &&
+                  view.rendererEvents.length === 0,
+              )
+              .map(view => pageDiagnostic(view, 'failure page')),
+          );
+          const observations = caseViews
             .map(
               view =>
-                `events=${view.events.join(',')}; errors=${view.errors.map(item => `${item.domain}:${item.code}:${item.description.slice(0, 160)}`).join(',')}; http=${view.httpStatuses.join(',')}; messages=${view.messages.length}; renderer=${view.rendererEvents.map(item => String(item.didCrash)).join(',')}`,
+                `events=${view.events.join(',')}; errors=${view.errors.map(item => `${item.domain}:${item.code}:${item.description.slice(0, 160)}`).join(',')}; http=${view.httpStatuses.join(',')}; messages=${view.messages.length}; renderer=${view.rendererEvents.map(item => String(item.didCrash)).join(',')}; states=${JSON.stringify(view.states.slice(-6))}; timeline=${JSON.stringify(view.timeline.slice(-12))}; decisions=${JSON.stringify(view.decisionTimings)}; evaluation=${JSON.stringify(view.evaluationProbe)}; diagnostics=${view.diagnostics.join('; ')}`,
             )
             .join(' | ');
           result = {
@@ -1185,14 +1288,29 @@ export function RegressionVerificationScreen() {
               hybridRef={callback((nativeRef: NitroWebViewMethods) => {
                 view.ref = nativeRef;
               })}
-              onLoadStart={callback((_event: WebViewLoadEvent) => {
+              onLoadStart={callback((event: WebViewLoadEvent) => {
                 view.events.push('start');
+                view.timeline.push({
+                  at: Date.now(),
+                  event: 'start',
+                  url: event.nativeEvent.url,
+                });
               })}
-              onLoad={callback((_event: WebViewLoadEvent) => {
+              onLoad={callback((event: WebViewLoadEvent) => {
                 view.events.push('load');
+                view.timeline.push({
+                  at: Date.now(),
+                  event: 'load',
+                  url: event.nativeEvent.url,
+                });
               })}
-              onLoadEnd={callback((_event: WebViewLoadEvent) => {
+              onLoadEnd={callback((event: WebViewLoadEvent) => {
                 view.events.push('end');
+                view.timeline.push({
+                  at: Date.now(),
+                  event: 'end',
+                  url: event.nativeEvent.url,
+                });
               })}
               onError={callback((event: NitroWebViewErrorEvent) => {
                 view.errors.push(event.nativeEvent);
@@ -1208,6 +1326,13 @@ export function RegressionVerificationScreen() {
               onRenderProcessGone={callback(
                 (event: NitroWebViewRenderProcessGoneEvent) => {
                   view.rendererEvents.push(event.nativeEvent);
+                  view.timeline.push({
+                    at: Date.now(),
+                    event: 'renderer-gone',
+                  });
+                  if (view.rendererEvents.length === 1 && view.evaluationProbe)
+                    view.evaluationProbe.pendingAtRendererExit =
+                      view.evaluationProbe.settledAt === undefined;
                 },
               )}
               onNavigationStateChange={callback(
@@ -1219,7 +1344,29 @@ export function RegressionVerificationScreen() {
                 view.decide
                   ? callback((request: ShouldStartLoadRequest) => {
                       view.decisions.push(request.url);
-                      return view.decide!(request);
+                      const timing: DecisionTiming = {
+                        url: request.url,
+                        invokedAt: Date.now(),
+                      };
+                      view.decisionTimings.push(timing);
+                      const settled = (allowed: boolean) => {
+                        timing.settledAt = Date.now();
+                        timing.allowed = allowed;
+                        return allowed;
+                      };
+                      const failed = (error: unknown): never => {
+                        timing.settledAt = Date.now();
+                        timing.error = String(error);
+                        throw error;
+                      };
+                      try {
+                        const result = view.decide!(request);
+                        return typeof result === 'boolean'
+                          ? settled(result)
+                          : result.then(settled, failed);
+                      } catch (error) {
+                        return failed(error);
+                      }
                     })
                   : undefined
               }
