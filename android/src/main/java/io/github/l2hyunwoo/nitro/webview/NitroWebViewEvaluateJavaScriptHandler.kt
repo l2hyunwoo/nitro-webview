@@ -20,6 +20,8 @@ interface JavaScriptEvaluator {
  * (Android's `evaluateJavascript` already delivers a JSON-encoded string).
  */
 class NitroWebViewEvaluateJavaScriptHandler {
+  private val pending = mutableMapOf<Any, Pair<(String) -> Unit, (Throwable) -> Unit>>()
+  private var disposedError: Throwable? = null
 
   fun evaluate(
     code: String,
@@ -27,13 +29,24 @@ class NitroWebViewEvaluateJavaScriptHandler {
     resolve: (String) -> Unit,
     reject: (Throwable) -> Unit,
   ) {
+    disposedError?.let { reject(it); return }
+    val token = Any()
+    pending[token] = resolve to reject
     try {
       evaluator.evaluateJavaScriptPayload(code) { rawResult ->
-        resolve(normalize(rawResult))
+        pending.remove(token)?.first?.invoke(normalize(rawResult))
       }
     } catch (t: Throwable) {
-      reject(t)
+      pending.remove(token)?.second?.invoke(t)
     }
+  }
+
+  fun dispose(error: Throwable) {
+    if (disposedError != null) return
+    disposedError = error
+    val callbacks = pending.values.toList()
+    pending.clear()
+    callbacks.forEach { it.second(error) }
   }
 
   companion object {

@@ -46,6 +46,45 @@ private class Outcome {
 class NitroWebViewEvaluateJavaScriptHandlerTest {
 
   @Test
+  fun `dispose rejects pending evaluations once and ignores late results`() {
+    val handler = NitroWebViewEvaluateJavaScriptHandler()
+    val callbacks = mutableListOf<(String?) -> Unit>()
+    val evaluator = object : JavaScriptEvaluator {
+      override fun evaluateJavaScriptPayload(code: String, resultCallback: (String?) -> Unit) {
+        callbacks.add(resultCallback)
+      }
+    }
+    val first = Outcome()
+    val second = Outcome()
+    val error = IllegalStateException("NitroWebViewState: destroyed")
+    handler.evaluate("first()", evaluator, first.resolve, first.reject)
+    handler.evaluate("second()", evaluator, second.resolve, second.reject)
+    handler.dispose(error)
+    handler.dispose(error)
+    callbacks.forEach { it("late success") }
+    for (outcome in listOf(first, second)) {
+      assertEquals(0, outcome.resolveCount)
+      assertEquals(1, outcome.rejectCount)
+      assertSame(error, outcome.rejected)
+    }
+    val stale = Outcome()
+    handler.evaluate("stale()", evaluator, stale.resolve, stale.reject)
+    assertEquals(2, callbacks.size)
+    assertSame(error, stale.rejected)
+    assertEquals(1, stale.rejectCount)
+  }
+
+  @Test
+  fun `completed evaluation is not rejected during disposal`() {
+    val handler = NitroWebViewEvaluateJavaScriptHandler()
+    val outcome = Outcome()
+    handler.evaluate("1", StubJavaScriptEvaluator("1"), outcome.resolve, outcome.reject)
+    handler.dispose(IllegalStateException("destroyed"))
+    assertEquals(1, outcome.resolveCount)
+    assertEquals(0, outcome.rejectCount)
+  }
+
+  @Test
   fun `evaluate_onePlusOne_resolvesToString2`() {
     val handler = NitroWebViewEvaluateJavaScriptHandler()
     val evaluator = StubJavaScriptEvaluator(stubResult = "2")

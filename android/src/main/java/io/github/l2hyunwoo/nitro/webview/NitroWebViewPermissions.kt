@@ -68,11 +68,14 @@ internal class NitroWebViewPermissions(
   fun cancelLocation() { location = null }
 
   fun dispose() {
+    if (disposed) return
     disposed = true
-    media?.deny()
+    val pendingMedia = media
+    val pendingLocation = location
     media = null
-    location?.let { (origin, callback) -> callback.invoke(origin, false, false) }
     location = null
+    pendingMedia?.deny()
+    pendingLocation?.let { (origin, callback) -> callback.invoke(origin, false, false) }
   }
 
   private fun granted(permission: String) =

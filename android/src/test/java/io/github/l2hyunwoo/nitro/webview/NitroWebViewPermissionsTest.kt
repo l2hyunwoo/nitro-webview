@@ -153,4 +153,18 @@ class NitroWebViewPermissionsTest {
     host.finish()
     assertFalse(called)
   }
+
+  @Test fun `dispose settles location once even when callback reenters cleanup`() {
+    var called = 0
+    handler.requestLocation("https://trusted.test") { _, allow, retain ->
+      called++
+      assertFalse(allow)
+      assertFalse(retain)
+      handler.dispose()
+    }
+    handler.dispose()
+    handler.dispose()
+    host.finish()
+    assertEquals(1, called)
+  }
 }

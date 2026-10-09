@@ -84,6 +84,27 @@ You've successfully run and modified your React Native App. :partying_face:
 
 # Troubleshooting
 
+## Android renderer recovery
+
+Use the normal example app and select **Android renderer recovery verification**.
+This screen runs under the React root registered in `index.js`.
+Use Android API 26 or later and a development build for the crash button.
+
+1. Start `node example/e2e-server.mjs` from the repository root.
+2. For a connected Android device, run `adb reverse tcp:8099 tcp:8099`.
+3. Tap **Load GET**. Check `LOAD`, `END`, and `MESSAGE echo:mount:1` in the log.
+4. Tap **Crash renderer**. This development-only button loads `chrome://crash` inside the WebView.
+5. Check that the app survives, the recovery screen appears, and the exit count increases once.
+6. Tap **Check old ref**. The log must contain a `NitroWebViewState` rejection.
+7. Tap **Retry GET**. Check a new mount, `freshRef=true`, load events, and a message echo.
+8. Return to the demo list after the crash, then open the panel again to check cleanup during unmount.
+
+The screen sends only GET requests. Retry requires an explicit user action and creates a fresh WebView with a new React `key`.
+The app clears its active ref on renderer exit. It retains one old ref only for the development check and releases it after recovery.
+Remounting does not restore history or page input. Apps that use POST sources must choose retry data and timing themselves.
+`chrome://crash` can affect several WebViews that share one renderer. Each affected instance must handle its own event.
+Record the build SHA, Android version, System WebView version, and observed log with device results.
+
 If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
 
 # Learn More

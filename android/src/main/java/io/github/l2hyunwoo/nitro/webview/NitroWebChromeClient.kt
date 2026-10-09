@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.Message
 import android.provider.MediaStore
 import android.view.View
@@ -89,14 +91,19 @@ open class NitroWebChromeClient(
   },
   private val webViewProvider: () -> View? = { null },
 ) : WebChromeClient() {
+  private var disposed = false
+  private val mainHandler = Handler(Looper.getMainLooper())
+  private val childWindows = mutableSetOf<WebView>()
   var onLoadProgress: ((Int) -> Unit)? = null
 
   override fun onProgressChanged(view: WebView, newProgress: Int) {
+    if (disposed) return
     onLoadProgress?.invoke(newProgress)
   }
   private val fullscreenVideo = NitroFullscreenVideo()
 
   override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+    if (disposed) { callback.onCustomViewHidden(); return }
     fullscreenVideo.show(hostActivity ?: activityResolver.resolveActivity(), webViewProvider(), view, callback)
   }
 
@@ -168,13 +175,19 @@ open class NitroWebChromeClient(
     isUserGesture: Boolean,
     resultMsg: Message,
   ): Boolean {
+    if (disposed) return false
     val handler = onOpenWindow
     val child = WebView(view.context)
+    childWindows.add(child)
     child.webViewClient = object : WebViewClient() {
       override fun shouldOverrideUrlLoading(
         subView: WebView,
         request: WebResourceRequest,
       ): Boolean {
+        if (!childWindows.remove(subView)) return true
+        // Finish after this callback unwinds, even when the child was never attached.
+        mainHandler.post { subView.webViewClient = WebViewClient(); subView.destroy() }
+        if (disposed) return true
         val url = request.url?.toString()
         if (url != null) {
           if (handler != null) {
@@ -183,10 +196,6 @@ open class NitroWebChromeClient(
             view.loadUrl(url) // default: load in the parent WebView in-place
           }
         }
-        // Release the throwaway child now that it has served its purpose.
-        // Posted (not called synchronously) so destroy() runs after this
-        // callback unwinds — destroying a WebView mid-dispatch is unsafe.
-        subView.post { subView.destroy() }
         return true // the child never loads the URL itself
       }
     }
@@ -197,10 +206,31 @@ open class NitroWebChromeClient(
 
   /** Resolve the effective host Activity for the next chooser invocation. */
   private fun currentHostActivity(): Activity? =
-    hostActivity ?: activityResolver.resolveActivity()
+    if (disposed) null else hostActivity ?: activityResolver.resolveActivity()
 
   private var pendingCallback: ValueCallback<Array<Uri>>? = null
   private var pendingCaptureUri: Uri? = null
+
+  private fun cancelFileChooser() {
+    val callback = pendingCallback
+    pendingCallback = null
+    pendingCaptureUri = null
+    callback?.onReceiveValue(null)
+  }
+
+  internal fun dispose() {
+    if (disposed) return
+    disposed = true
+    onLoadProgress = null
+    onOpenWindow = null
+    hostActivity = null
+    cancelFileChooser()
+    permissions.dispose()
+    fullscreenVideo.hide()
+    val children = childWindows.toList()
+    childWindows.clear()
+    children.forEach { it.webViewClient = WebViewClient(); it.destroy() }
+  }
 
   override fun onShowFileChooser(
     webView: WebView?,
@@ -211,8 +241,11 @@ open class NitroWebChromeClient(
       return false
     }
 
-    // Cancel any previous in-flight chooser, releasing its callback.
-    pendingCallback?.onReceiveValue(null)
+    cancelFileChooser()
+    if (disposed) {
+      filePathCallback.onReceiveValue(null)
+      return false
+    }
     pendingCallback = filePathCallback
     pendingCaptureUri = null
 
@@ -238,13 +271,11 @@ open class NitroWebChromeClient(
     return try {
       val launched = launchChooser(chooser)
       if (!launched) {
-        pendingCallback = null
-        filePathCallback.onReceiveValue(null)
+        cancelFileChooser()
       }
       launched
     } catch (e: Throwable) {
-      pendingCallback = null
-      filePathCallback.onReceiveValue(null)
+      cancelFileChooser()
       false
     }
   }
