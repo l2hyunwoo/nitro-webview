@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: ${{ !inputs.packed }}
 
 env:
-  CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
+  CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
 
 jobs:
   e2e-android:

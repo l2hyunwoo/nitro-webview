@@ -121,7 +121,7 @@ jobs:
       - test
     runs-on: ubuntu-latest
     env:
-      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     outputs:
       version: ${{ steps.bump.outputs.version }}
       commit_sha: ${{ steps.bump.outputs.commit_sha }}
@@ -224,7 +224,7 @@ jobs:
       - verify-release-candidate
     runs-on: ubuntu-latest
     env:
-      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -324,7 +324,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm-publish
     env:
-      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     permissions:
       contents: read
       id-token: write
@@ -413,7 +413,7 @@ jobs:
       - publish-npm
     runs-on: ubuntu-latest
     env:
-      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     permissions:
       contents: write
     steps:
