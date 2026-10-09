@@ -54,12 +54,15 @@ jobs:
       - name: Check tarball and isolated public types
         run: yarn test:package
 
+      - name: Test release candidate verification
+        run: node --test scripts/__tests__/*.test.mjs
+
       - name: Verify build artifacts
         run: |
           set -euo pipefail
           # tsconfig.json compiles src/ -> lib/ as a flat layout, so the entry
           # JS and its declaration file must land directly at lib/index.{js,d.ts}.
-          if ! (test -f lib/index.js && test -f lib/index.d.ts); then
+          if ! { test -f lib/index.js && test -f lib/index.d.ts; }; then
             echo "Expected build artifacts lib/index.js and lib/index.d.ts were not both produced."
             echo "Contents of lib/ (if it exists):"
             ls -la lib/ || echo "lib/ directory is missing."
@@ -117,6 +120,8 @@ jobs:
       - validate
       - test
     runs-on: ubuntu-latest
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
     outputs:
       version: ${{ steps.bump.outputs.version }}
       commit_sha: ${{ steps.bump.outputs.commit_sha }}
@@ -135,6 +140,9 @@ jobs:
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
 
       - name: Configure git identity
         run: |
@@ -181,22 +189,42 @@ jobs:
 
           echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: Push release commit
-        if: inputs.dry_run != 'true'
-        run: |
-          set -euo pipefail
-          BRANCH_REF="${GITHUB_REF#refs/heads/}"
-          echo "Pushing release commit to origin/${BRANCH_REF}"
-          git push origin "HEAD:${BRANCH_REF}"
+      - name: Verify generated bindings at the version commit
+        run: yarn check:codegen
 
-      - name: Skip push (dry run)
-        if: inputs.dry_run == 'true'
-        run: echo "dry_run=true — skipping push of release commit ${{ steps.bump.outputs.commit_sha }}"
+      - name: Check versioned tarball and isolated public types
+        run: yarn test:package
+
+      - name: Pack canonical candidate and bundle its source commit
+        run: node scripts/release-candidate.mjs create "$CANDIDATE_DIR"
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}/
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-release-candidate:
+    name: Verify packed candidate on Android and iOS
+    needs: create-version-commit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e.yml
+    with:
+      ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+      packed: true
+      candidate_artifact: release-candidate
 
   create-version-tag:
     name: Create version tag
-    needs: create-version-commit
+    needs:
+      - create-version-commit
+      - verify-release-candidate
     runs-on: ubuntu-latest
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -205,14 +233,23 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.sha }}
 
-      - name: Fetch release commit (live run)
-        if: inputs.dry_run != 'true'
-        run: |
-          set -euo pipefail
-          echo "Fetching release commit ${{ needs.create-version-commit.outputs.commit_sha }}"
-          git fetch origin "${{ needs.create-version-commit.outputs.commit_sha }}"
-          git checkout "${{ needs.create-version-commit.outputs.commit_sha }}"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download verified release candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}
+
+      - name: Restore exact version commit
+        env:
+          SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Configure git identity
         run: |
@@ -235,8 +272,7 @@ jobs:
           if [ "${DRY_RUN}" = "true" ]; then
             # Create tag locally so the job is fully testable in dry-run mode,
             # but do not push it to origin.
-            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}" || \
-              git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}"
             echo "dry_run=true — created tag ${TAG_NAME} locally; skipping push."
             git tag --list "${TAG_NAME}"
           else
@@ -246,6 +282,11 @@ jobs:
               exit 1
             fi
 
+            case "$GITHUB_REF" in
+              refs/heads/*) BRANCH_REF="${GITHUB_REF#refs/heads/}" ;;
+              *) echo "Release must run from a branch."; exit 1 ;;
+            esac
+            git push origin "HEAD:${BRANCH_REF}"
             git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}"
             echo "Pushing tag ${TAG_NAME} to origin"
             git push origin "refs/tags/${TAG_NAME}"
@@ -279,8 +320,11 @@ jobs:
     needs:
       - create-version-commit
       - create-version-tag
+      - verify-release-candidate
     runs-on: ubuntu-latest
     environment: npm-publish
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
     permissions:
       contents: read
       id-token: write
@@ -289,7 +333,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -298,31 +342,17 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Download verified release candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}
 
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Verify generated native bindings
-        run: yarn check:codegen
-
-      - name: Check tarball and isolated public types
-        run: yarn test:package
-
-      - name: Verify build artifacts
-        run: |
-          set -euo pipefail
-          # tsconfig.json compiles src/ -> lib/ as a flat layout, so the entry
-          # JS and its declaration file must land directly at lib/index.{js,d.ts}.
-          # Match the acceptance criterion command form exactly.
-          if ! (test -f lib/index.js && test -f lib/index.d.ts); then
-            echo "Expected build artifacts lib/index.js and lib/index.d.ts were not both produced."
-            echo "Contents of lib/ (if it exists):"
-            ls -la lib/ || echo "lib/ directory is missing."
-            exit 1
-          fi
-          echo "Build artifacts verified: lib/index.js and lib/index.d.ts both present."
+      - name: Restore version commit and verify publish archive
+        id: candidate
+        env:
+          SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Verify package version matches release input
         env:
@@ -340,19 +370,21 @@ jobs:
         if: inputs.dry_run == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.candidate.outputs.tarball }}
         run: |
           set -euo pipefail
           echo "dry_run=true — running npm publish in dry-run mode (no upload)."
-          npm publish --provenance --access public --dry-run
+          npm publish "$TARBALL" --provenance --access public --dry-run
 
       - name: Publish to npm
         if: inputs.dry_run != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.candidate.outputs.tarball }}
         run: |
           set -euo pipefail
           echo "Publishing nitro-webview@${{ needs.create-version-commit.outputs.version }} to npm."
-          npm publish --provenance --access public
+          npm publish "$TARBALL" --provenance --access public
 
       - name: Confirm npm registry publication
         if: inputs.dry_run != 'true'
@@ -380,6 +412,8 @@ jobs:
       - create-version-tag
       - publish-npm
     runs-on: ubuntu-latest
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}/../nitro-release-candidate
     permissions:
       contents: write
     steps:
@@ -387,7 +421,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download verified release candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}
+
+      - name: Restore exact version commit
+        env:
+          SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Generate release notes
         id: notes

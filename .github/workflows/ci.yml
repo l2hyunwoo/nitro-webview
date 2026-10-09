@@ -97,6 +97,9 @@ jobs:
       - name: Test AppRegistry regression fixture and runner
         run: node --test example/scripts/__tests__/*.test.mjs
 
+      - name: Test release candidate verification
+        run: node --test scripts/__tests__/*.test.mjs
+
   package-smoke:
     name: Packed consumer (${{ matrix.label }})
     needs: validate
