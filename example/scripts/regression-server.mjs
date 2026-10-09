@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 export function createRegressionServer() {
   const requests = [];
   let results = null;
+  let interaction = null;
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const chunks = [];
@@ -18,6 +19,26 @@ export function createRegressionServer() {
     };
     if (url.pathname === '/health') return json({ ok: true });
     if (url.pathname === '/requests') return json(requests);
+    if (url.pathname === '/interaction') {
+      if (req.method === 'POST') {
+        try {
+          const value = JSON.parse(body);
+          if (
+            value !== null &&
+            (typeof value !== 'object' ||
+              typeof value.id !== 'string' ||
+              !value.id ||
+              value.label !== 'Navigate')
+          )
+            throw new Error('Unsupported interaction');
+          interaction = value;
+        } catch {
+          res.writeHead(400);
+          return res.end('Invalid interaction');
+        }
+      }
+      return json(interaction);
+    }
     if (url.pathname === '/results') {
       if (req.method === 'POST') {
         try {
@@ -32,6 +53,7 @@ export function createRegressionServer() {
     if (url.pathname === '/reset') {
       requests.length = 0;
       results = null;
+      interaction = null;
       return json({ ok: true });
     }
     const cookieNames = (req.headers.cookie ?? '')

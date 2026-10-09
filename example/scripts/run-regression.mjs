@@ -23,6 +23,7 @@ const commonCases = [
   'navigation-allow',
   'navigation-block',
   'navigation-delayed-false',
+  'origin-whitelist-block',
   'post-body-once',
   'redirect-once',
   'history-back-forward',
@@ -82,9 +83,30 @@ export function validateRegressionResults(result, platform) {
   return result.cases.length;
 }
 
-async function fetchJSON(path) {
+export function validateRegressionInteraction(value) {
+  if (value === null) return null;
+  if (
+    typeof value !== 'object' ||
+    typeof value.id !== 'string' ||
+    !value.id ||
+    value.label !== 'Navigate'
+  )
+    throw new Error(
+      'Unsupported regression interaction; only Navigate is allowed',
+    );
+  return { id: value.id, label: 'Navigate' };
+}
+
+async function fetchJSON(path, body) {
   const response = await fetch(`${fixtureURL}${path}`, {
     signal: AbortSignal.timeout(5000),
+    ...(body === undefined
+      ? {}
+      : {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
   });
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
   return response.json();
@@ -352,10 +374,27 @@ async function run(platform, device) {
     await agent(['find', 'Run regression', 'click', '--first']);
     const deadline = Date.now() + 240000;
     const printed = new Set();
+    const handledInteractions = new Set();
     let finished = false;
     while (Date.now() < deadline) {
       checkChildren();
-      const result = await fetchJSON('/results');
+      const [result, requestedInteraction] = await Promise.all([
+        fetchJSON('/results'),
+        fetchJSON('/interaction'),
+      ]);
+      const interaction = validateRegressionInteraction(requestedInteraction);
+      if (
+        result?.complete !== true &&
+        interaction &&
+        !handledInteractions.has(interaction.id)
+      ) {
+        handledInteractions.add(interaction.id);
+        // Clear before tapping so polling cannot repeat the same gesture.
+        await fetchJSON('/interaction', null);
+        console.log(`Native tap: ${interaction.label} (${interaction.id})`);
+        await agent(['snapshot', '-i'], 10000);
+        await agent(['find', 'Navigate', 'click', '--first'], 10000);
+      }
       if (result !== null) {
         lastResult = result;
         await json('results.json', result);

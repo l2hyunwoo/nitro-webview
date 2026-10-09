@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   expectedRegressionCases,
   validateRegressionResults,
+  validateRegressionInteraction,
 } from '../run-regression.mjs';
 
 const result = (platform = 'ios') => ({
@@ -19,8 +20,8 @@ const result = (platform = 'ios') => ({
 });
 
 test('accepts completed production result schema', () => {
-  assert.equal(validateRegressionResults(result(), 'ios'), 21);
-  assert.equal(validateRegressionResults(result('android'), 'android'), 18);
+  assert.equal(validateRegressionResults(result(), 'ios'), 22);
+  assert.equal(validateRegressionResults(result('android'), 'android'), 19);
 });
 
 test('incomplete, missing, empty and cross-platform results never pass', () => {
@@ -36,6 +37,22 @@ test('incomplete, missing, empty and cross-platform results never pass', () => {
 });
 
 test('partial coverage and fixture-connection placeholder never pass', () => {
+  for (const platform of ['ios', 'android']) {
+    const complete = result(platform);
+    assert.throws(
+      () =>
+        validateRegressionResults(
+          {
+            ...complete,
+            cases: complete.cases.filter(
+              item => item.name !== 'origin-whitelist-block',
+            ),
+          },
+          platform,
+        ),
+      /missing: origin-whitelist-block/,
+    );
+  }
   const android = result('android');
   assert.throws(
     () =>
@@ -101,4 +118,23 @@ test('invalid CLI arguments fail before touching services or devices', () => {
   });
   assert.equal(child.status, 1);
   assert.match(child.stderr, /Usage:/);
+});
+
+test('native interaction accepts only an identified Navigate tap', () => {
+  assert.equal(validateRegressionInteraction(null), null);
+  assert.deepEqual(
+    validateRegressionInteraction({ id: 'history-1', label: 'Navigate' }),
+    { id: 'history-1', label: 'Navigate' },
+  );
+  for (const value of [
+    undefined,
+    false,
+    [],
+    {},
+    { id: '', label: 'Navigate' },
+    { id: 1, label: 'Navigate' },
+    { id: 'history-1', label: 'Delete' },
+    { id: 'history-1', label: 'Navigate --shutdown' },
+  ])
+    assert.throws(() => validateRegressionInteraction(value));
 });

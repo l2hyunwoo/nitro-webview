@@ -44,3 +44,31 @@ test('fixture records real requests and redacts cookies and credentials', async 
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+test('interaction handshake round trips, acknowledges, and resets without recording page requests', async () => {
+  const server = createRegressionServer().listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const read = async path => (await fetch(`${base}${path}`)).json();
+  const post = async value =>
+    fetch(`${base}/interaction`, {
+      method: 'POST',
+      body: JSON.stringify(value),
+    });
+  try {
+    assert.equal(await read('/interaction'), null);
+    const interaction = { id: 'history-gesture-1', label: 'Navigate' };
+    assert.deepEqual(await (await post(interaction)).json(), interaction);
+    assert.deepEqual(await read('/interaction'), interaction);
+    assert.equal(await (await post(null)).json(), null);
+    assert.equal(await read('/interaction'), null);
+    await post(interaction);
+    assert.equal((await post({ id: 'bad', label: 'Delete' })).status, 400);
+    assert.deepEqual(await read('/interaction'), interaction);
+    await fetch(`${base}/reset`);
+    assert.equal(await read('/interaction'), null);
+    assert.deepEqual(await read('/requests'), []);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});

@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { callback, NitroWebView } from 'nitro-webview';
+import { callback, NitroWebView, wrapWithOriginWhitelist } from 'nitro-webview';
 import type {
   NitroWebViewErrorEvent,
   NitroWebViewMethods,
@@ -254,7 +254,7 @@ export function RegressionVerificationScreen() {
       return view.ref;
     }
 
-    async function ready(view: Observation, path?: string) {
+    async function ready(view: Observation, path?: string, timeoutMs = 10000) {
       await until(
         () =>
           view.messages.some(message => {
@@ -264,17 +264,22 @@ export function RegressionVerificationScreen() {
             );
           }),
         `page ready ${path ?? ''}`,
+        timeoutMs,
       );
-      await until(() => {
-        if (!view.events.includes('end')) return false;
-        if (path === undefined) return true;
-        const state = view.states.at(-1);
-        return (
-          state !== undefined &&
-          new URL(state.url).pathname === path &&
-          !state.loading
-        );
-      }, 'onLoadEnd');
+      await until(
+        () => {
+          if (!view.events.includes('end')) return false;
+          if (path === undefined) return true;
+          const state = view.states.at(-1);
+          return (
+            state !== undefined &&
+            new URL(state.url).pathname === path &&
+            !state.loading
+          );
+        },
+        'onLoadEnd',
+        timeoutMs,
+      );
     }
 
     async function records() {
@@ -645,6 +650,65 @@ export function RegressionVerificationScreen() {
 
     tests.push(
       [
+        'origin-whitelist-block',
+        async () => {
+          const guardCalls: string[] = [];
+          const innerCalls: string[] = [];
+          const guard = wrapWithOriginWhitelist(
+            request => {
+              innerCalls.push(request.url);
+              return true;
+            },
+            [origin],
+          );
+          const view = await mount('/origin-whitelist', {}, request => {
+            guardCalls.push(request.url);
+            return guard(request);
+          });
+          await ready(view);
+          const blockedURL = `http://localhost:8098/target${query()}`;
+          ref(view).injectJavaScript(
+            `document.getElementById('nav').href=${JSON.stringify(blockedURL)};document.getElementById('nav').click();true;`,
+          );
+          await until(
+            () => guardCalls.includes(blockedURL),
+            'native origin-whitelist guard callback',
+          );
+          const decision = view.decisionTimings.find(
+            item => item.url === blockedURL,
+          );
+          check(decision, 'origin-whitelist decision timing is missing');
+          await until(
+            () => decision.settledAt !== undefined,
+            'origin-whitelist false settlement',
+          );
+          // Observe effects after both the nominal Android budget and a late
+          // 500 ms decision would have completed.
+          await delay(650);
+          view.diagnostics.push(
+            `whitelist guard calls=${JSON.stringify(guardCalls)}; inner calls=${JSON.stringify(innerCalls)}`,
+          );
+          check(
+            guardCalls.filter(value => value === blockedURL).length === 1 &&
+              decision.allowed === false,
+            'native request did not invoke the guard exactly once and resolve false',
+          );
+          check(
+            !innerCalls.includes(blockedURL),
+            'origin-whitelist invoked its inner handler for the denied origin',
+          );
+          check(
+            !(await records()).some(request => request.path === '/target'),
+            'origin-whitelist denial still sent a target request',
+          );
+          check(
+            view.events.filter(event => event === 'load').length === 1,
+            'origin-whitelist denial emitted another successful load',
+          );
+          return `localhost denied through the native navigation callback; denied guard calls=1, denied inner calls=0; zero target requests or extra success after 650 ms; total guard calls=${guardCalls.length}, total inner calls=${innerCalls.length}`;
+        },
+      ],
+      [
         'post-body-once',
         async () => {
           const body = `name=Nitro+WebView&message=한글&line=one\ntwo&run=${runID}`;
@@ -713,8 +777,15 @@ export function RegressionVerificationScreen() {
           });
           await ready(view);
           await pageDiagnostic(view, 'before history navigation');
-          click(view);
-          await ready(view, '/target');
+          await fixture('/interaction', {
+            id: `${runID}-${caseIndex}-history`,
+            label: 'Navigate',
+          });
+          try {
+            await ready(view, '/target', 20000);
+          } finally {
+            await fixture('/interaction', null);
+          }
           await pageDiagnostic(view, 'before goBack');
           view.diagnostics.push(
             `native before goBack: ${JSON.stringify(view.states.at(-1))}`,

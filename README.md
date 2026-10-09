@@ -516,10 +516,12 @@ directory, leaving that process running. It refuses an unrelated Metro process.
 Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
 runner's own processes and session, leaving the device booted.
 
-The runner polls for up to 240 seconds. Success requires all 18 named Android cases
-or all 21 named iOS cases, with `complete: true` and every `ok: true`. Missing,
+The runner polls for up to 240 seconds. Success requires all 19 named Android cases
+or all 22 named iOS cases, with `complete: true` and every `ok: true`. Missing,
 incomplete, duplicate, or failed cases make the command fail. Android includes an
 actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
+The history case uses a real native tap because
+[Chromium can skip history entries created without user activation](https://chromium.googlesource.com/chromium/src/+/refs/heads/lkgr/docs/history_manipulation_intervention.md).
 
 Evidence is saved in `example/artifacts/`: `<platform>-regression-results.json`,
 `<platform>-regression-requests.json`, and UI, fixture, and Metro logs. Failures also
