@@ -18,7 +18,7 @@ import { UserAgentDemo } from './UserAgentDemo'
 
 /**
  * Stable identifier for a demo panel. Doubles as the
- * `active_panel_id` value held in App.tsx router state.
+ * `activePanelId` value held in App.tsx router state.
  */
 export type PanelId =
   | 'settings-methods'
@@ -170,7 +170,7 @@ export const PANELS: readonly PanelEntry[] = [
 
 /**
  * Lookup helper used by the router in `App.tsx` to resolve an
- * `active_panel_id` into the entry to mount. Returns `undefined`
+ * `activePanelId` into the entry to mount. Returns `undefined`
  * when the id is not present (treated by the router as "go home").
  */
 export function findPanelById(
