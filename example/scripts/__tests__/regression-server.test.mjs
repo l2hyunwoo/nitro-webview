@@ -3,6 +3,34 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createRegressionServer } from '../regression-server.mjs';
 
+test('request timing excludes the delayed target response on one server clock', async () => {
+  const server = createRegressionServer().listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    await fetch(`${base}/navigation-start-marker?case=early-allow`);
+    const target = fetch(`${base}/target?case=early-allow`);
+    let requests;
+    const deadline = performance.now() + 5000;
+    while (true) {
+      assert.ok(performance.now() < deadline, 'target request timed out');
+      requests = await (await fetch(`${base}/requests`)).json();
+      if (requests.length === 2) break;
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert.ok(requests.every(request => Number.isFinite(request.receivedAt)));
+    const requestDelay = requests[1].receivedAt - requests[0].receivedAt;
+    assert.ok(
+      requestDelay < 245,
+      'an immediate request must fail the budget check',
+    );
+    await (await target).text();
+    assert.ok(performance.now() - requests[1].receivedAt >= 290);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('fixture records real requests and redacts cookies and credentials', async () => {
   const server = createRegressionServer().listen(0, '127.0.0.1');
   await once(server, 'listening');

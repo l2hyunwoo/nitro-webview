@@ -6,6 +6,7 @@ export function createRegressionServer() {
   let results = null;
   let interaction = null;
   const server = http.createServer(async (req, res) => {
+    const receivedAt = performance.now();
     const url = new URL(req.url, 'http://localhost');
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -66,6 +67,7 @@ export function createRegressionServer() {
     ).length;
     // Store only fixture markers and cookie names, never credential values.
     requests.push({
+      receivedAt,
       path: url.pathname,
       query: url.search,
       method: req.method,
@@ -89,6 +91,9 @@ export function createRegressionServer() {
       return res.end();
     }
     if (url.pathname.endsWith('-marker')) return json({ ok: true });
+    // A slow response must not count toward the navigation decision budget.
+    if (url.pathname === '/target')
+      await new Promise(resolve => setTimeout(resolve, 300));
     if (url.pathname === '/404') {
       res.writeHead(404, {
         'content-type': 'text/html',

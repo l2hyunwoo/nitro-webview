@@ -33,6 +33,7 @@ type CaseResult = {
   durationMs: number;
 };
 type RequestRecord = {
+  receivedAt: number;
   path: string;
   query: string;
   method: string;
@@ -310,9 +311,20 @@ export function RegressionVerificationScreen() {
       }
     }
 
-    function click(view: Observation) {
+    function click(view: Observation, markNavigation = false) {
       ref(view).injectJavaScript(
-        "document.getElementById('nav').click();true;",
+        `${
+          markNavigation
+            ? `
+          (() => {
+            const marker = new XMLHttpRequest();
+            marker.open('GET', '/navigation-start-marker' + location.search, false);
+            marker.send();
+            if (marker.status !== 200) throw new Error('Navigation marker failed');
+          })();`
+            : ''
+        }
+        document.getElementById('nav').click();true;`,
       );
     }
 
@@ -594,7 +606,8 @@ export function RegressionVerificationScreen() {
           });
           await ready(view);
           const clickedAt = Date.now();
-          click(view);
+          const measureBudget = pause > 250 && Platform.OS === 'android';
+          click(view, measureBudget);
           await until(
             () => view.decisions.some(target => target.includes('/target')),
             'navigation callback',
@@ -602,7 +615,8 @@ export function RegressionVerificationScreen() {
           const allowed = verdict || (pause > 250 && Platform.OS === 'android');
           if (allowed) await ready(view, '/target');
           else await delay(pause + 250);
-          const requests = (await records()).filter(
+          const recorded = await records();
+          const requests = recorded.filter(
             request => request.path === '/target',
           );
           const requestsObservedAt = Date.now();
@@ -629,11 +643,20 @@ export function RegressionVerificationScreen() {
             decision.settledAt! - decision.invokedAt >= pause - 5,
             `callback settled before its requested ${pause} ms delay: ${timingDetail}`,
           );
-          if (pause > 250 && Platform.OS === 'android')
-            check(
-              targetLoadedAt !== undefined && targetLoadedAt - clickedAt >= 245,
-              `delayed callback allowed before the nominal 250 ms budget: ${timingDetail}`,
+          if (measureBudget) {
+            const marker = recorded.find(
+              request => request.path === '/navigation-start-marker',
             );
+            check(marker, 'navigation start marker is missing');
+            const requestDelay = requests[0]?.receivedAt - marker.receivedAt;
+            view.diagnostics.push(
+              `fixture request after marker: ${requestDelay} ms`,
+            );
+            check(
+              Number.isFinite(requestDelay) && requestDelay >= 245,
+              `target request arrived ${requestDelay} ms after marker, before the nominal 250 ms budget`,
+            );
+          }
           check(
             requests.length === (allowed ? 1 : 0),
             `target requests: ${requests.length}, expected ${allowed ? 1 : 0}`,
