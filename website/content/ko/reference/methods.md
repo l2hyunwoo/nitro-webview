@@ -7,7 +7,7 @@
 | `goBack()` | `void` | 히스토리 뒤로 이동. |
 | `goForward()` | `void` | 히스토리 앞으로 이동. |
 | `reload()` | `void` | 현재 페이지 새로고침. |
-| `stopLoading()` | `void` | 로드 중단. iOS는 대기 중인 탐색 결정도 취소. |
+| `stopLoading()` | `void` | 로드 중단. iOS는 대기 중인 탐색 결정과 공유 쿠키 가져오기를 기다리는 source도 취소. |
 | `evaluateJavaScript(code: string)` | `Promise<string>` | JSON 텍스트. 한 번 파싱. iOS 실행·직렬화 오류는 reject. Android 페이지 예외는 null과 구별 불가. |
 | `injectJavaScript(code: string)` | `void` | 부수 효과 실행. 결과·완료 신호 없음. |
 | `postMessage(data: string)` | `void` | 페이지 메시지 1회 전달. iOS window, Android document. |

@@ -7,7 +7,7 @@ Call these methods on the `NitroWebViewType` received through `hybridRef={callba
 | `goBack()` | `void` | Go back in history. |
 | `goForward()` | `void` | Go forward in history. |
 | `reload()` | `void` | Reload the current page. |
-| `stopLoading()` | `void` | Stop loading; iOS also cancels pending navigation decisions. |
+| `stopLoading()` | `void` | Stop loading; iOS also cancels pending navigation decisions and a source waiting for shared-cookie import. |
 | `evaluateJavaScript(code: string)` | `Promise<string>` | JSON text. Parse once. iOS rejects evaluation/serialization errors; Android page exceptions can look like null. |
 | `injectJavaScript(code: string)` | `void` | Side effect only. No result or completion signal. |
 | `postMessage(data: string)` | `void` | Dispatch a page message once. iOS window; Android document. |
