@@ -258,10 +258,10 @@ function prepareVideo() {
 function fullscreen() {
   var video=document.getElementById('video');
   try {
-    if(document.fullscreenEnabled && typeof video.requestFullscreen === 'function') {
-      video.requestFullscreen().catch(function(e){post('fullscreen:error:'+e.name)});
-    } else if(typeof video.webkitEnterFullscreen === 'function') {
+    if(typeof video.webkitEnterFullscreen === 'function') {
       video.webkitEnterFullscreen();
+    } else if(document.fullscreenEnabled && typeof video.requestFullscreen === 'function') {
+      video.requestFullscreen().catch(function(e){post('fullscreen:error:'+e.name)});
     } else { post('fullscreen:error:unsupported'); }
   } catch(e) { post('fullscreen:error:'+e.name); }
 }

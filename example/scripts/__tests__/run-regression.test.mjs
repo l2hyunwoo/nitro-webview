@@ -1022,7 +1022,7 @@ test('iOS fullscreen reveals hidden media controls and taps the observed Close b
     bundleID: 'com.example',
     agent: async args => {
       calls.push(args);
-      if (args[0] === 'find' && args[1] === 'Media') visible = true;
+      if (args[0] === 'click' && args[1] === '@e3') visible = true;
       if (args[0] === 'click' && args[1] === '@e7') closed = true;
       if (args[0] !== 'snapshot') return '';
       if (closed) return '@e1 [button] "Run regression"';
@@ -1035,7 +1035,8 @@ test('iOS fullscreen reveals hidden media controls and taps the observed Close b
     { id: 'exit', action: 'fullscreen-exit' },
     context,
   );
-  assert.ok(calls.some(call => call[0] === 'find' && call[1] === 'Media'));
+  assert.ok(calls.some(call => call[0] === 'click' && call[1] === '@e3'));
+  assert.equal(calls.some(call => call[0] === 'find'), false);
   assert.ok(calls.some(call => call[0] === 'click' && call[1] === '@e7'));
 });
 
