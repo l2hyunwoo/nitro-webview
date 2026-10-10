@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'feature/**']
     types: [opened, synchronize, reopened, labeled]
 
 permissions:
@@ -118,11 +118,9 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 240
           script: |
-            set -euo pipefail
-            adb wait-for-device
-            SERIAL=$(adb get-serialno)
-            adb -s "$SERIAL" install -r example/android/app/build/outputs/apk/debug/app-debug.apk
-            node example/scripts/run-regression.mjs android "$SERIAL"
+            adb -s "$ANDROID_SERIAL" wait-for-device
+            adb -s "$ANDROID_SERIAL" install -r example/android/app/build/outputs/apk/debug/app-debug.apk
+            node example/scripts/run-regression.mjs android "$ANDROID_SERIAL"
 
       - name: Upload Android regression evidence
         if: always()
