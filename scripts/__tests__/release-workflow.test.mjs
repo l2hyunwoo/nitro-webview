@@ -98,3 +98,15 @@ test('release uses the same bounded native checks as CI', () => {
     assert.deepEqual(check(release.jobs), check(ci.jobs))
   }
 })
+
+test('CocoaPods uses the release v tag and advertises only implemented platforms', () => {
+  const podspec = readFileSync(
+    new URL('../../NitroWebview.podspec', import.meta.url),
+    'utf8'
+  )
+  assert.match(podspec, /:tag\s*=>\s*"v#\{s\.version\}"/)
+  assert.match(
+    podspec,
+    /s\.platforms\s*=\s*\{\s*:ios\s*=>\s*min_ios_version_supported\s*\}/
+  )
+})
