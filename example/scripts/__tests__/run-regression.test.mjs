@@ -137,6 +137,31 @@ test('Android retains native label lookup when WebView links are omitted', async
   ]);
 });
 
+test('control snapshots allow iOS diagnostics to finish and retain Android deadlines', async () => {
+  for (const platform of ['ios', 'android']) {
+    for (const tap of [
+      agent => tapRegressionControl(agent, 'Navigate', platform),
+      agent =>
+        performNativeInteraction(
+          { id: 'history', label: 'Navigate' },
+          { platform, agent },
+        ),
+    ]) {
+      let observedTimeout;
+      const failure = new Error('main thread execution timed out');
+      await assert.rejects(
+        tap(async (args, timeoutMs) => {
+          assert.deepEqual(args, ['snapshot', '-i']);
+          observedTimeout = timeoutMs;
+          throw failure;
+        }),
+        error => error === failure,
+      );
+      assert.equal(observedTimeout, platform === 'ios' ? 120000 : 30000);
+    }
+  }
+});
+
 const result = (platform = 'ios') => ({
   complete: true,
   platform,

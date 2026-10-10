@@ -121,9 +121,13 @@ export function runLoggedCommand(
   });
 }
 
+// Keep the CLI's 90-second iOS request deadline ahead of process termination.
+const captureSnapshot = (agent, platform) =>
+  agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 30000);
+
 export async function tapRegressionControl(agent, label, platform = 'ios') {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const snapshot = await agent(['snapshot', '-i'], 30000);
+    const snapshot = await captureSnapshot(agent, platform);
     if (snapshot.includes('Open debugger to view warnings.')) {
       await agent(['react-native', 'dismiss-overlay'], 30000);
       continue;
@@ -232,7 +236,7 @@ export async function performNativeInteraction(value, context) {
     const deadline = Date.now() + 15000;
     let snapshotHelperReset = false;
     while (true) {
-      const snapshot = await agent(['snapshot', '-i'], 30000);
+      const snapshot = await captureSnapshot(agent, platform);
       if (snapshot.includes('Open debugger to view warnings.')) {
         await agent(['react-native', 'dismiss-overlay'], 30000);
         if (Date.now() >= deadline)
@@ -295,7 +299,7 @@ export async function performNativeInteraction(value, context) {
   const appVisible = async () => {
     const deadline = Date.now() + 15000;
     while (true) {
-      const snapshot = await agent(['snapshot', '-i'], 30000);
+      const snapshot = await captureSnapshot(agent, platform);
       if (
         /^\s*@e\d+ \[button\] "Run regression"/im.test(snapshot) &&
         (platform !== 'android' || (await foreground()) === bundleID)
@@ -315,7 +319,7 @@ export async function performNativeInteraction(value, context) {
   if (action === 'fullscreen-exit') {
     if (platform === 'android') {
       await adb(['shell', 'input', 'keyevent', '4']);
-      const controls = await agent(['snapshot', '-i'], 30000);
+      const controls = await captureSnapshot(agent, platform);
       const coachmark = controls.match(/^\s*(@e\d+) \[button\] "Got it"/m);
       // A fresh emulator's immersive-mode hint can consume the first Back.
       if (coachmark && /\[button\] "exit full screen"/.test(controls)) {
@@ -323,13 +327,13 @@ export async function performNativeInteraction(value, context) {
         await adb(['shell', 'input', 'keyevent', '4']);
       }
     } else {
-      let controls = await agent(['snapshot', '-i'], 30000);
+      let controls = await captureSnapshot(agent, platform);
       if (
         !/\[button\] "(?:Done|Close)"/.test(controls) &&
         controls.includes('"Media"')
       ) {
         await tap('Media');
-        controls = await agent(['snapshot', '-i'], 30000);
+        controls = await captureSnapshot(agent, platform);
       }
       await tap(controls.includes('[button] "Close"') ? 'Close' : 'Done');
     }
@@ -340,14 +344,14 @@ export async function performNativeInteraction(value, context) {
       throw new Error('Camera chooser automation requires Android');
     await adb(['shell', 'pm', 'grant', bundleID, 'android.permission.CAMERA']);
     await tap('Capture fixture');
-    const picker = await agent(['snapshot', '-i'], 30000);
+    const picker = await captureSnapshot(agent, platform);
     if (!/Camera|Capture image/.test(picker))
       throw new Error('Capture input did not offer a camera activity');
     await tap(picker.includes('Capture image') ? 'Capture image' : 'Camera');
     const cameraDeadline = Date.now() + 15000;
     while (
       !/\] "(?:Shutter[^"]*|Take photo[^"]*|Capture|Switch camera[^"]*)"/i.test(
-        await agent(['snapshot', '-i'], 30000),
+        await captureSnapshot(agent, platform),
       )
     ) {
       if (Date.now() >= cameraDeadline)
@@ -376,7 +380,7 @@ export async function performNativeInteraction(value, context) {
     const pickerDeadline = Date.now() + 15000;
     let picker;
     while (true) {
-      picker = await agent(['snapshot', '-i'], 30000);
+      picker = await captureSnapshot(agent, platform);
       if (
         /Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(
           picker,
@@ -448,7 +452,7 @@ export async function performNativeInteraction(value, context) {
         throw error;
     }
     const permissionPackage = await foreground();
-    const permission = await agent(['snapshot', '-i'], 30000);
+    const permission = await captureSnapshot(agent, platform);
     const allow = permission.match(
       /^\s*(@e\d+) \[button\] "While using the app"/im,
     );
@@ -746,8 +750,12 @@ async function run(platform, device) {
     } else {
       await agent(['prepare', 'ios-runner', '--timeout', '240000'], 270000);
     }
-    await agent(['open', bundleID, '--relaunch']);
-    await agent(['snapshot', '-i']);
+    // Relaunch stops the iOS runner that prepare just warmed.
+    await agent(
+      platform === 'ios' ? ['open', bundleID] : ['open', bundleID, '--relaunch'],
+      platform === 'ios' ? 120000 : 90000,
+    );
+    await agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 90000);
     await agent(['wait', 'text', 'Regression verification', '60000']);
     await agent(['find', 'Regression verification', 'click', '--first']);
     await tapRegressionControl(agent, 'Run regression', platform);
