@@ -9,8 +9,6 @@ const copy = computed(() =>
   korean.value
     ? {
         badge: '개발 문서',
-        title: '웹 콘텐츠에,',
-        accent: '네이티브의 제어를.',
         description:
           'Nitro Modules로 만든 React Native WebView. 익숙한 웹 콘텐츠를 타입이 있는 콜백과 네이티브 API로 연결하세요.',
         start: '시작하기',
@@ -54,8 +52,6 @@ const copy = computed(() =>
       }
     : {
         badge: 'Development docs',
-        title: 'Web content.',
-        accent: 'Native control.',
         description:
           'A React Native WebView built on Nitro Modules. Connect your web content with typed callbacks and native APIs.',
         start: 'Get started',
@@ -109,9 +105,7 @@ const copy = computed(() =>
           }}<span aria-hidden="true">↗</span></a
         >
         <p class="eyebrow">NITRO WEBVIEW / REACT NATIVE</p>
-        <h1 id="home-title">
-          {{ copy.title }}<br /><span>{{ copy.accent }}</span>
-        </h1>
+        <h1 id="home-title">Nitro +<br /><span>WebView = 🚀</span></h1>
         <p class="hero-description">{{ copy.description }}</p>
         <div class="hero-actions">
           <a class="primary-action" :href="route('start/installation')"
