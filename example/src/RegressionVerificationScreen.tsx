@@ -207,7 +207,7 @@ export function RegressionVerificationScreen({
     async function until(
       predicate: () => boolean,
       label: string,
-      timeoutMs = 10000,
+      timeoutMs = autoRun ? 60000 : 10000,
     ) {
       const deadline = Date.now() + timeoutMs;
       while (!predicate()) {
@@ -289,7 +289,7 @@ export function RegressionVerificationScreen({
     async function ready(
       view: Observation,
       path?: string,
-      timeoutMs = Platform.OS === 'ios' ? 30000 : 10000,
+      timeoutMs = autoRun ? 60000 : Platform.OS === 'ios' ? 30000 : 10000,
     ) {
       await until(
         () =>
@@ -1611,6 +1611,7 @@ export function RegressionVerificationScreen({
               geolocationPermissionOrigins: [origin],
             });
             await ready(view);
+            ref(view).injectJavaScript('requestLocation();true;');
             await interact('permission-deny');
             await until(
               () => view.messages.includes('location:denied:1'),
@@ -1626,6 +1627,7 @@ export function RegressionVerificationScreen({
               geolocationPermissionOrigins: [origin],
             });
             await ready(view);
+            ref(view).injectJavaScript('requestLocation();true;');
             await interact('permission-allow');
             await until(
               () =>

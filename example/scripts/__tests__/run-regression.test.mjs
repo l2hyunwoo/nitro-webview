@@ -396,9 +396,9 @@ test('native interaction accepts only identified fixed fixture actions', () => {
 const documentsSnapshot =
   'Page: com.example\n@e1 [text] "Recent"\n@e2 [text] "Show roots"\n@e3 [text] "Downloads"\n@e4 [text] "nitro-regression.txt"';
 
-function nativeContext(snapshot = documentsSnapshot) {
+function nativeContext(snapshot = documentsSnapshot, initialSurface = 'app') {
   const calls = [];
-  let surface = 'app';
+  let surface = initialSurface;
   let cameraSnapshots = 0;
   const app =
     'Page: com.example\n@e1 [button] "RUN REGRESSION" [disabled]\n@e4 [text] "Upload fixture"\n@e5 [button] "Upload fixture: No file chosen"\n@e6 [text] "Capture fixture"\n@e7 [button] "Capture fixture: No file chosen"\n@e8 [button] "Location"\n@e9 [button] "Done"';
@@ -540,7 +540,7 @@ test('Android setup grants both media permissions and keeps location OS consent 
   const context = nativeContext();
   await prepareAndroidRuntimePermissions(context);
   assert.deepEqual(
-    context.calls,
+    context.calls.slice(0, 4),
     [
       ['grant', 'CAMERA'],
       ['grant', 'RECORD_AUDIO'],
@@ -557,6 +557,15 @@ test('Android setup grants both media permissions and keeps location OS consent 
       `android.permission.${permission}`,
     ]),
   );
+});
+
+test('initial location consent flags are reset before the app starts requesting location', async () => {
+  const context = nativeContext();
+  await prepareAndroidRuntimePermissions(context);
+  assert.deepEqual(context.calls.slice(4).map(call => call.slice(5)), [
+    ['clear-permission-flags', 'com.example', 'android.permission.ACCESS_COARSE_LOCATION', 'user-set', 'user-fixed'],
+    ['clear-permission-flags', 'com.example', 'android.permission.ACCESS_FINE_LOCATION', 'user-set', 'user-fixed'],
+  ]);
 });
 
 test('Android setup fails immediately when audio grant or location revoke fails', async () => {
@@ -648,7 +657,7 @@ test('media fixture reports live camera and audio tracks and stops them even if 
 
 test('location interactions wait for the permission window to close before allowing the next case', async () => {
   for (const action of ['permission-deny', 'permission-allow']) {
-    const context = nativeContext();
+    const context = nativeContext(undefined, 'permission');
     const agent = context.agent;
     const command = context.command;
     let selected = false;
@@ -674,91 +683,25 @@ test('location interactions wait for the permission window to close before allow
   }
 });
 
-test('only the expected permission transition is accepted after a fresh real permission dialog snapshot', async () => {
-  const transition = new Error('agent failed');
-  transition.output =
-    'Error (COMMAND_FAILED): press @e8 left com.example and foregrounded com.google.android.permissioncontroller. The tap likely escaped the app.';
-  const context = nativeContext();
+test('permission automation waits for a delayed OS window without tapping the WebView', async () => {
+  const context = nativeContext(undefined, 'permission');
   const agent = context.agent;
+  const command = context.command;
+  let snapshots = 0;
   context.agent = async args => {
     const result = await agent(args);
-    if (args[0] === 'click' && args[1] === '@e8') throw transition;
-    return result;
+    return args[0] === 'snapshot' && ++snapshots === 1
+      ? 'Page: com.example\n@e1 [button] "RUN REGRESSION"' : result;
   };
-  await performNativeInteraction(
-    { id: 'deny', action: 'permission-deny' },
-    context,
-  );
-  assert.ok(
-    context.calls.some(call => call[1] === 'click' && call[2] === '@e9'),
-  );
-
-  for (const message of [
-    'ADB disconnected',
-    transition.output.replace(
-      'com.google.android.permissioncontroller',
-      'com.android.settings',
-    ),
-  ]) {
-    const broken = nativeContext();
-    const next = broken.agent;
-    const failure = Object.assign(new Error('other failure'), {
-      output: message,
-    });
-    broken.agent = async args => {
-      const result = await next(args);
-      if (args[0] === 'click' && args[1] === '@e8') throw failure;
-      return result;
-    };
-    await assert.rejects(
-      performNativeInteraction(
-        { id: 'deny', action: 'permission-deny' },
-        broken,
-      ),
-      error => error === failure,
-    );
-    assert.equal(
-      broken.calls.some(call => call[2] === '@e9'),
-      false,
-    );
-  }
-  const absent = nativeContext();
-  const next = absent.agent;
-  absent.agent = async args => {
-    const result = await next(args);
-    if (args[0] === 'click' && args[1] === '@e8') throw transition;
-    return result.includes('Allow example to access this device’s location?')
-      ? 'Page: com.example\n@e1 [button] "RUN REGRESSION"'
-      : result;
+  context.command = async (executable, args) => {
+    const result = await command(executable, args);
+    return args.includes('dumpsys') && snapshots === 0
+      ? 'topResumedActivity=ActivityRecord{current u0 com.example/.MainActivity t7}' : result;
   };
-  await assert.rejects(
-    performNativeInteraction({ id: 'deny', action: 'permission-deny' }, absent),
-    /permission dialog was not observed/,
-  );
-  assert.equal(
-    absent.calls.some(call => call[2] === '@e9'),
-    false,
-  );
-  for (const state of [{ timedOut: true }, { signal: 'SIGTERM' }]) {
-    const interrupted = nativeContext();
-    const agent = interrupted.agent;
-    const failure = Object.assign(new Error('command interrupted'), {
-      output: transition.output,
-      ...state,
-    });
-    interrupted.agent = async args => {
-      const result = await agent(args);
-      if (args[0] === 'click' && args[1] === '@e8') throw failure;
-      return result;
-    };
-    await assert.rejects(
-      performNativeInteraction(
-        { id: 'deny', action: 'permission-deny' },
-        interrupted,
-      ),
-      error => error === failure,
-    );
-  }
+  await performNativeInteraction({ id: 'deny', action: 'permission-deny' }, context);
+  assert(snapshots >= 2);
+  assert.deepEqual(context.calls.filter(call => call[1] === 'click').map(call => call[2]), ['@e9']);
+  assert(context.calls.some(call => call.includes('clear-permission-flags')));
 });
 
 test('permission identity uses resumed activity, accepts actual curved/ASCII labels, and clicks their observed ref', async () => {
@@ -768,20 +711,10 @@ test('permission identity uses resumed activity, accepts actual curved/ASCII lab
     ['com.android.permissioncontroller', true, false],
     ['com.android.permissioncontroller', true, true],
   ]) {
-    const context = nativeContext();
+    const context = nativeContext(undefined, 'permission');
     const agent = context.agent;
     context.agent = async args => {
       const result = await agent(args);
-      if (
-        controller === 'com.android.permissioncontroller' &&
-        args[0] === 'click' &&
-        args[1] === '@e8'
-      ) {
-        throw Object.assign(new Error('agent failed'), {
-          output:
-            'press @e8 left com.example and foregrounded com.android.permissioncontroller. The tap likely escaped the app.',
-        });
-      }
       const labels = ascii
         ? result.replace('Don’t allow', "Don't allow")
         : result;
@@ -817,7 +750,7 @@ test('permission identity uses resumed activity, accepts actual curved/ASCII lab
     'topResumedActivity=ActivityRecord{current u0 com.example/.MainActivity t7}\nResumedActivity: ActivityRecord{old u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t6}',
     'topResumedActivity=ActivityRecord{current u0 com.android.settings/.Settings t7}',
   ]) {
-    const context = nativeContext();
+    const context = nativeContext(undefined, 'permission');
     const command = context.command;
     context.command = async (executable, args) => {
       await command(executable, args);
@@ -1090,14 +1023,14 @@ test('capture cancellation ignores app fixture and chooser labels until a camera
 });
 
 test('runtime location flows tap explicit OS consent and inject only emulator GPS', async () => {
-  const allow = nativeContext();
+  const allow = nativeContext(undefined, 'permission');
   await performNativeInteraction(
     { id: 'allow', action: 'permission-allow' },
     allow,
   );
   assert.deepEqual(
     allow.calls.filter(call => call[1] === 'click').map(call => call[2]),
-    ['@e8', '@e7'],
+    ['@e7'],
   );
   assert.deepEqual(allow.calls.at(-1), [
     'adb',
@@ -1109,7 +1042,7 @@ test('runtime location flows tap explicit OS consent and inject only emulator GP
     '127.0',
     '37.5',
   ]);
-  const deny = nativeContext();
+  const deny = nativeContext(undefined, 'permission');
   deny.device = 'physical-device';
   await performNativeInteraction(
     { id: 'deny', action: 'permission-deny' },
@@ -1117,7 +1050,7 @@ test('runtime location flows tap explicit OS consent and inject only emulator GP
   );
   assert.deepEqual(
     deny.calls.filter(call => call[1] === 'click').map(call => call[2]),
-    ['@e8', '@e9'],
+    ['@e9'],
   );
   assert.equal(
     deny.calls.some(call => call.includes('emu')),

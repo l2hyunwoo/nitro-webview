@@ -225,7 +225,7 @@ export function createRegressionServer() {
         '/window-fixture': `<a href="/popup-blank${url.search}" target="_blank">Open blank</a><button onclick="window.open('/popup-script${url.search}','_blank')">Open script</button>`,
         '/upload-fixture': `<label>Upload fixture<input id="upload" type="file" accept="text/plain"></label><label>Capture fixture<input id="capture" type="file" accept="image/*" capture="environment"></label>`,
         '/fullscreen-fixture': `<video id="video" playsinline loop preload="auto" src="/fixture.mp4${url.search}"></video><button onclick="prepareVideo()">Prepare video</button><button onclick="fullscreen()">Fullscreen</button>`,
-        '/permission-fixture': `<button onclick="navigator.geolocation.getCurrentPosition(function(p){post('location:allowed:'+p.coords.latitude)},function(e){post('location:denied:'+e.code)},{enableHighAccuracy:true,timeout:15000,maximumAge:0})">Location</button><button onclick="media('camera')">Camera permission</button><button onclick="media('microphone')">Microphone permission</button>`,
+        '/permission-fixture': `<button onclick="requestLocation()">Location</button><button onclick="media('camera')">Camera permission</button><button onclick="media('microphone')">Microphone permission</button>`,
         '/frames': `<iframe src="/frame-same${url.search}"></iframe><iframe src="http://localhost:8098/frame-cross${url.search}"></iframe><iframe src="/frame-opaque${url.search}" sandbox="allow-scripts"></iframe>`,
       }[url.pathname] ?? '';
     const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>regression fixture</title><style>body{font:16px system-ui;margin:4px}button,a,label{display:inline-block;margin:5px}video{width:120px;height:65px}iframe{width:60px;height:30px}input{max-width:160px}</style></head>
@@ -234,6 +234,7 @@ export function createRegressionServer() {
 function post(value) { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(value); }
 window.fixtureText = ${JSON.stringify(fixtureText)};
 window.blobSize = 0;
+function requestLocation() { navigator.geolocation.getCurrentPosition(function(p){post('location:allowed:'+p.coords.latitude)},function(e){post('location:denied:'+e.code)},{enableHighAccuracy:true,timeout:15000,maximumAge:0}); }
 function media(kind) {
   navigator.mediaDevices.getUserMedia({video:kind==='camera',audio:kind==='microphone'}).then(function(stream){
     try {

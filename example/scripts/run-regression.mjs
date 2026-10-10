@@ -197,6 +197,13 @@ export function validateRegressionResults(result, platform, profile = 'full') {
   return result.cases.length;
 }
 
+async function clearAndroidLocationPermissionFlags({ device, bundleID, command }) {
+  for (const permission of ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION']) {
+    await command('adb', ['-s', device, 'shell', 'pm', 'clear-permission-flags', bundleID,
+      `android.permission.${permission}`, 'user-set', 'user-fixed']);
+  }
+}
+
 export async function prepareAndroidRuntimePermissions({
   device,
   bundleID,
@@ -224,6 +231,7 @@ export async function prepareAndroidRuntimePermissions({
       `android.permission.${permission}`,
     ]);
   }
+  await clearAndroidLocationPermissionFlags({ device, bundleID, command });
 }
 
 export async function performNativeInteraction(value, context) {
@@ -454,60 +462,27 @@ export async function performNativeInteraction(value, context) {
       'com.google.android.permissioncontroller',
       'com.android.permissioncontroller',
     ];
-    await adb([
-      'shell',
-      'pm',
-      'clear-permission-flags',
-      bundleID,
-      'android.permission.ACCESS_COARSE_LOCATION',
-      'user-set',
-      'user-fixed',
-    ]);
-    await adb([
-      'shell',
-      'pm',
-      'clear-permission-flags',
-      bundleID,
-      'android.permission.ACCESS_FINE_LOCATION',
-      'user-set',
-      'user-fixed',
-    ]);
-    // Runtime permissions start absent in the dedicated fixture installation.
-    try {
-      await tap('Location');
-    } catch (error) {
-      const output = error.output ?? String(error);
-      if (
-        error.timedOut ||
-        error.signal ||
-        !/press @e\d+ /.test(output) ||
-        !permissionControllers.some(controller =>
-          output.includes(
-            `left ${bundleID} and foregrounded ${controller}. The tap likely escaped the app.`,
-          ),
-        )
-      )
-        throw error;
+    const deadline = Date.now() + 15000;
+    let allow;
+    let deny;
+    while (true) {
+      const permissionPackage = await foreground();
+      const permission = await captureSnapshot(agent, platform);
+      allow = permission.match(/^\s*(@e\d+) \[button\] "While using the app"/im);
+      deny = permission.match(/^\s*(@e\d+) \[button\] "Don[’']t allow"/im);
+      if (permissionControllers.includes(permissionPackage) && /location/i.test(permission) && allow && deny) break;
+      if ((!permissionControllers.includes(permissionPackage) && permissionPackage !== bundleID) ||
+          ((allow || deny) && permissionPackage === bundleID) || Date.now() >= deadline)
+        throw new Error('Android location permission dialog was not observed');
+      await sleep(250);
     }
-    const permissionPackage = await foreground();
-    const permission = await captureSnapshot(agent, platform);
-    const allow = permission.match(
-      /^\s*(@e\d+) \[button\] "While using the app"/im,
-    );
-    const deny = permission.match(/^\s*(@e\d+) \[button\] "Don[’']t allow"/im);
-    if (
-      !permissionControllers.includes(permissionPackage) ||
-      !/location/i.test(permission) ||
-      !allow ||
-      !deny
-    )
-      throw new Error('Android location permission dialog was not observed');
     await agent(
       ['click', action === 'permission-allow' ? allow[1] : deny[1]],
       30000,
     );
     // Do not remount a WebView while the OS permission window is closing.
     await appVisible();
+    if (action === 'permission-deny') await clearAndroidLocationPermissionFlags(context);
     if (action === 'permission-allow' && device.startsWith('emulator-'))
       await adb(['emu', 'geo', 'fix', '127.0', '37.5']);
     return;

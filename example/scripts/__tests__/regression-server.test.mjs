@@ -141,10 +141,16 @@ test('native fixture sends attachment bytes, playable media, and executable fram
       if (path === '/window-fixture') assert.match(html, /target="_blank"/);
       if (path === '/permission-fixture') {
         const handler = html.match(/onclick="([^"]+)">Location<\/button>/)[1];
-        new Script(handler).runInNewContext({
+        let requested = 0;
+        const messages = [];
+        new Script(`${html.match(/<script>([\s\S]*?)<\/script>/)[1]}\n${handler};requestLocation();`).runInNewContext({
+          window: { addEventListener() {}, ReactNativeWebView: { postMessage: value => messages.push(value) } },
+          document: { getElementById: id => id === 'marker' ? {} : null, addEventListener() {} },
           navigator: {
             geolocation: {
-              getCurrentPosition(_success, _failure, options) {
+              getCurrentPosition(success, failure, options) {
+                if (++requested === 1) failure({ code: 1 });
+                else success({ coords: { latitude: 37.5 } });
                 assert.equal(options.enableHighAccuracy, true);
                 assert.equal(options.timeout, 15000);
                 assert.equal(options.maximumAge, 0);
@@ -152,6 +158,9 @@ test('native fixture sends attachment bytes, playable media, and executable fram
             },
           },
         });
+        assert.equal(requested, 2);
+        assert(messages.includes('location:denied:1'));
+        assert(messages.includes('location:allowed:37.5'));
       }
     }
   } finally {
