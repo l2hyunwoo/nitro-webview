@@ -159,7 +159,7 @@ test('native fixture sends attachment bytes, playable media, and executable fram
   }
 });
 
-test('fullscreen fixture prefers standard API, falls back to WebKit, and reports failures without fake entry', async () => {
+test('fullscreen fixture prepares video on gesture, prefers standard API, and reports failures without fake events', async () => {
   const server = createRegressionServer().listen(0, '127.0.0.1');
   await once(server, 'listening');
   try {
@@ -168,6 +168,7 @@ test('fullscreen fixture prefers standard API, falls back to WebKit, and reports
         `http://127.0.0.1:${server.address().port}/fullscreen-fixture`,
       )
     ).text();
+    assert.match(html, /onclick="prepareVideo\(\)">Prepare video<\/button>/);
     const script = new Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
     for (const [enabled, standard, webkit, reject, expected] of [
       [true, true, true, false, ['standard']],
@@ -178,7 +179,17 @@ test('fullscreen fixture prefers standard API, falls back to WebKit, and reports
     ]) {
       const calls = [];
       const messages = [];
-      const video = { addEventListener() {} };
+      const videoEvents = new Map();
+      const video = {
+        addEventListener: (name, callback) => videoEvents.set(name, callback),
+        load: () => calls.push('load'),
+        play: () => {
+          calls.push('play');
+          return reject
+            ? Promise.reject({ name: 'NotAllowedError' })
+            : Promise.resolve();
+        },
+      };
       if (standard)
         video.requestFullscreen = () => {
           calls.push('standard');
@@ -204,6 +215,15 @@ test('fullscreen fixture prefers standard API, falls back to WebKit, and reports
         },
       };
       script.runInNewContext(context);
+      assert.deepEqual(calls, []);
+      context.prepareVideo();
+      await Promise.resolve();
+      assert.deepEqual(calls, ['load', 'play']);
+      assert.equal(messages.includes('video:ready'), false);
+      if (reject) assert.ok(messages.includes('video:error:NotAllowedError'));
+      videoEvents.get('loadedmetadata')();
+      assert.ok(messages.includes('video:ready'));
+      calls.length = 0;
       context.fullscreen();
       await Promise.resolve();
       assert.deepEqual(calls, expected);

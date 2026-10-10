@@ -1277,6 +1277,7 @@ export function RegressionVerificationScreen() {
             allowsInlineMediaPlayback: true,
           });
           await ready(view);
+          if (Platform.OS === 'ios') await interact('tap', 'Prepare video');
           await until(
             () => view.messages.includes('video:ready'),
             'native video metadata',

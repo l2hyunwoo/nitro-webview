@@ -11,6 +11,7 @@ const tapLabels = new Set([
   'Open script',
   'Upload fixture',
   'Capture fixture',
+  'Prepare video',
   'Fullscreen',
   'Location',
   'Camera permission',
@@ -223,7 +224,7 @@ export function createRegressionServer() {
         '/download-fixture': `<a href="/attachment${url.search}">Download HTTP</a><button onclick="downloadBlob()">Download blob</button>`,
         '/window-fixture': `<a href="/popup-blank${url.search}" target="_blank">Open blank</a><button onclick="window.open('/popup-script${url.search}','_blank')">Open script</button>`,
         '/upload-fixture': `<label>Upload fixture<input id="upload" type="file" accept="text/plain"></label><label>Capture fixture<input id="capture" type="file" accept="image/*" capture="environment"></label>`,
-        '/fullscreen-fixture': `<video id="video" playsinline preload="auto" src="/fixture.mp4${url.search}"></video><button onclick="fullscreen()">Fullscreen</button>`,
+        '/fullscreen-fixture': `<video id="video" playsinline preload="auto" src="/fixture.mp4${url.search}"></video><button onclick="prepareVideo()">Prepare video</button><button onclick="fullscreen()">Fullscreen</button>`,
         '/permission-fixture': `<button onclick="navigator.geolocation.getCurrentPosition(function(p){post('location:allowed:'+p.coords.latitude)},function(e){post('location:denied:'+e.code)},{enableHighAccuracy:true,timeout:15000,maximumAge:0})">Location</button><button onclick="media('camera')">Camera permission</button><button onclick="media('microphone')">Microphone permission</button>`,
         '/frames': `<iframe src="/frame-same${url.search}"></iframe><iframe src="http://localhost:8098/frame-cross${url.search}"></iframe><iframe src="/frame-opaque${url.search}" sandbox="allow-scripts"></iframe>`,
       }[url.pathname] ?? '';
@@ -245,6 +246,13 @@ function downloadBlob() {
   link.href = URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
   link.download = 'nitro-blob.txt';
   document.body.appendChild(link);link.click();link.remove();
+}
+function prepareVideo() {
+  var video=document.getElementById('video');
+  try {
+    video.load();
+    video.play().catch(function(e){post('video:error:'+e.name)});
+  } catch(e) { post('video:error:'+e.name); }
 }
 function fullscreen() {
   var video=document.getElementById('video');
