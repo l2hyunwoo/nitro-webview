@@ -224,7 +224,10 @@ Object key order and JSON whitespace are not part of the contract.
 ### Types
 
 The package root exports HTTP error, renderer exit, scroll, and open-window events, including their nested payload types and `WebViewPoint`.
-Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions. The React component forwards its standard `ref` and passes `hybridRef` through to the native view. Set `onShouldStartLoadWithRequest` through React props; assigning it directly through `hybridRef` bypasses the component's result bridge and is unsupported.
+Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions.
+The React component forwards its standard `ref` and passes `hybridRef` through to the native view.
+`NitroWebViewType` and inferred hybrid refs expose read-only imperative methods and Nitro lifecycle APIs, including `name`, `equals`, `toString`, and `dispose`.
+Set view props, including `onShouldStartLoadWithRequest`, through React. Hybrid refs do not expose props because direct callback assignment bypasses the component's result bridge.
 
 Rebuild the native app when upgrading to the 0.2 candidate; its navigation callback bindings are incompatible with older native binaries. Public callback signatures remain unchanged.
 

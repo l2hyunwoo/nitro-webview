@@ -3,6 +3,8 @@ import {
   callback,
   getHostComponent,
   type HybridView,
+  type HybridViewProps,
+  type NitroViewWrappedCallback,
   type ReactNativeView,
 } from 'react-native-nitro-modules'
 import NitroWebViewConfig from '../nitrogen/generated/shared/json/NitroWebViewConfig.json'
@@ -21,9 +23,9 @@ export interface NitroWebViewProps extends Omit<
   onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest
 }
 
-export type NitroWebViewType = HybridView<
-  NitroWebViewProps,
-  NitroWebViewMethods
+/** Imperative methods and Nitro lifecycle API; set view props through React. */
+export type NitroWebViewType = Readonly<
+  HybridView<HybridViewProps, NitroWebViewMethods>
 >
 
 const NativeNitroWebView = getHostComponent<
@@ -31,10 +33,16 @@ const NativeNitroWebView = getHostComponent<
   NitroWebViewMethods
 >('NitroWebView', () => NitroWebViewConfig)
 
-type ComponentProps = React.ComponentPropsWithoutRef<
-  ReactNativeView<NitroWebViewProps, NitroWebViewMethods>
->
-type NativeComponentProps = React.ComponentProps<typeof NativeNitroWebView>
+type ComponentProps = Omit<
+  React.ComponentPropsWithoutRef<
+    ReactNativeView<NitroWebViewProps, NitroWebViewMethods>
+  >,
+  'hybridRef'
+> & {
+  hybridRef?: NitroViewWrappedCallback<
+    ((ref: NitroWebViewType) => void) | undefined
+  >
+}
 
 /** React component for the Nitro-backed WebView. */
 export const NitroWebView = forwardRef<
@@ -52,15 +60,11 @@ export const NitroWebView = forwardRef<
       ),
     [handler]
   )
-  // shortcut: the same native instance has a different internal callback type;
-  // assign navigation callbacks through React props, not through hybridRef.
-  const nativeHybridRef = hybridRef as NativeComponentProps['hybridRef']
-
   return (
     <NativeNitroWebView
       {...props}
       ref={ref}
-      hybridRef={nativeHybridRef}
+      hybridRef={hybridRef}
       onShouldStartLoadWithRequest={nativeCallback}
     />
   )
