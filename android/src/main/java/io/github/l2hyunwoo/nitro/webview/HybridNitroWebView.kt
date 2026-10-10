@@ -55,6 +55,7 @@ import com.margelo.nitro.nitrowebview.WebViewSource
 import mozilla.components.support.utils.DownloadUtils
 import org.json.JSONObject
 import java.net.URLDecoder
+import java.util.concurrent.TimeUnit
 
 @SuppressLint("SetJavaScriptEnabled")
 class HybridNitroWebView(
@@ -387,9 +388,10 @@ class HybridNitroWebView(
    *
    * Because Android's `shouldOverrideUrlLoading` is a synchronous WebView
    * callback (return `true` to block / `false` to allow), the
-   * implementation blocks the WebView thread on a lock for at most
-   * [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS] milliseconds waiting for the
-   * JS Promise to resolve. When the timeout elapses with no resolution
+   * implementation uses a nominal [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS]
+   * millisecond budget, starting before the callback and subscription.
+   * Callback execution and OS scheduling cannot be preempted by this budget.
+   * When the timeout elapses with no resolution
    * the navigation is allowed (mirrors react-native-webview's
    * `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
    */
@@ -402,9 +404,9 @@ class HybridNitroWebView(
    * [onShouldStartLoadWithRequest] too. Default `false`.
    *
    * When `false`/`null`, sub-frame navigations are allowed without a JS
-   * round-trip so the 250 ms UI-thread block in [dispatchShouldStart] never
-   * stacks per iframe (jank / ANR risk on iframe-heavy pages). Main-frame
-   * navigations are always intercepted regardless of this flag.
+   * round-trip so waits in [dispatchShouldStart] never stack per iframe
+   * (jank / ANR risk on iframe-heavy pages). Main-frame requests delivered
+   * by the platform hook are intercepted regardless of this flag.
    */
   override var interceptSubframeNavigation: Boolean? = null
 
@@ -878,11 +880,9 @@ class HybridNitroWebView(
      *      `WebViewClient.shouldOverrideUrlLoading` does not expose a
      *      navigation-type discriminator, and the iOS-only optional
      *      fields stay null.
-     *   2. Calls the JS hook, then blocks the current (WebView) thread on
-     *      a `synchronized.wait` for at most
-     *      [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS] milliseconds, mirroring
-     *      `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS` in
-     *      react-native-webview.
+     *   2. Starts a nominal [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS]
+     *      millisecond budget, calls the JS hook and waits only for the
+     *      remaining time. Callback execution and scheduling can exceed it.
      *   3. Returns the boolean the Promise resolved with — or the
      *      default-allow value when the wait window elapses.
      */
@@ -895,8 +895,7 @@ class HybridNitroWebView(
       val url = request.url?.toString() ?: return false
       // Sub-frame (iframe) navigations only reach the JS hook when the caller
       // opts in via interceptSubframeNavigation. Otherwise allow them without
-      // the 250 ms UI-thread block (which would stack per iframe → jank/ANR).
-      // Main-frame navigations are always intercepted.
+      // repeated UI-thread waits (which would stack per iframe → jank/ANR).
       if (!request.isForMainFrame && interceptSubframeNavigation != true) {
         return false // allow
       }
@@ -991,11 +990,10 @@ class HybridNitroWebView(
    * Bridge between [ClientImpl.shouldOverrideUrlLoading] and the JS hook.
    *
    * Implementation contract:
-   *   1. Invoke `hook(payload)` to obtain the JS-side Promise.
-   *   2. Block the current (WebView) thread for at most
-   *      [SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS] milliseconds via a
-   *      `synchronized(lock).wait(timeoutMs)` loop while the Promise's
-   *      `then`/`catch` callbacks notify the lock.
+   *   1. Start the monotonic budget before invoking `hook(payload)`.
+   *   2. Wait only for the remaining budget while the Promise's
+   *      `then`/`catch` callbacks notify the lock. Callback execution and
+   *      OS scheduling can exceed the nominal budget.
    *   3. When the Promise resolves inside the window the resolved boolean
    *      decides. When it rejects, default to allow. When the window
    *      elapses without notification, default to allow (mirrors
@@ -1270,106 +1268,92 @@ class HybridNitroWebView(
       """.trimIndent()
 
     /**
-     * Maximum number of milliseconds [ClientImpl.shouldOverrideUrlLoading]
-     * blocks on the JS-side Promise before defaulting to allow. Mirrors
-     * react-native-webview's `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`
-     * value verbatim so existing RNW guidance about the cap continues to
-     * apply.
+     * Nominal callback/subscription/wait budget before defaulting to allow.
+     * Matches react-native-webview's Android policy; it cannot preempt the
+     * callback or OS scheduling.
      */
     internal const val SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS: Long = 250L
 
     /**
-     * Block the current thread for at most [timeoutMs] ms while [hook] is
-     * resolving, and return the resolved boolean. Defaults to allow when
-     * the Promise rejects or the wait window elapses.
-     *
-     * Extracted into the companion (no `WebView` dependency) so JVM unit
-     * tests can drive the helper with a real `Promise<Boolean>` instance
-     * without spinning up a `WebView`. The contract is verified by
-     * `HybridNitroWebViewShouldStartLoadTest` (allow path, block path,
-     * timeout default, rejection default).
+     * Start the wait budget before invoking [hook]. Promise closures retain
+     * only this call's decision state, not the view or callback.
      */
     @JvmStatic
     internal fun awaitShouldStart(
       hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
       payload: ShouldStartLoadRequest,
       timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
-    ): Boolean {
-      val promise = hook(payload)
-      return awaitBooleanWithTimeout(
+    ): Boolean =
+      awaitBooleanWithTimeout(
         timeoutMs = timeoutMs,
         subscribe = { onResolve, onReject ->
+          val promise = hook(payload)
           promise.then { value -> onResolve(value) }
           promise.catch { error -> onReject(error) }
         },
       )
-    }
 
     /**
-     * Pure-Kotlin wait-loop driver extracted from [awaitShouldStart]. The
-     * Nitro `Promise<T>` cannot be instantiated in plain JVM unit tests
-     * (its `then` / `catch` paths cross a JNI boundary), so the loop is
-     * exposed against a generic [subscribe] lambda that publishes
-     * `onResolve(boolean)` / `onReject(throwable)` callbacks. Production
-     * code wires `subscribe` to `Promise.then` / `Promise.catch`; tests
-     * wire it to a synchronous spy.
-     *
-     * Contract:
-     *   1. The current thread waits up to [timeoutMs] ms on a private
-     *      lock for `onResolve` or `onReject` to fire.
-     *   2. `onResolve(true)` returns `true` (allow).
-     *   3. `onResolve(false)` returns `false` (block).
-     *   4. `onReject(_)` returns `true` (allow — RNW parity: rejection
-     *      treats the navigation as allowed so a buggy JS handler can't
-     *      strand the WebView).
-     *   5. Elapsed-window without notification returns `true` (allow —
-     *      mirrors `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
+     * Pure-Kotlin decision wait, shared with JVM tests. The clock and wait
+     * seams allow deterministic deadline and spurious-wakeup checks without
+     * JNI or real sleeps. Timeout, rejection, recoverable callback/subscription
+     * failure and interruption fail open; fatal native errors propagate.
      */
     @JvmStatic
     internal fun awaitBooleanWithTimeout(
       timeoutMs: Long,
+      nanoTime: () -> Long = System::nanoTime,
+      waitFor: (Object, Long) -> Unit = { lock, remainingNanos ->
+        lock.wait(remainingNanos / 1_000_000L, (remainingNanos % 1_000_000L).toInt())
+      },
       subscribe: (
         onResolve: (Boolean) -> Unit,
         onReject: (Throwable) -> Unit,
       ) -> Unit,
     ): Boolean {
+      val startedAt = nanoTime()
+      val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMs)
       val lock = Object()
-      // Single-element array doubles as a mutable holder so the resolve /
-      // reject callbacks (captured by reference) can publish a result back
-      // to the waiter without resorting to atomics.
-      val result = arrayOfNulls<Boolean>(1)
-      subscribe(
-        { value ->
-          synchronized(lock) {
-            result[0] = value
-            @Suppress("PlatformExtensionReceiverOfInline")
-            (lock as Object).notifyAll()
+      var completed = false
+      var result = true
+
+      fun complete(value: Boolean) {
+        synchronized(lock) {
+          if (!completed) {
+            result = if (nanoTime() - startedAt < timeoutNanos) value else true
+            completed = true
+            lock.notifyAll()
           }
-        },
-        { _ ->
-          synchronized(lock) {
-            // Mirror RNW: rejected Promises default to allow.
-            result[0] = true
-            @Suppress("PlatformExtensionReceiverOfInline")
-            (lock as Object).notifyAll()
-          }
-        },
-      )
+        }
+      }
+      try {
+        subscribe({ value -> complete(value) }, { _ -> complete(true) })
+      } catch (e: InterruptedException) {
+        Thread.currentThread().interrupt()
+        synchronized(lock) {
+          completed = true
+          return true
+        }
+      } catch (e: Exception) {
+        synchronized(lock) {
+          completed = true
+          return true
+        }
+      }
       synchronized(lock) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (result[0] == null) {
-          val remaining = deadline - System.currentTimeMillis()
+        while (!completed) {
+          val remaining = timeoutNanos - (nanoTime() - startedAt)
           if (remaining <= 0L) break
           try {
-            @Suppress("PlatformExtensionReceiverOfInline")
-            (lock as Object).wait(remaining)
+            waitFor(lock, remaining)
           } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
+            result = true
             break
           }
         }
-        // Default to allow when the wait window elapsed without resolution.
-        return result[0] ?: true
+        completed = true
+        return result
       }
     }
 

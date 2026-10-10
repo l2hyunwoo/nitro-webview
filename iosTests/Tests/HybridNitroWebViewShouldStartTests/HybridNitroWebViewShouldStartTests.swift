@@ -1,4 +1,5 @@
 import XCTest
+@testable import NitroWebViewSource
 
 #if canImport(WebKit)
   import WebKit
@@ -22,14 +23,8 @@ import XCTest
 ///     cross-platform `ShouldStartLoadRequest` from the raw fields a
 ///     `WKNavigationAction` would surface).
 ///
-/// We additionally exercise the stash-and-resolve contract end-to-end
-/// against a tiny `PendingDecisions` probe that mirrors the
-/// `NavigationDelegate.pendingDecisions` in-memory map. The probe is fed
-/// a stub Promise-style callback and asserts that:
-///   1. The stashed handler stays stashed until the callback resolves
-///      (no timeout — mirrors RNW iOS lockIdentifier semantics).
-///   2. `true` resolves to `.allow`, `false` resolves to `.cancel`.
-///   3. A subsequent navigation does not see a stale entry.
+/// Decision lifetime tests call the production Nitro-free manager used by
+/// NavigationDelegate. Only payload/type mapping above still uses probes.
 
 #if canImport(WebKit)
 
@@ -91,32 +86,6 @@ import XCTest
         isTopFrame: targetFrameIsMainFrame,
         hasTargetFrame: targetFrameIsMainFrame != nil
       )
-    }
-  }
-
-  /// Mirror of the in-memory `pendingDecisions` map on
-  /// `NavigationDelegate`. The production code uses
-  /// `ObjectIdentifier(navigationAction)` as the key; here we accept any
-  /// `AnyHashable` so the same contract can be exercised without a real
-  /// `WKNavigationAction`.
-  fileprivate final class PendingDecisionsProbe {
-    /// Raw policy result that mirrors `WKNavigationActionPolicy`.
-    enum Policy { case allow, cancel }
-
-    private var stash: [AnyHashable: (Policy) -> Void] = [:]
-
-    var count: Int { stash.count }
-
-    func park(_ key: AnyHashable, handler: @escaping (Policy) -> Void) {
-      stash[key] = handler
-    }
-
-    /// Resolve the parked handler with `allow ? .allow : .cancel`, then
-    /// remove the entry. No-op when the key is not stashed (idempotent
-    /// resolution).
-    func resolve(_ key: AnyHashable, allow: Bool) {
-      let handler = stash.removeValue(forKey: key)
-      handler?(allow ? .allow : .cancel)
     }
   }
 
@@ -196,71 +165,123 @@ import XCTest
       XCTAssertNil(payload.mainDocumentURL)
     }
 
-    // MARK: - Test 3: stash-and-resolve allow
+    func test_decisionsHaveUniqueIDs_andOneNavigationDoesNotCancelAnother() {
+      let pending = NitroWebViewNavigationDecisions()
+      var first: [Bool] = []
+      var second: [Bool] = []
+      let firstID = pending.park { first.append($0) }
+      let secondID = pending.park { second.append($0) }
+      XCTAssertNotEqual(firstID, secondID)
+      XCTAssertEqual(pending.count, 2)
 
-    /// When the JS Promise resolves `true` the parked decisionHandler is
-    /// invoked with `.allow` and the stash empties.
-    func test_pendingDecisions_resolveAllow_invokesHandlerWithAllow_andEmptiesStash() {
-      let stash = PendingDecisionsProbe()
-      let key = AnyHashable(UUID())
-      var observed: PendingDecisionsProbe.Policy?
-      stash.park(key) { policy in observed = policy }
-
-      XCTAssertEqual(stash.count, 1, "handler must be parked before resolution")
-
-      stash.resolve(key, allow: true)
-
-      XCTAssertEqual(observed, .allow)
-      XCTAssertEqual(stash.count, 0, "stash must drain after resolution")
+      pending.resolve(firstID, allow: true)
+      XCTAssertEqual(first, [true])
+      XCTAssertEqual(second, [])
+      XCTAssertEqual(pending.count, 1)
+      pending.resolve(secondID, allow: false)
+      XCTAssertEqual(second, [false])
+      XCTAssertEqual(pending.count, 0)
     }
 
-    // MARK: - Test 4: stash-and-resolve cancel
-
-    /// When the JS Promise resolves `false` the parked decisionHandler
-    /// is invoked with `.cancel` and the stash empties.
-    func test_pendingDecisions_resolveCancel_invokesHandlerWithCancel() {
-      let stash = PendingDecisionsProbe()
-      let key = AnyHashable(UUID())
-      var observed: PendingDecisionsProbe.Policy?
-      stash.park(key) { policy in observed = policy }
-
-      stash.resolve(key, allow: false)
-
-      XCTAssertEqual(observed, .cancel)
-      XCTAssertEqual(stash.count, 0)
-    }
-
-    // MARK: - Test 5: no-timeout stash (RNW parity)
-
-    /// The stash has NO timeout — entries stay parked indefinitely until
-    /// they are explicitly resolved. We assert by pausing real time
-    /// briefly and verifying the entry is still present (the production
-    /// code uses the same plain dictionary, with no GCD timeout).
-    func test_pendingDecisions_noTimeout_stashKeepsHandlerUntilExplicitResolve() {
-      let stash = PendingDecisionsProbe()
-      let key = AnyHashable(UUID())
-      var observed: PendingDecisionsProbe.Policy?
-      stash.park(key) { policy in observed = policy }
-
-      // Wait > 250 ms (Android's default-allow window) to prove iOS
-      // does NOT apply any timeout.
-      let waited = expectation(description: "no-timeout dwell")
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        waited.fulfill()
+    func test_removeBeforeCompletion_preventsDuplicateAndReentrantCalls() {
+      let pending = NitroWebViewNavigationDecisions()
+      var calls: [Bool] = []
+      var id: UUID!
+      id = pending.park { allow in
+        XCTAssertTrue(Thread.isMainThread)
+        XCTAssertEqual(pending.count, 0)
+        calls.append(allow)
+        pending.resolve(id, allow: !allow)
       }
-      wait(for: [waited], timeout: 2)
-
-      XCTAssertEqual(
-        stash.count, 1,
-        "stash must keep the parked handler past 250 ms — iOS applies NO timeout"
-      )
-      XCTAssertNil(observed, "handler must not be invoked before resolve()")
-
-      // Late-resolution still fires the handler with the supplied policy.
-      stash.resolve(key, allow: true)
-      XCTAssertEqual(observed, .allow)
-      XCTAssertEqual(stash.count, 0)
+      pending.resolve(id, allow: false)
+      pending.resolve(id, allow: true)
+      XCTAssertEqual(calls, [false])
     }
+
+    func test_cancelAllDrainsCurrentDecisions_andIgnoresLateResults() {
+      let pending = NitroWebViewNavigationDecisions()
+      var calls: [Bool] = []
+      let first = pending.park { calls.append($0) }
+      let second = pending.park { calls.append($0) }
+      pending.cancelAll()
+      pending.cancelAll()
+      pending.resolve(first, allow: true)
+      pending.resolve(second, allow: false)
+      XCTAssertEqual(calls, [false, false])
+      XCTAssertEqual(pending.count, 0)
+
+      var replacement: [Bool] = []
+      let replacementID = pending.park { replacement.append($0) }
+      XCTAssertNotEqual(first, replacementID)
+      pending.resolve(first, allow: true)
+      XCTAssertEqual(replacement, [])
+      pending.resolve(replacementID, allow: true)
+      XCTAssertEqual(replacement, [true])
+    }
+
+    func test_cancelAllRemovesSnapshotBeforeCallingHandlers() {
+      let pending = NitroWebViewNavigationDecisions()
+      var calls: [Bool] = []
+      var nextID: UUID!
+      _ = pending.park { allow in
+        XCTAssertTrue(Thread.isMainThread)
+        XCTAssertEqual(pending.count, 0)
+        calls.append(allow)
+        pending.cancelAll()
+        nextID = pending.park { calls.append($0) }
+      }
+      pending.cancelAll()
+      XCTAssertEqual(calls, [false])
+      XCTAssertEqual(pending.count, 1, "a new decision is outside the cancelled snapshot")
+      pending.resolve(nextID, allow: true)
+      XCTAssertEqual(calls, [false, true])
+    }
+
+    func test_backgroundCompletionRunsHandlerOnMainThread() {
+      let pending = NitroWebViewNavigationDecisions()
+      let done = expectation(description: "main-thread decision")
+      let id = pending.park { allow in
+        XCTAssertTrue(Thread.isMainThread)
+        XCTAssertTrue(allow)
+        XCTAssertEqual(pending.count, 0)
+        done.fulfill()
+      }
+      DispatchQueue.global().async { pending.resolve(id, allow: true) }
+      wait(for: [done], timeout: 2)
+    }
+
+    func test_cancellationWinsOverQueuedBackgroundCompletion() {
+      let pending = NitroWebViewNavigationDecisions()
+      var calls: [Bool] = []
+      let id = pending.park { calls.append($0) }
+      let queued = DispatchSemaphore(value: 0)
+      DispatchQueue.global().async {
+        pending.resolve(id, allow: true)
+        queued.signal()
+      }
+      XCTAssertEqual(queued.wait(timeout: .now() + 2), .success)
+      pending.cancelAll()
+      let drained = expectation(description: "queued completion drained")
+      DispatchQueue.main.async { drained.fulfill() }
+      wait(for: [drained], timeout: 2)
+      XCTAssertEqual(calls, [false])
+      XCTAssertEqual(pending.count, 0)
+    }
+
+    func test_unresolvedDecisionHasNoAndroidTimeout() {
+      let pending = NitroWebViewNavigationDecisions()
+      var calls: [Bool] = []
+      let id = pending.park { calls.append($0) }
+      let waited = expectation(description: "past Android nominal budget")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { waited.fulfill() }
+      wait(for: [waited], timeout: 2)
+      XCTAssertEqual(pending.count, 1)
+      XCTAssertEqual(calls, [])
+      pending.resolve(id, allow: true)
+      XCTAssertEqual(calls, [true])
+      XCTAssertEqual(pending.count, 0)
+    }
+
   }
 
 #endif  // canImport(WebKit)

@@ -133,8 +133,8 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
 | `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Android: clear the old hybrid ref and remount with a new React `key`. iOS: call `reload()`. |
 | `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
-| `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow/block each navigation before it starts. Returning `false` (or a `Promise` resolving to `false`) cancels silently. Sub-frame (iframe) navigations surface with `isTopFrame: false` — always on iOS, and on Android only when `interceptSubframeNavigation` is enabled. |
-| `interceptSubframeNavigation` | `boolean` | Opt-in: also intercept sub-frame (iframe) navigations via `onShouldStartLoadWithRequest`, not just the main frame. Default `false`. Android note: each intercepted sub-frame navigation blocks the WebView thread up to 250 ms awaiting the JS decision; on iframe-heavy pages this stacks and risks jank / ANR — hence off by default. No effect on iOS (its `decidePolicyFor` parks asynchronously, so sub-frames already reach the handler). |
+| `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow or cancel requests delivered by the platform navigation hook. Returning `false` (or a `Promise` resolving to `false`) cancels silently. See platform timing and coverage below. |
+| `interceptSubframeNavigation` | `boolean` | Android opt-in for iframe requests, default `false`. Each callback has a nominal 250 ms wait budget. Repeated waits can cause UI stalls. iOS already delivers iframe requests asynchronously, so this flag has no effect there. |
 | `onOpenWindow` | `(event: OpenWindowEvent) => void` | Fired for `window.open` / `target=_blank`. The WebView never spawns a second native web view; `nativeEvent.url` carries the requested URL and JS decides what to do. When the prop is unset, the URL loads in-place in the current WebView. Notify-only — the return value does not gate loading. |
 
 SPA route changes (`history.pushState` / `replaceState` / `popstate`) surface via `onNavigationStateChange` — not `onShouldStartLoadWithRequest`, because a pushState already happened and cannot be vetoed.
@@ -156,7 +156,7 @@ The hybrid ref captured by `hybridRef={callback((r) => ref.current = r)}` expose
 | `goBack()` | `void` | Navigate back in history. |
 | `goForward()` | `void` | Navigate forward in history. |
 | `reload()` | `void` | Reload the current page. |
-| `stopLoading()` | `void` | Stop the current load. |
+| `stopLoading()` | `void` | Stop the current load. On iOS, also cancel all currently pending navigation decisions. |
 | `evaluateJavaScript(code)` | `Promise<string>` | Result is the serialized string evaluation. iOS uses `String(describing:)`; Android uses the JSON-encoded `ValueCallback<String>` result. Undefined/nil surfaces as `''`. |
 | `injectJavaScript(code)` | `void` | Fire-and-forget execution — no result awaited. Use for side effects only. No-op if no page is loaded. |
 | `postMessage(data)` | `void` | Push a string into the page as a DOM `message` event (`event.data === data`). Listen on **both** targets for portability: `window.addEventListener('message', ...)` (iOS) and `document.addEventListener('message', ...)` (Android). Dispatched once, no buffering. `data` is escaped safely (quotes, newlines, `</script>`, unicode). |
@@ -205,7 +205,12 @@ type WebViewNavigationType =
 
 `isTopFrame` is populated on both platforms (`targetFrame?.isMainFrame` on iOS, `WebResourceRequest.isForMainFrame` on Android). `mainDocumentURL` and `hasTargetFrame` remain iOS-only and are `undefined` on Android; Android always reports `navigationType: 'other'`.
 
-The JS callback may be `async` — the bridge transparently awaits any returned thenable before applying the decision.
+The callback can return a boolean or a `Promise<boolean>`. Promise rejection allows the request on both platforms.
+
+- **Android:** the native callback uses a nominal 250 ms wait budget, starting before callback invocation and Promise subscription. Timeout, interruption, and recoverable callback or subscription failures allow the request. Late results are ignored. Callback execution and OS scheduling can exceed this budget, so 250 ms is not a maximum UI delay.
+- **iOS:** there is no library timeout. An unresolved Promise can keep its navigation pending while the view remains active. `stopLoading()`, view removal, and content process termination cancel pending decisions. Each WebKit handler completes once, and late results are ignored. Starting another navigation does not cancel other pending iframe decisions.
+
+This hook only covers requests delivered by the platform. Android does not call it for app-initiated `source` loads or POST requests. Subresources are outside this contract. SPA history changes use `onNavigationStateChange`, and new windows use `onOpenWindow`. Neither this hook nor the origin allowlist helpers provide a complete network security boundary.
 
 #### `OpenWindowEvent`
 
