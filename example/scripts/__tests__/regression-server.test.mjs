@@ -159,22 +159,23 @@ test('native fixture sends attachment bytes, playable media, and executable fram
   }
 });
 
-test('fullscreen fixture prepares video on gesture, prefers standard API, and reports failures without fake events', async () => {
+test('fullscreen fixture loops video, prefers the standard API, and reports failures without fake events', async () => {
   const server = createRegressionServer().listen(0, '127.0.0.1');
   await once(server, 'listening');
   try {
     const html = await (
-      await fetch(
-        `http://127.0.0.1:${server.address().port}/fullscreen-fixture`,
-      )
+      await fetch(`http://127.0.0.1:${server.address().port}/fullscreen-fixture`)
     ).text();
+    assert.match(html, /<video id="video" playsinline loop preload="auto"/);
     assert.match(html, /onclick="prepareVideo\(\)">Prepare video<\/button>/);
     const script = new Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
     for (const [enabled, standard, webkit, reject, expected] of [
       [true, true, true, false, ['standard']],
+      [true, true, false, false, ['standard']],
       [false, true, true, false, ['webkit']],
       [true, false, true, false, ['webkit']],
       [true, true, true, true, ['standard']],
+      [false, true, true, true, ['webkit']],
       [false, false, false, false, []],
     ]) {
       const calls = [];
@@ -197,7 +198,11 @@ test('fullscreen fixture prepares video on gesture, prefers standard API, and re
             ? Promise.reject({ name: 'NotAllowedError' })
             : Promise.resolve();
         };
-      if (webkit) video.webkitEnterFullscreen = () => calls.push('webkit');
+      if (webkit)
+        video.webkitEnterFullscreen = () => {
+          calls.push('webkit');
+          if (reject) throw { name: 'NotAllowedError' };
+        };
       const context = {
         window: {
           addEventListener() {},

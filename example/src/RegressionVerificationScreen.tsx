@@ -25,6 +25,10 @@ import type {
 } from 'nitro-webview';
 
 import { color, fontSize, spacing } from './components/theme';
+import {
+  waitForNativeInteraction,
+  type NativeInteractionResult,
+} from './regressionInteractions';
 
 const origin = 'http://127.0.0.1:8098';
 const fixtureText = 'Nitro native regression bytes: 한글 😀\n';
@@ -276,7 +280,11 @@ export function RegressionVerificationScreen() {
       return view.ref;
     }
 
-    async function ready(view: Observation, path?: string, timeoutMs = 10000) {
+    async function ready(
+      view: Observation,
+      path?: string,
+      timeoutMs = Platform.OS === 'ios' ? 30000 : 10000,
+    ) {
       await until(
         () =>
           view.messages.some(message => {
@@ -357,21 +365,12 @@ export function RegressionVerificationScreen() {
         ...(label ? { label } : {}),
       });
       try {
-        const deadline = Date.now() + 90000;
-        while (Date.now() < deadline) {
-          const result = await fixture<{
-            id: string;
-            ok: boolean;
-            detail: string;
-          } | null>('/interaction-result');
-          if (result?.id === id) {
-            check(result.ok, result.detail);
-            return;
-          }
-          check(active(), 'Regression screen was removed');
-          await delay(250);
-        }
-        throw new Error(`Native interaction ${action} timed out`);
+        await waitForNativeInteraction(
+          id,
+          action,
+          () => fixture<NativeInteractionResult | null>('/interaction-result'),
+          active,
+        );
       } finally {
         await fixture('/interaction', null);
       }

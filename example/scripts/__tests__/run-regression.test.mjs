@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { PassThrough } from 'node:stream';
 import { spawnSync } from 'node:child_process';
 import { EventEmitter, once } from 'node:events';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +15,173 @@ import {
   validateRegressionInteraction,
   performNativeInteraction,
   prepareAndroidRuntimePermissions,
+  tapRegressionControl,
+  runLoggedCommand,
 } from '../run-regression.mjs';
+
+test('real command returns stdout and still streams stdout/stderr to the log', async () => {
+  const output = new PassThrough();
+  const commands = new Set();
+  let log = '';
+  output.on('data', chunk => {
+    log += chunk.toString();
+  });
+  const stdout = await runLoggedCommand(
+    process.execPath,
+    [
+      '-e',
+      'process.stdout.write("@e20 [link] \\"Navigate\\"\\n"); process.stderr.write("diagnostic\\n");',
+    ],
+    { output, commands, logPath: 'test-ui.log' },
+  );
+  assert.equal(stdout, '@e20 [link] "Navigate"\n');
+  assert.match(log, /@e20 \[link\] "Navigate"/);
+  assert.match(log, /diagnostic/);
+  assert.equal(commands.size, 0);
+  output.end();
+});
+
+test('real command failures and timeouts still reject and release the child', async () => {
+  for (const [code, timeoutMs, expected] of [
+    ['process.exit(7)', 1000, /failed \(7\)/],
+    ['setInterval(() => {}, 1000)', 100, /failed \(timeout\)/],
+  ]) {
+    const output = new PassThrough();
+    output.resume();
+    const commands = new Set();
+    await assert.rejects(
+      runLoggedCommand(process.execPath, ['-e', code], {
+        output,
+        commands,
+        timeoutMs,
+        logPath: 'test-ui.log',
+      }),
+      expected,
+    );
+    assert.equal(commands.size, 0);
+    output.end();
+  }
+});
+
+test('native tap dismisses warnings and uses the refreshed link ref', async () => {
+  for (const [tap, hold] of [
+    [
+      agent => tapRegressionControl(agent, 'Navigate'),
+      ['--hold-ms', '100'],
+    ],
+    [
+      agent =>
+        performNativeInteraction(
+          { id: 'history', label: 'Navigate' },
+          { platform: 'ios', agent },
+        ),
+      ['--hold-ms', '100'],
+    ],
+  ]) {
+    const calls = [];
+    const snapshots = [
+      '@e13 [link] "Navigate"\n@e51 [other] "!, Open debugger to view warnings."',
+      '@e4 [text] "Navigate"\n@e20 [link] "Navigate"',
+    ];
+    await tap(async args => {
+      calls.push(args);
+      const output = new PassThrough();
+      output.resume();
+      try {
+        return await runLoggedCommand(
+          process.execPath,
+          [
+            '-e',
+            'process.stdout.write(process.argv[1]);',
+            args[0] === 'snapshot' ? snapshots.shift() : '',
+          ],
+          { output, commands: new Set(), logPath: 'test-ui.log' },
+        );
+      } finally {
+        output.end();
+      }
+    });
+    assert.deepEqual(calls, [
+      ['snapshot', '-i'],
+      ['react-native', 'dismiss-overlay'],
+      ['snapshot', '-i'],
+      ['click', '@e20', ...hold],
+    ]);
+  }
+});
+
+test('native iOS buttons retain their ordinary ref tap', async () => {
+  const calls = [];
+  await performNativeInteraction(
+    { id: 'download', label: 'Download blob' },
+    {
+      platform: 'ios',
+      agent: async args => {
+        calls.push(args);
+        return '@e9 [button] "Download blob"';
+      },
+    },
+  );
+  assert.deepEqual(calls, [['snapshot', '-i'], ['click', '@e9']]);
+});
+
+test('native tap refuses absent controls and persistent overlays', async () => {
+  await assert.rejects(
+    tapRegressionControl(async () => '@e1 [text] "Navigate"', 'Navigate'),
+    /Navigate control was not observed/,
+  );
+  const calls = [];
+  await assert.rejects(
+    tapRegressionControl(async args => {
+      calls.push(args);
+      return 'Open debugger to view warnings.';
+    }, 'Navigate'),
+    /Navigate remained obscured/,
+  );
+  assert.equal(calls.filter(args => args[0] === 'click').length, 0);
+  assert.equal(calls.filter(args => args[0] === 'snapshot').length, 3);
+});
+
+test('Android retains native label lookup when WebView links are omitted', async () => {
+  const calls = [];
+  await tapRegressionControl(
+    async args => {
+      calls.push(args);
+      return '@e1 [webview]';
+    },
+    'Navigate',
+    'android',
+  );
+  assert.deepEqual(calls, [
+    ['snapshot', '-i'],
+    ['find', 'Navigate', 'click', '--first'],
+  ]);
+});
+
+test('control snapshots allow iOS diagnostics to finish and retain Android deadlines', async () => {
+  for (const platform of ['ios', 'android']) {
+    for (const tap of [
+      agent => tapRegressionControl(agent, 'Navigate', platform),
+      agent =>
+        performNativeInteraction(
+          { id: 'history', label: 'Navigate' },
+          { platform, agent },
+        ),
+    ]) {
+      let observedTimeout;
+      const failure = new Error('main thread execution timed out');
+      await assert.rejects(
+        tap(async (args, timeoutMs) => {
+          assert.deepEqual(args, ['snapshot', '-i']);
+          observedTimeout = timeoutMs;
+          throw failure;
+        }),
+        error => error === failure,
+      );
+      assert.equal(observedTimeout, platform === 'ios' ? 120000 : 30000);
+    }
+  }
+});
 
 const result = (platform = 'ios') => ({
   complete: true,
@@ -195,6 +362,11 @@ function nativeContext(snapshot = documentsSnapshot) {
     uploadFile: '/tmp/fixture-upload.txt',
     agent: async args => {
       calls.push(['agent', ...args]);
+      if (args.includes('--json'))
+        return JSON.stringify({
+          success: true,
+          data: { nodes: [{ ref: 'e9', type: 'Button', label: 'Done' }] },
+        });
       if (args[0] === 'snapshot')
         return surface === 'app'
           ? app
@@ -901,21 +1073,53 @@ test('iOS fullscreen reveals hidden media controls and taps the observed Close b
     bundleID: 'com.example',
     agent: async args => {
       calls.push(args);
-      if (args[0] === 'find' && args[1] === 'Media') visible = true;
+      if (args[0] === 'click' && args[1] === '@e3') visible = true;
       if (args[0] === 'click' && args[1] === '@e7') closed = true;
       if (args[0] !== 'snapshot') return '';
       if (closed) return '@e1 [button] "Run regression"';
-      return visible
-        ? '@e3 [other] "Media"\n@e7 [button] "Close"'
-        : '@e3 [other] "Media"';
+      assert.deepEqual(args, ['snapshot', '-i', '--raw', '--json']);
+      return JSON.stringify({
+        success: true,
+        data: {
+          nodes: visible
+            ? [{ ref: 'e7', type: 'Button', label: 'Close' }]
+            : [{ ref: 'e3', type: 'Other', label: 'Media' }],
+        },
+      });
     },
   };
   await performNativeInteraction(
     { id: 'exit', action: 'fullscreen-exit' },
     context,
   );
-  assert.ok(calls.some(call => call[0] === 'find' && call[1] === 'Media'));
-  assert.ok(calls.some(call => call[0] === 'click' && call[1] === '@e7'));
+  assert.deepEqual(calls, [
+    ['snapshot', '-i', '--raw', '--json'],
+    ['click', '@e3'],
+    ['snapshot', '-i', '--raw', '--json'],
+    ['click', '@e7'],
+    ['snapshot', '-i'],
+  ]);
+});
+
+test('iOS fullscreen refuses a label that is not a native dismiss button', async () => {
+  const calls = [];
+  await assert.rejects(
+    performNativeInteraction(
+      { id: 'exit', action: 'fullscreen-exit' },
+      {
+        platform: 'ios',
+        agent: async args => {
+          calls.push(args);
+          return JSON.stringify({
+            success: true,
+            data: { nodes: [{ ref: 'e2', type: 'StaticText', label: 'Close' }] },
+          });
+        },
+      },
+    ),
+    /Close or Done button was not observed/,
+  );
+  assert.equal(calls.length, 1);
 });
 
 test('fullscreen exit uses OS back on Android and Done on iOS', async t => {
@@ -1129,11 +1333,32 @@ test('a stale Android WebView accessibility tree resets only the selected device
   ]);
 });
 
-test('helper recovery happens at most once and a missing control still fails', async t => {
+test('Android falls back to native label lookup when helper recovery still omits WebView controls', async t => {
   const clock = [0, 5000, 15000];
   t.mock.method(Date, 'now', () => clock.shift() ?? 15000);
   const context = nativeContext();
-  context.agent = async () => '@e4 [webview] "fixture"';
+  context.agent = async args => {
+    context.calls.push(['agent', ...args]);
+    return '@e4 [webview] "fixture"';
+  };
+  await performNativeInteraction(
+    { id: 'fullscreen', label: 'Fullscreen' },
+    context,
+  );
+  assert.equal(context.calls.filter(call => call[0] === 'adb').length, 1);
+  assert.deepEqual(context.calls.at(-1), [
+    'agent', 'find', 'Fullscreen', 'click', '--first',
+  ]);
+});
+
+test('helper recovery happens at most once and native lookup still rejects a missing control', async t => {
+  const clock = [0, 5000, 15000];
+  t.mock.method(Date, 'now', () => clock.shift() ?? 15000);
+  const context = nativeContext();
+  context.agent = async args => {
+    if (args[0] === 'find') throw new Error('Location control was not observed');
+    return '@e4 [webview] "fixture"';
+  };
   await assert.rejects(
     performNativeInteraction({ id: 'missing', label: 'Location' }, context),
     /Location control was not observed/,

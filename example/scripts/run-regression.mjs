@@ -68,6 +68,86 @@ export const expectedRegressionCases = {
   ],
 };
 
+export function runLoggedCommand(
+  executable,
+  args,
+  { cwd, output, commands, timeoutMs = 90000, logPath },
+) {
+  return new Promise((resolveCommand, reject) => {
+    const child = spawn(executable, args, {
+      cwd,
+      detached: process.platform !== 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    commands.add(child);
+    child.stdout.pipe(output, { end: false });
+    child.stderr.pipe(output, { end: false });
+    let timedOut = false;
+    let captured = '';
+    let failureOutput = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', chunk => {
+      captured = (captured + chunk.toString()).slice(-100000);
+      failureOutput = (failureOutput + chunk.toString()).slice(-8000);
+    });
+    child.stderr.on('data', chunk => {
+      failureOutput = (failureOutput + chunk.toString()).slice(-8000);
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      signalChild(child, 'SIGKILL');
+    }, timeoutMs);
+    child.once('error', error => {
+      clearTimeout(timer);
+      commands.delete(child);
+      reject(error);
+    });
+    child.once('close', (code, signal) => {
+      clearTimeout(timer);
+      commands.delete(child);
+      if (code === 0 && !timedOut) resolveCommand(captured);
+      else
+        reject(
+          Object.assign(
+            new Error(
+              `${executable} ${args.slice(0, 3).join(' ')} failed (${
+                timedOut ? 'timeout' : signal ?? code
+              }); see ${logPath}`,
+            ),
+            { output: failureOutput, timedOut, signal },
+          ),
+        );
+    });
+  });
+}
+
+// Keep the CLI's 90-second iOS request deadline ahead of process termination.
+const captureSnapshot = (agent, platform) =>
+  agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 30000);
+
+export async function tapRegressionControl(agent, label, platform = 'ios') {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const snapshot = await captureSnapshot(agent, platform);
+    if (snapshot.includes('Open debugger to view warnings.')) {
+      await agent(['react-native', 'dismiss-overlay'], 30000);
+      continue;
+    }
+    // Android snapshots can omit WebView links; retain its native label lookup.
+    if (platform === 'android') {
+      await agent(['find', label, 'click', '--first'], 30000);
+      return;
+    }
+    const target = snapshot
+      .split('\n')
+      .map(line => line.match(/^\s*(@e\d+) \[(button|link)\] "([^"]+)"/))
+      .find(match => match?.[3] === label);
+    if (!target) throw new Error(`${label} control was not observed`);
+    await agent(['click', target[1], '--hold-ms', '100'], 30000);
+    return;
+  }
+  throw new Error(`${label} remained obscured by a development warning`);
+}
+
 export function validateRegressionResults(result, platform) {
   if (
     result?.complete !== true ||
@@ -156,7 +236,7 @@ export async function performNativeInteraction(value, context) {
     const deadline = Date.now() + 15000;
     let snapshotHelperReset = false;
     while (true) {
-      const snapshot = await agent(['snapshot', '-i'], 30000);
+      const snapshot = await captureSnapshot(agent, platform);
       if (snapshot.includes('Open debugger to view warnings.')) {
         await agent(['react-native', 'dismiss-overlay'], 30000);
         if (Date.now() >= deadline)
@@ -174,8 +254,21 @@ export async function performNativeInteraction(value, context) {
           (label === 'nitro-regression.txt' &&
             match[3].startsWith(`${label}, `)),
       );
-      const button = nodes.find(match => match[2] === 'button');
-      if (button) return agent(['click', button[1]], 30000);
+      const target = nodes.find(
+        match =>
+          match[2] === 'button' ||
+          (platform === 'ios' &&
+            (match[2] === 'link' ||
+              (label === 'Media' && match[2] === 'other'))),
+      );
+      if (target) {
+        // A short XCTest press avoids the synthesized tap path for iOS links.
+        const hold =
+          platform === 'ios' && target[2] === 'link'
+            ? ['--hold-ms', '100']
+            : [];
+        return agent(['click', target[1], ...hold], 30000);
+      }
       if (!fileInput && nodes.length)
         return agent(['find', label, 'click', '--first'], 30000);
       if (
@@ -204,6 +297,12 @@ export async function performNativeInteraction(value, context) {
         continue;
       }
       if (Date.now() >= deadline) {
+        if (
+          platform === 'android' &&
+          !fileInput &&
+          snapshot.includes('[webview]')
+        )
+          return agent(['find', label, 'click', '--first'], 30000);
         const kind = fileInput ? 'file input button' : 'control';
         throw new Error(`${label} ${kind} was not observed`);
       }
@@ -213,7 +312,7 @@ export async function performNativeInteraction(value, context) {
   const appVisible = async () => {
     const deadline = Date.now() + 15000;
     while (true) {
-      const snapshot = await agent(['snapshot', '-i'], 30000);
+      const snapshot = await captureSnapshot(agent, platform);
       if (
         /^\s*@e\d+ \[button\] "Run regression"/im.test(snapshot) &&
         (platform !== 'android' || (await foreground()) === bundleID)
@@ -233,7 +332,7 @@ export async function performNativeInteraction(value, context) {
   if (action === 'fullscreen-exit') {
     if (platform === 'android') {
       await adb(['shell', 'input', 'keyevent', '4']);
-      const controls = await agent(['snapshot', '-i'], 30000);
+      const controls = await captureSnapshot(agent, platform);
       const coachmark = controls.match(/^\s*(@e\d+) \[button\] "Got it"/m);
       // A fresh emulator's immersive-mode hint can consume the first Back.
       if (coachmark && /\[button\] "exit full screen"/.test(controls)) {
@@ -241,15 +340,30 @@ export async function performNativeInteraction(value, context) {
         await adb(['shell', 'input', 'keyevent', '4']);
       }
     } else {
-      let controls = await agent(['snapshot', '-i'], 30000);
-      if (
-        !/\[button\] "(?:Done|Close)"/.test(controls) &&
-        controls.includes('"Media"')
-      ) {
-        await tap('Media');
-        controls = await agent(['snapshot', '-i'], 30000);
+      // Raw snapshots avoid live descendant expansion for AVKit sliders.
+      const captureControls = async () =>
+        JSON.parse(
+          await agent(['snapshot', '-i', '--raw', '--json'], 120000),
+        ).data.nodes;
+      const dismissButton = nodes =>
+        nodes.find(
+          node => node.type === 'Button' && /^(Close|Done)$/.test(node.label),
+        );
+      let controls = await captureControls();
+      let dismiss = dismissButton(controls);
+      if (!dismiss) {
+        const media = controls.find(
+          node => node.type === 'Other' && node.label === 'Media',
+        );
+        if (media) {
+          await agent(['click', `@${media.ref}`], 30000);
+          controls = await captureControls();
+          dismiss = dismissButton(controls);
+        }
       }
-      await tap(controls.includes('[button] "Close"') ? 'Close' : 'Done');
+      if (!dismiss)
+        throw new Error('Fullscreen Close or Done button was not observed');
+      await agent(['click', `@${dismiss.ref}`], 30000);
     }
     return appVisible();
   }
@@ -258,14 +372,14 @@ export async function performNativeInteraction(value, context) {
       throw new Error('Camera chooser automation requires Android');
     await adb(['shell', 'pm', 'grant', bundleID, 'android.permission.CAMERA']);
     await tap('Capture fixture');
-    const picker = await agent(['snapshot', '-i'], 30000);
+    const picker = await captureSnapshot(agent, platform);
     if (!/Camera|Capture image/.test(picker))
       throw new Error('Capture input did not offer a camera activity');
     await tap(picker.includes('Capture image') ? 'Capture image' : 'Camera');
     const cameraDeadline = Date.now() + 15000;
     while (
       !/\] "(?:Shutter[^"]*|Take photo[^"]*|Capture|Switch camera[^"]*)"/i.test(
-        await agent(['snapshot', '-i'], 30000),
+        await captureSnapshot(agent, platform),
       )
     ) {
       if (Date.now() >= cameraDeadline)
@@ -294,7 +408,7 @@ export async function performNativeInteraction(value, context) {
     const pickerDeadline = Date.now() + 15000;
     let picker;
     while (true) {
-      picker = await agent(['snapshot', '-i'], 30000);
+      picker = await captureSnapshot(agent, platform);
       if (
         /Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(
           picker,
@@ -366,7 +480,7 @@ export async function performNativeInteraction(value, context) {
         throw error;
     }
     const permissionPackage = await foreground();
-    const permission = await agent(['snapshot', '-i'], 30000);
+    const permission = await captureSnapshot(agent, platform);
     const allow = permission.match(
       /^\s*(@e\d+) \[button\] "While using the app"/im,
     );
@@ -583,48 +697,12 @@ async function run(platform, device) {
 
   function command(executable, args, output = uiLog, timeoutMs = 90000) {
     uiLog.write(`\n$ ${executable} ${args.join(' ')}\n`);
-    return new Promise((resolveCommand, reject) => {
-      const child = spawn(executable, args, {
-        cwd: exampleDir,
-        detached: process.platform !== 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      commands.add(child);
-      child.stdout.pipe(output, { end: false });
-      child.stderr.pipe(output, { end: false });
-      let timedOut = false;
-      let captured = '';
-      let failureOutput = '';
-      child.stdout.on('data', chunk => {
-        captured = (captured + chunk.toString()).slice(-100000);
-        failureOutput = (failureOutput + chunk.toString()).slice(-8000);
-      });
-      child.stderr.on('data', chunk => {
-        failureOutput = (failureOutput + chunk.toString()).slice(-8000);
-      });
-      const timer = setTimeout(() => {
-        timedOut = true;
-        signalChild(child, 'SIGKILL');
-      }, timeoutMs);
-      child.once('error', error => {
-        clearTimeout(timer);
-        commands.delete(child);
-        reject(error);
-      });
-      child.once('close', (code, signal) => {
-        clearTimeout(timer);
-        commands.delete(child);
-        if (code === 0 && !timedOut) resolveCommand(captured);
-        else
-          reject(
-            Object.assign(
-              new Error(
-                `${executable} ${args.slice(0, 3).join(' ')} failed (${timedOut ? 'timeout' : (signal ?? code)}); see ${artifact('ui.log')}`,
-              ),
-              { output: failureOutput, timedOut, signal },
-            ),
-          );
-      });
+    return runLoggedCommand(executable, args, {
+      cwd: exampleDir,
+      output,
+      commands,
+      timeoutMs,
+      logPath: artifact('ui.log'),
     });
   }
 
@@ -698,14 +776,18 @@ async function run(platform, device) {
       await command('adb', ['-s', device, 'reverse', 'tcp:8098', 'tcp:8098']);
       await prepareAndroidRuntimePermissions({ device, bundleID, command });
     } else {
-      await agent(['prepare', 'ios-runner', '--timeout', '120000'], 150000);
+      await agent(['prepare', 'ios-runner', '--timeout', '240000'], 270000);
     }
-    await agent(['open', bundleID, '--relaunch']);
-    await agent(['snapshot', '-i']);
-    await agent(['wait', 'text', 'Regression verification', '60000']);
-    await agent(['find', 'Regression verification', 'click', '--first']);
-    await agent(['snapshot', '-i']);
-    await agent(['find', 'Run regression', 'click', '--first']);
+    // Relaunch stops the iOS runner that prepare just warmed.
+    await agent(
+      platform === 'ios' ? ['open', bundleID] : ['open', bundleID, '--relaunch'],
+      platform === 'ios' ? 120000 : 90000,
+    );
+    await agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 90000);
+    await agent(['wait', 'text', 'Open native regression checks', '60000']);
+    await tapRegressionControl(agent, 'Open native regression checks', platform);
+    await agent(['wait', 'text', 'Run regression', '60000']);
+    await tapRegressionControl(agent, 'Run regression', platform);
     const deadline = Date.now() + 600000;
     const printed = new Set();
     const handledInteractions = new Set();
