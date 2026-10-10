@@ -741,7 +741,7 @@ async function run(platform, device) {
       await command('adb', ['-s', device, 'reverse', 'tcp:8098', 'tcp:8098']);
       await prepareAndroidRuntimePermissions({ device, bundleID, command });
     } else {
-      await agent(['prepare', 'ios-runner', '--timeout', '120000'], 150000);
+      await agent(['prepare', 'ios-runner', '--timeout', '240000'], 270000);
     }
     await agent(['open', bundleID, '--relaunch']);
     await agent(['snapshot', '-i']);
