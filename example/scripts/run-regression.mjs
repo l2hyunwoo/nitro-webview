@@ -146,7 +146,7 @@ export async function performNativeInteraction(value, context) {
         !fileInput &&
         observed.some(
           match =>
-            /^(list|scroll-area|gridview)$/.test(match[2]) &&
+            /^(list|scroll-area|gridview|viewpager)$/.test(match[2]) &&
             match[3].split(',').some(item => item.trim() === label),
         )
       )
@@ -204,7 +204,7 @@ export async function performNativeInteraction(value, context) {
     await tap(picker.includes('Capture image') ? 'Capture image' : 'Camera');
     const cameraDeadline = Date.now() + 15000;
     while (
-      !/Shutter|Take photo|Capture|Switch camera/i.test(
+      !/\] "(?:Shutter[^"]*|Take photo[^"]*|Capture|Switch camera[^"]*)"/i.test(
         await agent(['snapshot', '-i'], 30000),
       )
     ) {
@@ -264,6 +264,10 @@ export async function performNativeInteraction(value, context) {
   if (action === 'permission-allow' || action === 'permission-deny') {
     if (platform !== 'android')
       throw new Error('OS permission automation requires Android');
+    const permissionControllers = [
+      'com.google.android.permissioncontroller',
+      'com.android.permissioncontroller',
+    ];
     await adb([
       'shell',
       'pm',
@@ -291,8 +295,10 @@ export async function performNativeInteraction(value, context) {
         error.timedOut ||
         error.signal ||
         !/press @e\d+ /.test(output) ||
-        !output.includes(
-          `left ${bundleID} and foregrounded com.google.android.permissioncontroller. The tap likely escaped the app.`,
+        !permissionControllers.some(controller =>
+          output.includes(
+            `left ${bundleID} and foregrounded ${controller}. The tap likely escaped the app.`,
+          ),
         )
       )
         throw error;
@@ -300,11 +306,11 @@ export async function performNativeInteraction(value, context) {
     const permissionPackage = await foreground();
     const permission = await agent(['snapshot', '-i'], 30000);
     const allow = permission.match(
-      /^\s*(@e\d+) \[button\] "While using the app"/m,
+      /^\s*(@e\d+) \[button\] "While using the app"/im,
     );
-    const deny = permission.match(/^\s*(@e\d+) \[button\] "Don[’']t allow"/m);
+    const deny = permission.match(/^\s*(@e\d+) \[button\] "Don[’']t allow"/im);
     if (
-      permissionPackage !== 'com.google.android.permissioncontroller' ||
+      !permissionControllers.includes(permissionPackage) ||
       !/location/i.test(permission) ||
       !allow ||
       !deny

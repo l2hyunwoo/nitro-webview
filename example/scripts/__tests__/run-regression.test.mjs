@@ -392,18 +392,40 @@ test('only the expected permission transition is accepted after a fresh real per
 });
 
 test('permission identity uses resumed activity, accepts actual curved/ASCII labels, and clicks their observed ref', async () => {
-  for (const ascii of [false, true]) {
+  for (const [controller, uppercase, ascii] of [
+    ['com.google.android.permissioncontroller', false, false],
+    ['com.google.android.permissioncontroller', false, true],
+    ['com.android.permissioncontroller', true, false],
+    ['com.android.permissioncontroller', true, true],
+  ]) {
     const context = nativeContext();
     const agent = context.agent;
     context.agent = async args => {
       const result = await agent(args);
-      return ascii ? result.replace('Don’t allow', "Don't allow") : result;
+      if (
+        controller === 'com.android.permissioncontroller' &&
+        args[0] === 'click' && args[1] === '@e8'
+      ) {
+        throw Object.assign(new Error('agent failed'), {
+          output:
+            'press @e8 left com.example and foregrounded com.android.permissioncontroller. The tap likely escaped the app.',
+        });
+      }
+      const labels = ascii ? result.replace('Don’t allow', "Don't allow") : result;
+      return uppercase
+        ? labels
+            .replace('While using the app', 'WHILE USING THE APP')
+            .replace('Don’t allow', 'DON’T ALLOW')
+            .replace("Don't allow", "DON'T ALLOW")
+        : labels;
     };
     const command = context.command;
     context.command = async (executable, args) => {
       const result = await command(executable, args);
       // Older dumps omit topResumedActivity, while session snapshot Page remains com.example.
-      return result.replace(/^.*topResumedActivity=.*\n/m, '');
+      return result
+        .replaceAll('com.google.android.permissioncontroller', controller)
+        .replace(/^.*topResumedActivity=.*\n/m, '');
     };
     await performNativeInteraction(
       { id: 'deny', action: 'permission-deny' },
@@ -420,6 +442,7 @@ test('permission identity uses resumed activity, accepts actual curved/ASCII lab
   for (const resumed of [
     '',
     'topResumedActivity=ActivityRecord{current u0 com.example/.MainActivity t7}\nResumedActivity: ActivityRecord{old u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t6}',
+    'topResumedActivity=ActivityRecord{current u0 com.android.settings/.Settings t7}',
   ]) {
     const context = nativeContext();
     const command = context.command;
@@ -641,6 +664,53 @@ test('capture cancellation requires camera offering and camera UI; never fabrica
     context.calls.findLast(call => call.includes('keyevent')),
     ['adb', '-s', 'emulator-5554', 'shell', 'input', 'keyevent', '4'],
   );
+});
+
+test('capture cancellation selects Camera from the collapsed Android resolver viewpager', async () => {
+  const context = nativeContext(
+    'Page: com.example\n@e1 [scroll-area] "android:id/contentPanel" [scrollable]\n@e2 [tabhost] "android:id/profile_tabhost"\n@e3 [viewpager] "Media, Camera"\n@e4 [gridview] "android:id/resolver_list"',
+  );
+  await performNativeInteraction(
+    { id: 'capture', action: 'capture-cancel' },
+    context,
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'find').map(call => call[2]),
+    ['Camera'],
+  );
+  assert.deepEqual(
+    context.calls.findLast(call => call.includes('keyevent')),
+    ['adb', '-s', 'emulator-5554', 'shell', 'input', 'keyevent', '4'],
+  );
+});
+
+test('capture cancellation ignores app fixture and chooser labels until a camera control appears', async () => {
+  const context = nativeContext('@e3 [viewpager] "Media, Camera"');
+  const agent = context.agent;
+  const command = context.command;
+  let selected = false;
+  const staleLabels = ['Capture fixture: No file chosen', 'Capture image'];
+  let cameraObserved = false;
+  context.agent = async args => {
+    const snapshot = await agent(args);
+    if (args[0] === 'find' && args[1] === 'Camera') selected = true;
+    if (args[0] === 'snapshot' && selected) {
+      if (staleLabels.length) {
+        return `@e11 [button] "${staleLabels.shift()}"`;
+      }
+      if (snapshot.includes('"Shutter"')) cameraObserved = true;
+    }
+    return snapshot;
+  };
+  context.command = async (executable, args) => {
+    if (args.includes('keyevent')) assert.equal(cameraObserved, true);
+    return command(executable, args);
+  };
+  await performNativeInteraction(
+    { id: 'capture', action: 'capture-cancel' },
+    context,
+  );
+  assert.equal(cameraObserved, true);
 });
 
 test('runtime location flows tap explicit OS consent and inject only emulator GPS', async () => {

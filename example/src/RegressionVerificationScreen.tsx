@@ -321,7 +321,7 @@ export function RegressionVerificationScreen() {
       try {
         const value = await bounded(
           ref(view).evaluateJavaScript(
-            '({url:location.href,historyLength:history.length,readyState:document.readyState})',
+            '({url:location.href,historyLength:history.length,readyState:document.readyState,hasFocus:document.hasFocus(),visibility:document.visibilityState,secureContext:window.isSecureContext})',
           ),
           'page diagnostic',
           2000,
@@ -1493,17 +1493,29 @@ export function RegressionVerificationScreen() {
               mediaCapturePermissionOrigins: [origin],
             });
             await ready(allowed);
-            await evaluate(allowed, "media('camera');true;");
+            await pageDiagnostic(allowed, 'before camera tap');
+            await interact('tap', 'Camera permission');
+            await pageDiagnostic(allowed, 'after camera tap');
             await until(
-              () => allowed.messages.includes('media:camera:allowed:video:live'),
+              () =>
+                allowed.messages.some(message =>
+                  message.startsWith('media:camera:'),
+                ),
               'allowed media origin live camera track',
+            );
+            check(
+              allowed.messages.includes('media:camera:allowed:video:live'),
+              `allowed media origin did not obtain a live camera track: ${JSON.stringify(allowed.messages)}`,
             );
             const view = await mount('/permission-fixture', {
               mediaCapturePermissionOrigins: [],
             });
             await ready(view);
             for (const kind of ['camera', 'microphone'] as const) {
-              await evaluate(view, `media(${JSON.stringify(kind)});true;`);
+              await interact(
+                'tap',
+                kind === 'camera' ? 'Camera permission' : 'Microphone permission',
+              );
               await until(
                 () =>
                   view.messages.includes(
@@ -1516,7 +1528,7 @@ export function RegressionVerificationScreen() {
               !view.messages.some(message => message.includes(':allowed:')),
               'denied media origin obtained a live track',
             );
-            return 'allowed origin obtained a live camera track; real camera and microphone getUserMedia calls from a denied origin both returned NotAllowedError';
+            return `allowed origin obtained a live camera track; real camera and microphone getUserMedia calls from a denied origin both returned NotAllowedError; ${allowed.diagnostics.join('; ')}`;
           },
         ],
         [
