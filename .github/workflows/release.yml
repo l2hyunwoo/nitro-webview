@@ -555,6 +555,11 @@ jobs:
 
           RELEASE_NOTES_FILE="$(mktemp)"
           {
+            if [ -f "docs/releases/${RESOLVED_VERSION}.md" ]; then
+              cat "docs/releases/${RESOLVED_VERSION}.md"
+              echo ""
+              echo ""
+            fi
             echo "## What's Changed"
             echo ""
             if [ -n "${PREVIOUS_TAG}" ]; then

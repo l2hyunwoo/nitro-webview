@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import { parse } from 'yaml'
 
@@ -19,6 +28,77 @@ const required = [
   'robolectric',
   'verify-release-candidate',
 ]
+
+test('release notes include version documentation and retain commit and install details', () => {
+  const step = release.jobs['create-github-release'].steps.find(
+    (step) => step.id === 'notes'
+  )
+  for (const withDocument of [true, false]) {
+    const cwd = mkdtempSync(join(tmpdir(), 'release-notes-'))
+    try {
+      const git = (...args) => execFileSync('git', args, { cwd })
+      git('init', '--quiet')
+      git(
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.com',
+        'commit',
+        '--quiet',
+        '--allow-empty',
+        '-m',
+        'Initial release'
+      )
+      if (withDocument) git('tag', 'v0.1.0')
+      git(
+        '-c',
+        'user.name=Test',
+        '-c',
+        'user.email=test@example.com',
+        'commit',
+        '--quiet',
+        '--allow-empty',
+        '-m',
+        'Support the new architecture'
+      )
+      const document =
+        '# 0.2.0\n\nRequires React Native 0.85.3.\n\nLiteral: $(touch injected)\n'
+      if (withDocument) {
+        mkdirSync(join(cwd, 'docs/releases'), { recursive: true })
+        writeFileSync(join(cwd, 'docs/releases/0.2.0.md'), document)
+      }
+      const output = join(cwd, 'output')
+      execFileSync('bash', ['-c', step.run], {
+        cwd,
+        env: {
+          ...process.env,
+          TMPDIR: cwd,
+          GITHUB_OUTPUT: output,
+          GITHUB_REPOSITORY: 'owner/nitro-webview',
+          TAG_NAME: 'v0.2.0',
+          RESOLVED_VERSION: '0.2.0',
+        },
+      })
+      const notesPath = readFileSync(output, 'utf8')
+        .trim()
+        .slice('notes_file='.length)
+      const notes = readFileSync(notesPath, 'utf8')
+      assert.equal(notes.startsWith(document), withDocument)
+      assert.match(notes, /## What's Changed\n\n- Support the new architecture/)
+      assert.match(notes, /yarn add nitro-webview@0\.2\.0/)
+      assert.match(notes, /npm install nitro-webview@0\.2\.0/)
+      assert.match(notes, /blob\/v0\.2\.0\/README\.md/)
+      assert(
+        notes.includes(
+          withDocument ? '/compare/v0.1.0...v0.2.0' : '/commits/v0.2.0'
+        )
+      )
+      assert.throws(() => readFileSync(join(cwd, 'injected')))
+    } finally {
+      rmSync(cwd, { recursive: true, force: true })
+    }
+  }
+})
 
 function assertReleaseGates(jobs) {
   const ancestors = (id) => {
