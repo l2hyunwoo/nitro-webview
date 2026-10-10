@@ -166,6 +166,33 @@ namespace margelo::nitro::nitrowebview {
   }
 
   // Properties
+  std::optional<std::vector<std::string>> JHybridNitroWebViewSpec::getAllowedMessageOrigins() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JArrayClass<jni::JString>>()>("getAllowedMessageOrigins");
+    auto __result = method(_javaPart);
+    return __result != nullptr ? std::make_optional([&](auto&& __input) {
+      size_t __size = __input->size();
+      std::vector<std::string> __vector;
+      __vector.reserve(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        auto __element = __input->getElement(__i);
+        __vector.push_back(__element->toStdString());
+      }
+      return __vector;
+    }(__result)) : std::nullopt;
+  }
+  void JHybridNitroWebViewSpec::setAllowedMessageOrigins(const std::optional<std::vector<std::string>>& allowedMessageOrigins) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<jni::JArrayClass<jni::JString>> /* allowedMessageOrigins */)>("setAllowedMessageOrigins");
+    method(_javaPart, allowedMessageOrigins.has_value() ? [&](auto&& __input) {
+      size_t __size = __input.size();
+      jni::local_ref<jni::JArrayClass<jni::JString>> __array = jni::JArrayClass<jni::JString>::newArray(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        const auto& __element = __input[__i];
+        auto __elementJni = jni::make_jstring(__element);
+        __array->setElement(__i, *__elementJni);
+      }
+      return __array;
+    }(allowedMessageOrigins.value()) : nullptr);
+  }
   std::optional<std::vector<std::string>> JHybridNitroWebViewSpec::getMediaCapturePermissionOrigins() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JArrayClass<jni::JString>>()>("getMediaCapturePermissionOrigins");
     auto __result = method(_javaPart);

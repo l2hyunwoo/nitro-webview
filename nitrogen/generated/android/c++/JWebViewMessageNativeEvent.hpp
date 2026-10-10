@@ -10,6 +10,7 @@
 #include <fbjni/fbjni.h>
 #include "WebViewMessageNativeEvent.hpp"
 
+#include <optional>
 #include <string>
 
 namespace margelo::nitro::nitrowebview {
@@ -35,9 +36,15 @@ namespace margelo::nitro::nitrowebview {
       jni::local_ref<jni::JString> data = this->getFieldValue(fieldData);
       static const auto fieldUrl = clazz->getField<jni::JString>("url");
       jni::local_ref<jni::JString> url = this->getFieldValue(fieldUrl);
+      static const auto fieldSourceOrigin = clazz->getField<jni::JString>("sourceOrigin");
+      jni::local_ref<jni::JString> sourceOrigin = this->getFieldValue(fieldSourceOrigin);
+      static const auto fieldIsMainFrame = clazz->getField<jni::JBoolean>("isMainFrame");
+      jni::local_ref<jni::JBoolean> isMainFrame = this->getFieldValue(fieldIsMainFrame);
       return WebViewMessageNativeEvent(
         data->toStdString(),
-        url->toStdString()
+        url->toStdString(),
+        sourceOrigin != nullptr ? std::make_optional(sourceOrigin->toStdString()) : std::nullopt,
+        isMainFrame != nullptr ? std::make_optional(static_cast<bool>(isMainFrame->value())) : std::nullopt
       );
     }
 
@@ -47,13 +54,15 @@ namespace margelo::nitro::nitrowebview {
      */
     [[maybe_unused]]
     static jni::local_ref<JWebViewMessageNativeEvent::javaobject> fromCpp(const WebViewMessageNativeEvent& value) {
-      using JSignature = JWebViewMessageNativeEvent(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>);
+      using JSignature = JWebViewMessageNativeEvent(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JBoolean>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
         clazz,
         jni::make_jstring(value.data),
-        jni::make_jstring(value.url)
+        jni::make_jstring(value.url),
+        value.sourceOrigin.has_value() ? jni::make_jstring(value.sourceOrigin.value()) : nullptr,
+        value.isMainFrame.has_value() ? jni::JBoolean::valueOf(value.isMainFrame.value()) : nullptr
       );
     }
   };

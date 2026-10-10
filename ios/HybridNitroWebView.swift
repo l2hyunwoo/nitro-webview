@@ -13,6 +13,10 @@ final class HybridNitroWebView:
   private var isDropped = false
   private var mountedSettings: NitroWebViewSessionSettings?
   private var lastConfigurationError: String?
+  private var lastMessagePolicyError: String?
+  var allowedMessageOrigins: [String]? {
+    didSet { messageHandler.allowedOrigins = allowedMessageOrigins }
+  }
   private var pendingEvaluations: [UUID: Promise<String>] = [:]
 
   private var sessionSettings: NitroWebViewSessionSettings {
@@ -78,6 +82,7 @@ final class HybridNitroWebView:
   // only after the first complete prop batch, before loading any source.
   func afterUpdate() {
     guard !isDropped else { return }
+    reportMessagePolicyError()
     if let message = sessionSettings.error(comparedTo: mountedSettings) {
       sourceHandler.cancelPendingLoad()
       if lastConfigurationError != message {
@@ -92,6 +97,15 @@ final class HybridNitroWebView:
     if sourceHandler.consumePendingLoad() {
       applySource(source)
     }
+  }
+
+  private func reportMessagePolicyError() {
+    let error = NitroWebViewMessagePolicy.configurationError(allowedMessageOrigins)
+    if let error, error != lastMessagePolicyError {
+      emitError(NSError(domain: "NitroWebViewConfiguration", code: -1,
+        userInfo: [NSLocalizedDescriptionKey: error]), fallbackUrl: nil)
+    }
+    lastMessagePolicyError = error
   }
 
   private func createWebView() {
@@ -694,7 +708,9 @@ final class HybridNitroWebView:
     let payload = WebViewMessageEvent(
       nativeEvent: WebViewMessageNativeEvent(
         data: event.data,
-        url: event.url
+        url: event.url,
+        sourceOrigin: event.sourceOrigin,
+        isMainFrame: event.isMainFrame
       )
     )
     onMessage?(payload)

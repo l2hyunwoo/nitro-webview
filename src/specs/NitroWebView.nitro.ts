@@ -111,7 +111,12 @@ export interface WebViewLoadProgressEvent {
 /** Inner payload of `WebViewMessageEvent.nativeEvent`. */
 export interface WebViewMessageNativeEvent {
   data: string
+  /** Top-level page URL; never use this to authenticate the sender. */
   url: string
+  /** Native sender origin, or "null" for an opaque origin. Absent on legacy Android WebViews. */
+  sourceOrigin?: string
+  /** Native frame identity. Absent when Android's WEB_MESSAGE_LISTENER is unavailable. */
+  isMainFrame?: boolean
 }
 
 /**
@@ -153,6 +158,13 @@ export interface NitroWebViewErrorEvent {
 export type WebViewErrorEvent = NitroWebViewErrorEvent
 
 export interface NitroWebViewProps extends HybridViewProps {
+  /** Exact HTTP(S) sender origins allowed to deliver onMessage. Omit to allow all;
+   * [] denies all. Paths, credentials and wildcards are rejected. This is independent
+   * of navigation. Android requires WEB_MESSAGE_LISTENER; unsupported or invalid
+   * configuration emits NitroWebViewConfiguration and denies messages.
+   */
+  allowedMessageOrigins?: string[]
+
   /** Android only: exact HTTP(S) origins allowed to request camera/microphone.
    * Default denies all. No wildcards or paths. Android runtime consent is still required.
    * iOS ignores this prop and retains WKWebView's system permission prompts.

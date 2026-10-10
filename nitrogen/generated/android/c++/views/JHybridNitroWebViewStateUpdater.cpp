@@ -37,6 +37,10 @@ void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass
   }
 
   // Update all props if they are dirty
+  if (props->allowedMessageOrigins.isDirty) {
+    hybridView->setAllowedMessageOrigins(props->allowedMessageOrigins.value);
+    props->allowedMessageOrigins.isDirty = false;
+  }
   if (props->mediaCapturePermissionOrigins.isDirty) {
     hybridView->setMediaCapturePermissionOrigins(props->mediaCapturePermissionOrigins.value);
     props->mediaCapturePermissionOrigins.isDirty = false;

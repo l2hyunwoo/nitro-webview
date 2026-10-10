@@ -49,6 +49,7 @@ let package = Package(
         "NitroWebViewMainThread.swift",
         "NitroWebViewSourceHandler.swift",
         "NitroWebViewMessageHandler.swift",
+        "NitroWebViewMessagePolicy.swift",
         // Second WKScriptMessageHandler for the SPA history shim. Like the
         // message handler it is Nitro-free (Foundation/WebKit only), so it
         // compiles into this host harness and its stringify seam is tested

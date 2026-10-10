@@ -21,6 +21,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.RequiresApi
+import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.facebook.react.bridge.ActivityEventListener
@@ -79,6 +80,9 @@ class HybridNitroWebView(
     }
 
   private val mainHandler = Handler(Looper.getMainLooper())
+  private val supportsMessageListener = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
+  private var lastMessagePolicyError: String? = null
+  override var allowedMessageOrigins: Array<String>? = null
 
   @Volatile
   private var destroyed = false
@@ -275,6 +279,7 @@ class HybridNitroWebView(
   override fun afterUpdate() {
     super.afterUpdate()
     postIfAvailable {
+      reportMessagePolicyError()
       if (incognito == true) {
         sourceNeedsLoading = false
         if (!configurationErrorReported) {
@@ -467,7 +472,15 @@ class HybridNitroWebView(
   }
 
   private fun installJavaScriptInterfaces() {
-    view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
+    if (supportsMessageListener) {
+      WebViewCompat.addWebMessageListener(view, BRIDGE_NAME, setOf("*")) { _, message, sourceOrigin, isMainFrame, _ ->
+        if (message.type == WebMessageCompat.TYPE_STRING) {
+          message.data?.let { receiveMessage(it, sourceOrigin.toString(), isMainFrame) }
+        }
+      }
+    } else {
+      view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
+    }
     // History changes use a separate interface so they cannot become onMessage events.
     view.addJavascriptInterface(HistoryShimInterface(), HISTORY_SHIM_NAME)
   }
@@ -702,6 +715,7 @@ class HybridNitroWebView(
     view.webViewClient = WebViewClient()
     view.webChromeClient = null
     view.setDownloadListener(null)
+    if (supportsMessageListener) WebViewCompat.removeWebMessageListener(view, BRIDGE_NAME)
     view.removeJavascriptInterface(BRIDGE_NAME)
     view.removeJavascriptInterface(HISTORY_SHIM_NAME)
     view.setOnScrollChangeListener(null)
@@ -1120,22 +1134,49 @@ class HybridNitroWebView(
       promise
     }, payload, timeoutMs)
 
+  private fun reportMessagePolicyError() {
+    val error = NitroWebViewMessagePolicy.configurationError(allowedMessageOrigins, supportsMessageListener)
+    if (error != null && error != lastMessagePolicyError) {
+      onError?.invoke(
+        NitroWebViewErrorEvent(
+          NitroWebViewErrorNativeEvent(
+            code = -1.0,
+            description = error,
+            url = view.url ?: "",
+            domain = "NitroWebViewConfiguration",
+          ),
+        ),
+      )
+    }
+    lastMessagePolicyError = error
+  }
+
   private inner class BridgeInterface {
     @JavascriptInterface
     fun postMessage(data: String) {
       // JavaBridge callbacks must read pending requests and WebView state on the UI thread.
-      postIfAvailable {
-        if (handleBlobMessage(data)) return@postIfAvailable
-        val payload =
-          WebViewMessageEvent(
-            WebViewMessageNativeEvent(
-              data = data,
-              url = view.url ?: "",
-            ),
-          )
-        onMessage?.invoke(payload)
-      }
+      postIfAvailable { receiveMessage(data, null, null) }
     }
+  }
+
+  private fun receiveMessage(
+    data: String,
+    sourceOrigin: String?,
+    isMainFrame: Boolean?,
+  ) {
+    if (destroyed) return
+    if (handleBlobMessage(data)) return
+    if (!NitroWebViewMessagePolicy.allows(allowedMessageOrigins, sourceOrigin, supportsMessageListener)) return
+    val payload =
+      WebViewMessageEvent(
+        WebViewMessageNativeEvent(
+          data = data,
+          url = view.url ?: "",
+          sourceOrigin = sourceOrigin,
+          isMainFrame = isMainFrame,
+        ),
+      )
+    onMessage?.invoke(payload)
   }
 
   /**
