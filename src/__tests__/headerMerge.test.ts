@@ -134,3 +134,28 @@ describe('mergeHeaders — purity', () => {
     assert.deepEqual(second, { 'X-A': '1' })
   })
 })
+
+describe('mergeHeaders — duplicate logical keys', () => {
+  it('rejects duplicates within either map, even if the other map overrides them', () => {
+    const duplicates = { Authorization: 'one', authorization: 'two' }
+    for (const [defaults, request] of [
+      [duplicates, undefined],
+      [undefined, duplicates],
+      [duplicates, { authorization: 'override' }],
+      [{ Authorization: 'default' }, duplicates],
+    ]) {
+      assert.throws(
+        () => mergeHeaders(defaults, request),
+        /Duplicate HTTP header/
+      )
+    }
+  })
+
+  it('keeps special object property names as own headers', () => {
+    const input = JSON.parse('{"__proto__":"header","constructor":"value"}')
+    const merged = mergeHeaders(input, undefined)
+    assert.equal(Object.getPrototypeOf(merged), Object.prototype)
+    assert.deepEqual(Object.keys(merged), ['__proto__', 'constructor'])
+    assert.deepEqual(merged, input)
+  })
+})

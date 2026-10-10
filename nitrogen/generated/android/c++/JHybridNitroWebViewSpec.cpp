@@ -31,6 +31,8 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorEvent; }
 namespace margelo::nitro::nitrowebview { struct NitroWebViewErrorNativeEvent; }
 // Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
+// Forward declaration of `ShouldStartLoadDecision` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadDecision; }
 // Forward declaration of `WebViewNavigationType` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { enum class WebViewNavigationType; }
 // Forward declaration of `OpenWindowEvent` to properly resolve imports.
@@ -93,13 +95,14 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "JNitroWebViewErrorEvent.hpp"
 #include "NitroWebViewErrorNativeEvent.hpp"
 #include "JNitroWebViewErrorNativeEvent.hpp"
-#include <NitroModules/Promise.hpp>
 #include "ShouldStartLoadRequest.hpp"
-#include "JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest.hpp"
-#include <NitroModules/JPromise.hpp>
+#include "ShouldStartLoadDecision.hpp"
+#include "JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision.hpp"
 #include "JShouldStartLoadRequest.hpp"
 #include "WebViewNavigationType.hpp"
 #include "JWebViewNavigationType.hpp"
+#include "JShouldStartLoadDecision.hpp"
+#include "JFunc_void_std__optional_bool_.hpp"
 #include "OpenWindowEvent.hpp"
 #include "JFunc_void_OpenWindowEvent.hpp"
 #include "JOpenWindowEvent.hpp"
@@ -127,6 +130,8 @@ namespace margelo::nitro::nitrowebview { struct Cookie; }
 #include "JNitroWebViewScrollNativeEvent.hpp"
 #include "WebViewPoint.hpp"
 #include "JWebViewPoint.hpp"
+#include <NitroModules/Promise.hpp>
+#include <NitroModules/JPromise.hpp>
 #include "Cookie.hpp"
 #include "JCookie.hpp"
 #include <NitroModules/JUnit.hpp>
@@ -500,22 +505,22 @@ namespace margelo::nitro::nitrowebview {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_NitroWebViewErrorEvent::javaobject> /* onError */)>("setOnError_cxx");
     method(_javaPart, onError.has_value() ? JFunc_void_NitroWebViewErrorEvent_cxx::fromCpp(onError.value()) : nullptr);
   }
-  std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>> JHybridNitroWebViewSpec::getOnShouldStartLoadWithRequest() {
-    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest::javaobject>()>("getOnShouldStartLoadWithRequest_cxx");
+  std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>> JHybridNitroWebViewSpec::getOnShouldStartLoadWithRequest() {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision::javaobject>()>("getOnShouldStartLoadWithRequest_cxx");
     auto __result = method(_javaPart);
-    return __result != nullptr ? std::make_optional([&]() -> std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)> {
-      if (__result->isInstanceOf(JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::javaClassStatic())) [[likely]] {
-        auto downcast = jni::static_ref_cast<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::javaobject>(__result);
+    return __result != nullptr ? std::make_optional([&]() -> std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)> {
+      if (__result->isInstanceOf(JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision_cxx::javaClassStatic())) [[likely]] {
+        auto downcast = jni::static_ref_cast<JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision_cxx::javaobject>(__result);
         return downcast->cthis()->getFunction();
       } else {
         auto __resultRef = jni::make_global(__result);
-        return JNICallable<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest, std::shared_ptr<Promise<bool>>(ShouldStartLoadRequest)>(std::move(__resultRef));
+        return JNICallable<JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision, void(ShouldStartLoadRequest, ShouldStartLoadDecision)>(std::move(__resultRef));
       }
     }()) : std::nullopt;
   }
-  void JHybridNitroWebViewSpec::setOnShouldStartLoadWithRequest(const std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>& onShouldStartLoadWithRequest) {
-    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest::javaobject> /* onShouldStartLoadWithRequest */)>("setOnShouldStartLoadWithRequest_cxx");
-    method(_javaPart, onShouldStartLoadWithRequest.has_value() ? JFunc_std__shared_ptr_Promise_bool___ShouldStartLoadRequest_cxx::fromCpp(onShouldStartLoadWithRequest.value()) : nullptr);
+  void JHybridNitroWebViewSpec::setOnShouldStartLoadWithRequest(const std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>& onShouldStartLoadWithRequest) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<void(jni::alias_ref<JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision::javaobject> /* onShouldStartLoadWithRequest */)>("setOnShouldStartLoadWithRequest_cxx");
+    method(_javaPart, onShouldStartLoadWithRequest.has_value() ? JFunc_void_ShouldStartLoadRequest_ShouldStartLoadDecision_cxx::fromCpp(onShouldStartLoadWithRequest.value()) : nullptr);
   }
   std::optional<bool> JHybridNitroWebViewSpec::getInterceptSubframeNavigation() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JBoolean>()>("getInterceptSubframeNavigation");

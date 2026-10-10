@@ -41,6 +41,7 @@ import com.margelo.nitro.nitrowebview.NitroWebViewScrollEvent
 import com.margelo.nitro.nitrowebview.NitroWebViewScrollNativeEvent
 import com.margelo.nitro.nitrowebview.OpenWindowEvent
 import com.margelo.nitro.nitrowebview.OpenWindowNativeEvent
+import com.margelo.nitro.nitrowebview.ShouldStartLoadDecision
 import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
 import com.margelo.nitro.nitrowebview.UriSource
 import com.margelo.nitro.nitrowebview.WebViewLoadEvent
@@ -208,8 +209,7 @@ class HybridNitroWebView(
   /**
    * Default HTTP headers applied to every main-frame navigation triggered
    * by a `source` change. Per-request `source.headers` win on key conflict
-   * (exact-match comparison on Android; callers should use a single
-   * canonical casing per key). Mutating `defaultHeaders` alone does not
+   * (case-insensitive comparison). Mutating `defaultHeaders` alone does not
    * trigger a navigation — the next `source` update is when merged headers
    * are forwarded to `WebView.loadUrl(url, headers)`.
    */
@@ -404,7 +404,7 @@ class HybridNitroWebView(
    * `RNCWebViewClient.SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS`).
    */
   override var onShouldStartLoadWithRequest: (
-    (event: ShouldStartLoadRequest) -> Promise<Boolean>
+    (event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision) -> Unit
   )? = null
 
   /**
@@ -1006,7 +1006,7 @@ class HybridNitroWebView(
    * Bridge between [ClientImpl.shouldOverrideUrlLoading] and the JS hook.
    *
    * Implementation contract:
-   *   1. Start the monotonic budget before invoking `hook(payload)`.
+   *   1. Start the monotonic budget before invoking `hook(payload, decision)`.
    *   2. Wait only for the remaining budget while the Promise's
    *      `then`/`catch` callbacks notify the lock. Callback execution and
    *      OS scheduling can exceed the nominal budget.
@@ -1021,10 +1021,15 @@ class HybridNitroWebView(
    * Boolean before the WebView can decide whether to commit.
    */
   internal fun dispatchShouldStart(
-    hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
+    hook: (event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision) -> Unit,
     payload: ShouldStartLoadRequest,
     timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
-  ): Boolean = Companion.awaitShouldStart(hook, payload, timeoutMs)
+  ): Boolean =
+    Companion.awaitShouldStart({ request ->
+      val promise = Promise<Boolean>()
+      hook(request, ShouldStartLoadDecision { allow -> promise.resolve(allow ?: true) })
+      promise
+    }, payload, timeoutMs)
 
   private inner class BridgeInterface {
     @JavascriptInterface
@@ -1384,7 +1389,7 @@ class HybridNitroWebView(
     /**
      * URI-source apply pipeline. Merges [defaultHeaders] and
      * [uriSource.headers] with per-request entries overriding defaults on
-     * exact-key conflict, then forwards the merged map and the URI to
+     * case-insensitive conflict, then forwards the merged map and the URI to
      * [loader]. Extracted from [applySource] so the header-merge and
      * the `loadUrl` invocation can be exercised in unit tests via a
      * fake [UrlLoader] without a real `android.webkit.WebView`.
@@ -1395,11 +1400,7 @@ class HybridNitroWebView(
       defaultHeaders: Map<String, String>?,
       loader: UrlLoader,
     ) {
-      val merged =
-        HashMap<String, String>().apply {
-          putAll(defaultHeaders ?: emptyMap())
-          putAll(uriSource.headers ?: emptyMap())
-        }
+      val merged = mergeHeaders(defaultHeaders, uriSource.headers)
       val body =
         NitroWebViewSourceHandler.postBody(
           uriSource.uri,
@@ -1469,28 +1470,11 @@ class HybridNitroWebView(
     @JvmStatic
     internal fun cacheModeFor(enabled: Boolean): Int = if (enabled) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_NO_CACHE
 
-    /**
-     * Merge `defaults` and `perRequest` headers with per-request taking
-     * precedence on key conflict. Comparison is **exact-match** on Android
-     * (the platform's `additionalHttpHeaders` map is forwarded as-is and
-     * the runtime never folds casing). Callers should use a single
-     * canonical casing per key.
-     */
     @JvmStatic
     internal fun mergeHeaders(
       defaults: Map<String, String>?,
       perRequest: Map<String, String>?,
-    ): Map<String, String> {
-      val d = defaults ?: emptyMap()
-      val r = perRequest ?: emptyMap()
-      if (r.isEmpty()) return d
-      if (d.isEmpty()) return r
-      val out = LinkedHashMap<String, String>(d.size + r.size)
-      out.putAll(d)
-      // per-request entries overwrite the defaults on exact-key conflict.
-      out.putAll(r)
-      return out
-    }
+    ): Map<String, String> = NitroWebViewSourceHandler.mergeHeaders(defaults, perRequest)
 
     /**
      * Parse a raw `name=value; name2=value2` cookie header (as returned by

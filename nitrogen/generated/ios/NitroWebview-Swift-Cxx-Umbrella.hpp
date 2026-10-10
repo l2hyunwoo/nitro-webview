@@ -38,6 +38,8 @@ namespace margelo::nitro::nitrowebview { struct NitroWebViewScrollNativeEvent; }
 namespace margelo::nitro::nitrowebview { struct OpenWindowEvent; }
 // Forward declaration of `OpenWindowNativeEvent` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct OpenWindowNativeEvent; }
+// Forward declaration of `ShouldStartLoadDecision` to properly resolve imports.
+namespace margelo::nitro::nitrowebview { struct ShouldStartLoadDecision; }
 // Forward declaration of `ShouldStartLoadRequest` to properly resolve imports.
 namespace margelo::nitro::nitrowebview { struct ShouldStartLoadRequest; }
 // Forward declaration of `UriSource` to properly resolve imports.
@@ -77,6 +79,7 @@ namespace margelo::nitro::nitrowebview { enum class WebViewSourceMethod; }
 #include "NitroWebViewScrollNativeEvent.hpp"
 #include "OpenWindowEvent.hpp"
 #include "OpenWindowNativeEvent.hpp"
+#include "ShouldStartLoadDecision.hpp"
 #include "ShouldStartLoadRequest.hpp"
 #include "UriSource.hpp"
 #include "WebViewLoadEvent.hpp"

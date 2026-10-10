@@ -1,15 +1,5 @@
-import { getHostComponent } from 'react-native-nitro-modules'
-import type {
-  NitroWebViewMethods,
-  NitroWebViewProps,
-} from './specs/NitroWebView.nitro'
-import NitroWebViewConfig from '../nitrogen/generated/shared/json/NitroWebViewConfig.json'
-
-/** React component for the Nitro-backed WebView. */
-export const NitroWebView = getHostComponent<
-  NitroWebViewProps,
-  NitroWebViewMethods
->('NitroWebView', () => NitroWebViewConfig)
+export { NitroWebView } from './NitroWebView'
+export type { NitroWebViewProps, NitroWebViewType } from './NitroWebView'
 
 export { callback } from 'react-native-nitro-modules'
 
@@ -21,9 +11,7 @@ export type {
 } from './specs/WebViewSource'
 
 export type {
-  NitroWebView as NitroWebViewType,
   NitroWebViewMethods,
-  NitroWebViewProps,
   WebViewLoadEvent,
   WebViewLoadProgressEvent,
   WebViewLoadProgressNativeEvent,
@@ -35,6 +23,15 @@ export type {
   NitroWebViewErrorEvent,
   NitroWebViewErrorNativeEvent,
   WebViewErrorEvent,
+  NitroWebViewHttpErrorEvent,
+  NitroWebViewHttpErrorNativeEvent,
+  NitroWebViewRenderProcessGoneEvent,
+  NitroWebViewRenderProcessGoneNativeEvent,
+  NitroWebViewScrollEvent,
+  NitroWebViewScrollNativeEvent,
+  WebViewPoint,
+  OpenWindowEvent,
+  OpenWindowNativeEvent,
   Cookie,
   FileDownload,
   FileDownloadEvent,

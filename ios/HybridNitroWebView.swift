@@ -48,12 +48,12 @@ final class HybridNitroWebView:
   var onScroll: ((NitroWebViewScrollEvent) -> Void)?
   /// JS-side navigation-interception hook. When non-nil, every main-frame
   /// navigation surfaces a `ShouldStartLoadRequest` payload to JS via
-  /// `dispatchShouldStart`; the Promise's boolean result decides whether
+  /// `dispatchShouldStart`; the resolver's boolean result decides whether
   /// the platform commits to the navigation (`true` → `.allow`, `false` →
   /// `.cancel`). No timeout is applied — the stashed `decisionHandler`
-  /// stays parked until the Promise settles, loading stops, the view is
+  /// stays parked until the resolver runs, loading stops, the view is
   /// dropped or its content process terminates.
-  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest) -> Promise<Bool>)?
+  var onShouldStartLoadWithRequest: ((ShouldStartLoadRequest, ShouldStartLoadDecision) -> Void)?
 
   /// Opt-in flag for sub-frame navigation interception. On iOS this has no
   /// effect: `decidePolicyFor` already parks its decision handler
@@ -369,26 +369,44 @@ final class HybridNitroWebView:
     didSet { reinstallUserScripts() }
   }
 
-  func goBack() throws { webView?.goBack() }
-  func goForward() throws { webView?.goForward() }
-  func reload() throws { webView?.reload() }
-  func stopLoading() throws {
-    let stop: () -> Void = { [weak self] in
-      self?.sourceHandler.cancelPendingLoad()
-      self?.navigationDelegate.cancelPendingDecisions()
-      self?.webView?.stopLoading()
+  func goBack() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.webView?.goBack()
     }
-    if Thread.isMainThread { stop() }
-    else { DispatchQueue.main.async(execute: stop) }
+  }
+
+  func goForward() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.webView?.goForward()
+    }
+  }
+
+  func reload() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.webView?.reload()
+    }
+  }
+
+  func stopLoading() throws {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.sourceHandler.cancelPendingLoad()
+      self.navigationDelegate.cancelPendingDecisions()
+      self.webView?.stopLoading()
+    }
   }
 
   /// Clear the cache-shaped record types (`Self.cacheDataTypes()`) from the
   /// view's data store.
   func clearCache() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    guard let store = webView?.configuration.websiteDataStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     store.removeData(
       ofTypes: Self.cacheDataTypes(),
@@ -396,25 +414,33 @@ final class HybridNitroWebView:
     ) {
       promise.resolve(withResult: ())
     }
+    }
     return promise
   }
 
-  /// Documented no-op: `WKWebView.backForwardList` is read-only with no
-  /// public prune/clear API. Resolves so the cross-platform `Promise<void>`
-  /// contract still settles (react-native-webview exposes `clearHistory` on
-  /// Android only). See the spec JSDoc.
+  /// Documented no-op for mounted views: `WKWebView.backForwardList` has no
+  /// public prune/clear API. Unmounted instances reject like other methods.
   func clearHistory() throws -> Promise<Void> {
     let promise = Promise<Void>()
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, self.webView != nil else {
+        promise.reject(withError: Self.stateError())
+        return
+      }
     promise.resolve(withResult: ())
+    }
     return promise
   }
 
   func requestFocus() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    // becomeFirstResponder must run on the main thread. Discard the Bool:
-    // `false` means "already first responder / window not key", not an error.
-    DispatchQueue.main.async {
-      _ = self.webView?.becomeFirstResponder()
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let webView = self.webView else {
+        promise.reject(withError: Self.stateError())
+        return
+      }
+      // The responder's Bool does not indicate an evaluation failure.
+      _ = webView.becomeFirstResponder()
       promise.resolve(withResult: ())
     }
     return promise
@@ -453,13 +479,17 @@ final class HybridNitroWebView:
   }
 
   func injectJavaScript(code: String) throws {
-    guard !isDropped, mountedSettings?.javaScript == true else { return }
-    webView?.evaluateJavaScript(code, completionHandler: nil)
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, self.mountedSettings?.javaScript == true else { return }
+      self.webView?.evaluateJavaScript(code, completionHandler: nil)
+    }
   }
 
   func postMessage(data: String) throws {
-    guard !isDropped, mountedSettings?.javaScript == true else { return }
-    webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, self.mountedSettings?.javaScript == true else { return }
+      self.webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
+    }
   }
 
   // MARK: - Cookie API
@@ -481,9 +511,10 @@ final class HybridNitroWebView:
       promise.reject(withError: Self.stateError("Cookie URL must be an absolute HTTP(S) URL."))
       return promise
     }
-    guard let store = webView?.configuration.websiteDataStore.httpCookieStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore.httpCookieStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     let scope = NitroWebViewCookieFilter.urlScope(forUrl: url)
     store.getAllCookies { cookies in
@@ -494,6 +525,7 @@ final class HybridNitroWebView:
       }
       promise.resolve(withResult: filtered)
     }
+    }
     return promise
   }
 
@@ -503,9 +535,10 @@ final class HybridNitroWebView:
       promise.reject(withError: Self.stateError("Cookie URL must be an absolute HTTP(S) URL."))
       return promise
     }
-    guard let store = webView?.configuration.websiteDataStore.httpCookieStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore.httpCookieStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     guard let httpCookie = Self.toHTTPCookie(cookie, fallbackUrl: url) else {
       promise.reject(withError: NSError(
@@ -514,10 +547,11 @@ final class HybridNitroWebView:
         userInfo: [NSLocalizedDescriptionKey:
           "Could not construct HTTPCookie from supplied fields"]
       ))
-      return promise
+        return
     }
     store.setCookie(httpCookie) {
       promise.resolve(withResult: ())
+    }
     }
     return promise
   }
@@ -534,15 +568,17 @@ final class HybridNitroWebView:
   /// empty jar).
   func clearCookies() throws -> Promise<Void> {
     let promise = Promise<Void>()
-    guard let store = webView?.configuration.websiteDataStore, !isDropped else {
+    NitroWebViewMainThread.run { [weak self] in
+      guard let self, !self.isDropped, let store = self.webView?.configuration.websiteDataStore else {
       promise.reject(withError: Self.stateError())
-      return promise
+        return
     }
     store.removeData(
       ofTypes: [WKWebsiteDataTypeCookies],
       modifiedSince: .distantPast
     ) {
       promise.resolve(withResult: ())
+    }
     }
     return promise
   }
@@ -570,46 +606,10 @@ final class HybridNitroWebView:
     }
   }
 
-  /// Merge `defaults` and `perRequest` headers with per-request taking
-  /// precedence on key conflict. Comparison is **case-insensitive**: when
-  /// both maps carry the same logical header with different casing, only
-  /// the per-request entry survives (preserving its casing). This is the
-  /// contract documented on `NitroWebViewProps.defaultHeaders`.
-  ///
-  /// Implementation note: the final union step uses Swift's
-  /// `Dictionary(_:uniquingKeysWith:)` initializer with a "last-wins"
-  /// (`{ _, new in new }`) policy so that for any key collision the
-  /// per-request value replaces the default value. This is the canonical
-  /// Swift idiom for a right-biased dictionary merge. The preceding
-  /// filter strips defaults whose key matches a per-request key under a
-  /// case-insensitive comparison so that, e.g., `Authorization` in
-  /// `defaults` does not survive when `authorization` is in `perRequest`.
   static func mergeHeaders(
-    defaults: [String: String]?,
-    perRequest: [String: String]?
-  ) -> [String: String] {
-    let d = defaults ?? [:]
-    let r = perRequest ?? [:]
-    if r.isEmpty { return d }
-    if d.isEmpty { return r }
-
-    var conflictingLower: Set<String> = []
-    for k in r.keys { conflictingLower.insert(k.lowercased()) }
-
-    // Drop defaults whose key collides (case-insensitive) with a
-    // per-request key — those will be supplied by `r` below.
-    let filteredDefaults = d.filter { !conflictingLower.contains($0.key.lowercased()) }
-
-    // Right-biased union: concatenate the filtered defaults with the
-    // per-request pairs and feed them to `Dictionary(_:uniquingKeysWith:)`
-    // with a last-wins resolver. The resolver is the explicit
-    // "source.headers wins" point. After the case-insensitive filter
-    // above, the only collisions reaching the resolver are exact-key
-    // duplicates between `r` and itself, which is a no-op — but the
-    // resolver guarantees the contract regardless.
-    let pairs = filteredDefaults.map { ($0.key, $0.value) }
-      + r.map { ($0.key, $0.value) }
-    return Dictionary(pairs, uniquingKeysWith: { _, new in new })
+    defaults: [String: String]?, perRequest: [String: String]?
+  ) throws -> [String: String] {
+    try NitroWebViewSourceHandler.mergeHeaders(defaults: defaults, perRequest: perRequest)
   }
 
   /// Rebuild the `WKUserContentController`'s user-script list in a fixed
@@ -766,7 +766,7 @@ final class HybridNitroWebView:
     ///   2. Build the cross-platform `ShouldStartLoadRequest` payload
     ///      (URL, navigation-type mapping, iOS-only fields).
     ///   3. Hand the payload to the host's `dispatchShouldStart` helper
-    ///      which resolves the Promise and dequeues the handler.
+    ///      which passes a resolver that dequeues the handler.
     func webView(
       _ webView: WKWebView,
       decidePolicyFor navigationAction: WKNavigationAction,
@@ -1072,10 +1072,7 @@ final class HybridNitroWebView:
       complete(true)
       return
     }
-    let promise = hook(payload)
-    promise
-      .then { allow in complete(allow) }
-      .catch { _ in complete(true) }
+    hook(payload, ShouldStartLoadDecision(resolve: { allow in complete(allow ?? true) }))
   }
 
   /// Build the cross-platform navigation payload from a WKNavigationAction.

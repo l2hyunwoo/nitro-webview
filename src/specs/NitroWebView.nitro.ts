@@ -35,10 +35,10 @@ export type WebViewNavigationType =
  * Payload delivered to {@linkcode NitroWebViewProps.onShouldStartLoadWithRequest}
  * before the platform commits to a navigation.
  *
- * The handler returns `Promise<boolean>` — resolve with `true` to allow the
- * navigation, `false` to silently cancel it. Unlike react-native-webview the
- * payload does NOT include a `lockIdentifier`: Nitro's Promise return value
- * replaces RNW's round-trip through `shouldStartLoadWithLockIdentifier`.
+ * The public handler returns `boolean | Promise<boolean>`: `true` allows the
+ * navigation and `false` silently cancels it. The React component settles the
+ * result through an internal decision bridge. The payload has no public
+ * `lockIdentifier` or decision command.
  *
  * Optional iOS-only fields:
  *   - `mainDocumentURL` — `WKNavigationAction.request.mainDocumentURL`.
@@ -78,6 +78,11 @@ export interface ShouldStartLoadRequest {
    * `target=_blank` / new-window navigations).
    */
   hasTargetFrame?: boolean
+}
+
+/** Internal completion object; native owns the pending navigation decision. */
+export interface ShouldStartLoadDecision {
+  resolve: (allow: boolean | undefined) => void
 }
 
 /** Read-only navigation state surfaced to JS via callbacks. */
@@ -167,8 +172,8 @@ export interface NitroWebViewProps extends HybridViewProps {
    * Default HTTP headers applied to every main-frame navigation request
    * triggered by a `source` change. Per-request headers supplied via
    * `source.headers` override these on key conflict (case-insensitive on
-   * iOS, exact-match on Android — callers should use a single canonical
-   * casing per key).
+   * both platforms). Duplicate logical keys within either map emit
+   * NitroWebViewSource (-1) and prevent loading.
    *
    * Scope and limitations:
    *   - Only applied on main-frame navigation initiated by a `source`
@@ -381,9 +386,11 @@ export interface NitroWebViewProps extends HybridViewProps {
   onError?: (event: NitroWebViewErrorEvent) => void
 
   /**
-   * Decide requests delivered by the platform navigation hook. Return `true`
-   * to allow or `false` to cancel silently. The native bridge accepts Promise
-   * decisions. Promise rejection allows the request on both platforms.
+   * Internal resolver bridge for requests delivered by the platform navigation
+   * hook. The public component accepts boolean or Promise<boolean> and calls
+   * `decision.resolve` after settlement. Undefined indicates a thrown/rejected
+   * callback or invalid result; both platforms allow the request. The completion
+   * object avoids nested function-parameter conversion in Nitrogen 0.35.9.
    *
    *   - iOS (WKWebView): wired through
    *     `webView(_:decidePolicyFor:decisionHandler:)`. The native
@@ -420,7 +427,10 @@ export interface NitroWebViewProps extends HybridViewProps {
    *
    * Out of scope for the MVP: per-request `originWhitelist` override.
    */
-  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean
+  onShouldStartLoadWithRequest?: (
+    event: ShouldStartLoadRequest,
+    decision: ShouldStartLoadDecision
+  ) => void
 
   /**
    * Opt-in: intercept sub-frame (iframe) navigations through
@@ -628,10 +638,10 @@ export interface NitroWebViewMethods extends HybridViewMethods {
   stopLoading(): void
   /**
    * Evaluate arbitrary JavaScript inside the WebView and resolve with the
-   * serialized string result of the evaluation. On iOS the native side
-   * uses `String(describing:)`; on Android the result is the JSON-encoded
-   * string from `ValueCallback<String>`. An undefined/nil result surfaces
-   * as the empty string.
+   * JSON string result. Use JSON.parse once to recover the value.
+   * Undefined and null return "null". Only JSON-compatible values are
+   * supported. iOS rejects native evaluation/serialization errors. Android
+   * cannot distinguish a page exception from a null result.
    */
   evaluateJavaScript(code: string): Promise<string>
 
@@ -736,7 +746,7 @@ export interface NitroWebViewMethods extends HybridViewMethods {
    *     `about:blank` — a reload would change the current URL and drop
    *     forward entries as a side effect, which is surprising for a "clear
    *     history" call. Callers needing a pristine stack on iOS should
-   *     navigate to a fresh `source` instead. Mirrors react-native-webview,
+   *     remount the component with a new React `key`. Mirrors react-native-webview,
    *     which exposes `clearHistory` on Android only.
    */
   clearHistory(): Promise<void>

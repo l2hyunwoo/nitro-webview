@@ -170,7 +170,7 @@ test('hybridRef.current.evaluateJavaScript("document.title") resolves to the loa
   const view = new FakeLoadedWebView({
     onLoadEnd: () => {},
     scripts: {
-      'document.title': 'Example Domain',
+      'document.title': '"Example Domain"',
     },
   })
   hybridRef.current = view
@@ -189,7 +189,7 @@ test('hybridRef.current.evaluateJavaScript("document.title") resolves to the loa
 
   assert.equal(typeof result, 'string')
   assert.equal(
-    result,
+    JSON.parse(result),
     'Example Domain',
     'evaluateJavaScript("document.title") must resolve to the loaded page title end-to-end'
   )

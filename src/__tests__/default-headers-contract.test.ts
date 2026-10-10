@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { mergeHeaders } from '../headerMerge.ts'
 
 import type {
   Cookie,
@@ -56,27 +57,6 @@ describe('defaultHeaders + UriSource.headers contract', () => {
   })
 
   it('per-request headers conceptually override defaults on key conflict', () => {
-    // Conceptual reference implementation, mirrored by the native code.
-    // Per-request headers WIN on case-insensitive key conflict.
-    function mergeHeaders(
-      defaults: Record<string, string> | undefined,
-      perRequest: Record<string, string> | undefined
-    ): Record<string, string> {
-      const d = defaults ?? {}
-      const r = perRequest ?? {}
-      const conflictingLower = new Set(
-        Object.keys(r).map((k) => k.toLowerCase())
-      )
-      const out: Record<string, string> = {}
-      for (const [k, v] of Object.entries(d)) {
-        if (!conflictingLower.has(k.toLowerCase())) out[k] = v
-      }
-      for (const [k, v] of Object.entries(r)) {
-        out[k] = v
-      }
-      return out
-    }
-
     assert.deepEqual(mergeHeaders(undefined, undefined), {})
     assert.deepEqual(mergeHeaders({ A: '1' }, undefined), { A: '1' })
     assert.deepEqual(mergeHeaders(undefined, { B: '2' }), { B: '2' })
@@ -88,7 +68,7 @@ describe('defaultHeaders + UriSource.headers contract', () => {
     assert.deepEqual(
       mergeHeaders({ Authorization: 'def' }, { authorization: 'override' }),
       { authorization: 'override' },
-      'case-insensitive key conflict: per-request casing wins on iOS contract'
+      'case-insensitive key conflict: per-request casing wins'
     )
     assert.deepEqual(mergeHeaders({ 'X-A': '1', 'X-B': '2' }, { 'X-C': '3' }), {
       'X-A': '1',

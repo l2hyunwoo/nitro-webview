@@ -1,5 +1,7 @@
 package io.github.l2hyunwoo.nitro.webview
 
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -7,6 +9,9 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 private class StubJavaScriptEvaluator(
   var stubResult: String? = null,
@@ -44,6 +49,8 @@ private class Outcome {
   }
 }
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class NitroWebViewEvaluateJavaScriptHandlerTest {
   @Test
   fun `identical pending evaluations settle independently and only once`() {
@@ -209,10 +216,10 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
   }
 
   @Test
-  fun `normalize_nullCollapsesToEmptyString`() {
+  fun `normalize_nullCollapsesToJsonNull`() {
     assertEquals(
-      "undefined/void JS results must surface as \"\"",
-      "",
+      "undefined/void JS results must surface as JSON null",
+      "null",
       NitroWebViewEvaluateJavaScriptHandler.normalize(null),
     )
   }
@@ -225,7 +232,6 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
     assertEquals("\"hello\"", NitroWebViewEvaluateJavaScriptHandler.normalize("\"hello\""))
     assertEquals("{\"k\":1}", NitroWebViewEvaluateJavaScriptHandler.normalize("{\"k\":1}"))
     assertEquals("[1,2,3]", NitroWebViewEvaluateJavaScriptHandler.normalize("[1,2,3]"))
-    assertEquals("", NitroWebViewEvaluateJavaScriptHandler.normalize(""))
     assertEquals(
       "\"漢字 🎉\"",
       NitroWebViewEvaluateJavaScriptHandler.normalize("\"漢字 🎉\""),
@@ -233,7 +239,7 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
   }
 
   @Test
-  fun `evaluate_undefinedResult_resolvesToEmptyString`() {
+  fun `evaluate_undefinedResult_resolvesToJsonNull`() {
     val handler = NitroWebViewEvaluateJavaScriptHandler()
     val evaluator = StubJavaScriptEvaluator(stubResult = null)
     val outcome = Outcome()
@@ -246,8 +252,8 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
     )
 
     assertEquals(
-      "an undefined JS result (null callback value) must resolve to \"\"",
-      "",
+      "an undefined JS result must resolve to JSON null",
+      "null",
       outcome.resolved,
     )
     assertEquals(1, outcome.resolveCount)
@@ -353,5 +359,51 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
     assertEquals(1, b.invocations.size)
     assertEquals("x", a.invocations.single().code)
     assertEquals("y", b.invocations.single().code)
+  }
+
+  @Test
+  fun `normalized strings objects and arrays decode once`() {
+    val text = "quote \" backslash \\ newline\n한글 🎉"
+    val normalized = NitroWebViewEvaluateJavaScriptHandler.normalize(JSONObject.quote(text))
+    assertEquals(text, JSONArray("[$normalized]").getString(0))
+    val objectResult = NitroWebViewEvaluateJavaScriptHandler.normalize("{\"a\":1}")
+    assertEquals(1, JSONObject(objectResult).getInt("a"))
+    val arrayResult = NitroWebViewEvaluateJavaScriptHandler.normalize("[1,\"a\",null]")
+    val array = JSONArray(arrayResult)
+    assertEquals(1, array.getInt(0))
+    assertEquals("a", array.getString(1))
+    assertTrue(array.isNull(2))
+    assertEquals("null", NitroWebViewEvaluateJavaScriptHandler.normalize("null"))
+    assertEquals("2", NitroWebViewEvaluateJavaScriptHandler.normalize(" 2 "))
+  }
+
+  @Test
+  fun `parse failures reject from the asynchronous callback`() {
+    for (raw in listOf("", "undefined", "[broken", "true false")) {
+      val codes = mutableListOf<String>()
+      var completion: ((String?) -> Unit)? = null
+      val evaluator =
+        object : JavaScriptEvaluator {
+          override fun evaluateJavaScriptPayload(
+            code: String,
+            resultCallback: (String?) -> Unit,
+          ) {
+            codes.add(code)
+            completion = resultCallback
+          }
+        }
+      val outcome = Outcome()
+      NitroWebViewEvaluateJavaScriptHandler().evaluate(
+        code = "({ a: 1 })",
+        evaluator = evaluator,
+        resolve = outcome.resolve,
+        reject = outcome.reject,
+      )
+      assertEquals(0, outcome.resolveCount + outcome.rejectCount)
+      completion!!(raw)
+      assertEquals(listOf("({ a: 1 })"), codes)
+      assertEquals(0, outcome.resolveCount)
+      assertEquals(1, outcome.rejectCount)
+    }
   }
 }

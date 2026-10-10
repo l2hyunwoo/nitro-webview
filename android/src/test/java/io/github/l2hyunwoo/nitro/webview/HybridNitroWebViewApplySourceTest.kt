@@ -188,6 +188,28 @@ class HybridNitroWebViewApplySourceTest {
     HybridNitroWebView.applyUriSource(source, mapOf("X-App" to "test"), RecordingUrlLoader())
   }
 
+  @Test
+  fun `case insensitive header override reaches the loader once`() {
+    val loader = RecordingUrlLoader()
+    val source = UriSource("https://example.com", mapOf("authorization" to "request"), null, null)
+    HybridNitroWebView.applyUriSource(source, mapOf("Authorization" to "default"), loader)
+    assertEquals(mapOf("authorization" to "request"), loader.lastCall?.headers)
+  }
+
+  @Test
+  fun `duplicates in either input prevent all requests`() {
+    val duplicates = mapOf("Authorization" to "one", "authorization" to "two")
+    for ((defaults, headers) in listOf(duplicates to null, null to duplicates)) {
+      val loader = RecordingUrlLoader()
+      val source = UriSource("https://example.com", headers, null, null)
+      org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+        HybridNitroWebView.applyUriSource(source, defaults, loader)
+      }
+      assertNull(loader.lastCall)
+      assertNull(loader.postedBody)
+    }
+  }
+
   // region: deriveDownloadFileName
 
   @Test

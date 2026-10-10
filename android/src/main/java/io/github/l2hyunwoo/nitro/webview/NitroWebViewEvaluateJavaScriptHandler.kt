@@ -1,5 +1,8 @@
 package io.github.l2hyunwoo.nitro.webview
 
+import org.json.JSONArray
+import org.json.JSONTokener
+
 /**
  * Abstraction over `android.webkit.WebView.evaluateJavascript(String, ValueCallback<String>)`.
  *
@@ -19,8 +22,8 @@ interface JavaScriptEvaluator {
  * Native handler for the `evaluateJavaScript` imperative method on Android.
  *
  * Mirrors the JS-side contract: `evaluateJavaScript(code: string): Promise<string>`.
- * `null` results are normalised to `""`; all other values are forwarded verbatim
- * (Android's `evaluateJavascript` already delivers a JSON-encoded string).
+ * Platform results are parsed and returned as JSON. A missing result maps to
+ * `"null"`; Android cannot distinguish a page exception from a null result.
  */
 class NitroWebViewEvaluateJavaScriptHandler {
   private class EvaluationCallbacks(
@@ -46,10 +49,15 @@ class NitroWebViewEvaluateJavaScriptHandler {
     pending[evaluationToken] = EvaluationCallbacks(resolve, reject)
     try {
       evaluator.evaluateJavaScriptPayload(code) { rawResult ->
-        pending.remove(evaluationToken)?.resolve?.invoke(normalize(rawResult))
+        val callbacks = pending.remove(evaluationToken) ?: return@evaluateJavaScriptPayload
+        try {
+          callbacks.resolve(normalize(rawResult))
+        } catch (error: Exception) {
+          callbacks.reject(error)
+        }
       }
-    } catch (t: Throwable) {
-      pending.remove(evaluationToken)?.reject?.invoke(t)
+    } catch (error: Exception) {
+      pending.remove(evaluationToken)?.reject?.invoke(error)
     }
   }
 
@@ -63,6 +71,16 @@ class NitroWebViewEvaluateJavaScriptHandler {
 
   companion object {
     @JvmStatic
-    fun normalize(raw: String?): String = raw ?: ""
+    fun normalize(raw: String?): String {
+      if (raw == null) return "null"
+      val input = raw.trim()
+      require(input.isNotEmpty()) { "Empty JavaScript evaluation result" }
+      // shortcut: uses Android JSON syntax; use strict parsing if input stops coming from WebView.
+      val parser = JSONTokener(input)
+      val value = parser.nextValue()
+      require(parser.nextClean() == '\u0000') { "Trailing JavaScript evaluation result" }
+      require(value !is String || input.startsWith('"')) { "Invalid JSON string result" }
+      return JSONArray().put(value).toString().let { it.substring(1, it.length - 1) }
+    }
   }
 }

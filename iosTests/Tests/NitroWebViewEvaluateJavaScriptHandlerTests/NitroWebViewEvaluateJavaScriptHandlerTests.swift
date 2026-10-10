@@ -29,167 +29,74 @@ private final class StubEvaluator: JavaScriptEvaluator {
 }
 
 final class NitroWebViewEvaluateJavaScriptHandlerTests: XCTestCase {
-
-  func test_evaluate_onePlusOne_resolvesToString2() async throws {
-    let handler = NitroWebViewEvaluateJavaScriptHandler()
-    let evaluator = StubEvaluator(result: NSNumber(value: 2))
-
-    let result = try await handler.evaluate(code: "1+1", in: evaluator)
-
-    XCTAssertEqual(result, "2")
-    XCTAssertEqual(evaluator.invocations.count, 1)
-    XCTAssertEqual(evaluator.invocations.first?.code, "1+1")
-  }
-
-  func test_evaluate_completionOverload_onePlusOne_resolvesToString2() {
-    let handler = NitroWebViewEvaluateJavaScriptHandler()
-    let evaluator = StubEvaluator(result: NSNumber(value: 2))
-
-    let exp = expectation(description: "resolve fires with \"2\"")
-    var resolvedValue: String?
-    var rejectedError: Error?
-
-    handler.evaluate(
-      code: "1+1",
-      in: evaluator,
-      resolve: { value in
-        resolvedValue = value
-        exp.fulfill()
-      },
-      reject: { error in
-        rejectedError = error
-        exp.fulfill()
-      }
-    )
-
-    wait(for: [exp], timeout: 1.0)
-
-    XCTAssertNil(rejectedError)
-    XCTAssertEqual(resolvedValue, "2")
-    XCTAssertEqual(evaluator.invocations.first?.code, "1+1")
-  }
-
-  func test_evaluate_invokesEvaluatorExactlyOncePerCall() async throws {
-    let handler = NitroWebViewEvaluateJavaScriptHandler()
-    let evaluator = StubEvaluator(result: NSNumber(value: 42))
-
-    _ = try await handler.evaluate(code: "21 * 2", in: evaluator)
-    _ = try await handler.evaluate(code: "21 * 2", in: evaluator)
-
-    XCTAssertEqual(evaluator.invocations.count, 2)
-    XCTAssertEqual(evaluator.invocations[0].code, "21 * 2")
-    XCTAssertEqual(evaluator.invocations[1].code, "21 * 2")
-  }
-
-  func test_evaluate_throwsWhenEvaluatorReturnsError() async {
-    let handler = NitroWebViewEvaluateJavaScriptHandler()
-    let stubError = NSError(
-      domain: "WKErrorDomain",
-      code: 4,
-      userInfo: [NSLocalizedDescriptionKey: "JS error: bad syntax"]
-    )
-    let evaluator = StubEvaluator(result: nil, error: stubError)
-
-    do {
-      _ = try await handler.evaluate(code: "throw 'bad'", in: evaluator)
-      XCTFail("evaluate must throw when the evaluator hands back an Error")
-    } catch {
-      let nsError = error as NSError
-      XCTAssertEqual(nsError.domain, "WKErrorDomain")
-      XCTAssertEqual(nsError.code, 4)
+  func testScalarJSONResults() throws {
+    let cases: [(Any?, String)] = [
+      (nil, "null"), (NSNull(), "null"), (NSNumber(value: 2), "2"),
+      (NSNumber(value: 2.0), "2"), (NSNumber(value: 2.5), "2.5"), (true, "true"), (false, "false"),
+      ("hello", "\"hello\""), (NSString(string: "hello"), "\"hello\""),
+    ]
+    for (value, expected) in cases {
+      XCTAssertEqual(try NitroWebViewEvaluateJavaScriptHandler.stringify(value), expected)
     }
   }
 
-  func test_stringify_nilCollapsesToEmptyString() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(nil), ""
-    )
+  func testStringsObjectsAndArraysRoundTripAsJSON() throws {
+    let text = "quote \" backslash \\ newline\n한글 🎉"
+    let encoded = try NitroWebViewEvaluateJavaScriptHandler.stringify(text)
+    XCTAssertEqual(try decode(encoded) as? String, text)
+    let object = try NitroWebViewEvaluateJavaScriptHandler.stringify(["a": 1])
+    XCTAssertEqual(try decode(object) as? [String: Int], ["a": 1])
+    let array = try NitroWebViewEvaluateJavaScriptHandler.stringify([1, "a", NSNull()] as [Any])
+    XCTAssertEqual(try decode(array) as? NSArray, [1, "a", NSNull()] as NSArray)
   }
 
-  func test_stringify_nsNullCollapsesToEmptyString() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(NSNull()), ""
-    )
+  func testUnsupportedResultsRejectInsteadOfDescriptiveStrings() {
+    XCTAssertThrowsError(try NitroWebViewEvaluateJavaScriptHandler.stringify(Date()))
+    XCTAssertThrowsError(try NitroWebViewEvaluateJavaScriptHandler.stringify(Double.nan))
   }
 
-  func test_stringify_integerNSNumber_isStringifiedWithoutDecimal() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(NSNumber(value: 2)),
-      "2"
-    )
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(NSNumber(value: 42)),
-      "42"
-    )
-  }
-
-  /// JS booleans must emit "true"/"false" (matching JS's `String(true)`)
-  /// rather than "1"/"0" from NSNumber's Int-backed stringValue.
-  func test_stringify_booleanNSNumber_isStringifiedAsLowercase() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(true),
-      "true"
-    )
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(false),
-      "false"
-    )
-  }
-
-  func test_stringify_string_isVerbatim() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify("hello"),
-      "hello"
-    )
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify("漢字 🎉"),
-      "漢字 🎉"
-    )
-  }
-
-  func test_stringify_nsString_isBridgedVerbatim() {
-    let ns: NSString = "ns-string"
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(ns),
-      "ns-string"
-    )
-  }
-
-  /// Doubles that are exact integers stringify without a trailing `.0`
-  /// (mirrors JS's `String(2.0) === "2"`).
-  func test_stringify_doubleThatIsIntegerCollapsesToIntegerString() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(NSNumber(value: 2.0)),
-      "2"
-    )
-  }
-
-  func test_stringify_doubleWithFractionalPart_keepsDecimal() {
-    XCTAssertEqual(
-      NitroWebViewEvaluateJavaScriptHandler.stringify(NSNumber(value: 2.5)),
-      "2.5"
-    )
-  }
-
-  func test_evaluate_stringResult_isForwardedVerbatim() async throws {
+  func testOriginalCodeEvaluatesOnceAndReturnsJSON() async throws {
     let handler = NitroWebViewEvaluateJavaScriptHandler()
-    let evaluator = StubEvaluator(result: "document title")
-
-    let result = try await handler.evaluate(
-      code: "document.title", in: evaluator
-    )
-
-    XCTAssertEqual(result, "document title")
-    XCTAssertEqual(evaluator.invocations.first?.code, "document.title")
+    let evaluator = StubEvaluator(result: ["title": "漢字 🎉"])
+    let code = "({ title: document.title })"
+    let result = try await handler.evaluate(code: code, in: evaluator)
+    XCTAssertEqual(try decode(result) as? [String: String], ["title": "漢字 🎉"])
+    XCTAssertEqual(evaluator.invocations.map { $0.code }, [code])
   }
 
-  /// `void 0` evaluates to JS `undefined`, which WKWebView delivers as `nil`.
-  func test_evaluate_undefinedResult_resolvesToEmptyString() async throws {
-    let handler = NitroWebViewEvaluateJavaScriptHandler()
-    let evaluator = StubEvaluator(result: nil)
+  func testAsyncNativeErrorsPropagate() async {
+    let error = NSError(domain: "WKErrorDomain", code: 4)
+    do {
+      _ = try await NitroWebViewEvaluateJavaScriptHandler().evaluate(
+        code: "throw 'bad'", in: StubEvaluator(error: error)
+      )
+      XCTFail("must reject")
+    } catch {
+      let received = error as NSError
+      XCTAssertEqual(received.domain, "WKErrorDomain")
+      XCTAssertEqual(received.code, 4)
+    }
+  }
 
-    let result = try await handler.evaluate(code: "void 0", in: evaluator)
+  func testCompletionVariantHasOneTerminalCallbackForSuccessAndErrors() {
+    for evaluator in [StubEvaluator(result: 2), StubEvaluator(result: Date()), StubEvaluator(error: NSError(domain: "WKErrorDomain", code: 4))] {
+      var resolved: [String] = []
+      var rejected: [Error] = []
+      NitroWebViewEvaluateJavaScriptHandler().evaluate(
+        code: "source()", in: evaluator,
+        resolve: { resolved.append($0) }, reject: { rejected.append($0) }
+      )
+      XCTAssertEqual(resolved.count + rejected.count, 1)
+      XCTAssertEqual(evaluator.invocations.map { $0.code }, ["source()"])
+      if evaluator.stubResult as? Int == 2 {
+        XCTAssertEqual(resolved, ["2"])
+      } else {
+        XCTAssertEqual(rejected.count, 1)
+      }
+    }
+  }
 
-    XCTAssertEqual(result, "")
+  private func decode(_ value: String) throws -> Any {
+    try JSONSerialization.jsonObject(with: Data(value.utf8), options: [.fragmentsAllowed])
   }
 }

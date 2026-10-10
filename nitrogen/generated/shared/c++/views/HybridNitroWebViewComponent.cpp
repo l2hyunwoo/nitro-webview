@@ -286,12 +286,12 @@ namespace margelo::nitro::nitrowebview::views {
         throw std::runtime_error(std::string("NitroWebView.onError: ") + exc.what());
       }
     }()),
-    onShouldStartLoadWithRequest([&]() -> CachedProp<std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>> {
+    onShouldStartLoadWithRequest([&]() -> CachedProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("onShouldStartLoadWithRequest", nullptr, nullptr);
         if (rawValue == nullptr) return sourceProps.onShouldStartLoadWithRequest;
         const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<std::shared_ptr<Promise<bool>>(const ShouldStartLoadRequest& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onShouldStartLoadWithRequest);
+        return CachedProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onShouldStartLoadWithRequest);
       } catch (const std::exception& exc) {
         throw std::runtime_error(std::string("NitroWebView.onShouldStartLoadWithRequest: ") + exc.what());
       }

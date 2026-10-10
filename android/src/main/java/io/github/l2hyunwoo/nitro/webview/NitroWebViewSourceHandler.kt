@@ -35,6 +35,33 @@ class NitroWebViewSourceHandler {
   }
 
   companion object {
+    /** Validate each input map, then apply case-insensitive per-request precedence. */
+    @JvmStatic
+    fun mergeHeaders(
+      defaults: Map<String, String>?,
+      perRequest: Map<String, String>?,
+    ): Map<String, String> {
+      for (headers in listOf(defaults.orEmpty(), perRequest.orEmpty())) {
+        val seen = HashSet<String>()
+        for (key in headers.keys) {
+          require(seen.add(key.lowercase(java.util.Locale.ROOT))) { "Duplicate HTTP header: $key" }
+        }
+      }
+      val overrides =
+        perRequest
+          .orEmpty()
+          .keys
+          .map { it.lowercase(java.util.Locale.ROOT) }
+          .toSet()
+      val merged = LinkedHashMap<String, String>()
+      defaults
+        .orEmpty()
+        .filterKeys { it.lowercase(java.util.Locale.ROOT) !in overrides }
+        .forEach { (key, value) -> merged[key] = value }
+      merged.putAll(perRequest.orEmpty())
+      return merged
+    }
+
     /** Validate before invoking postUrl, which cannot carry custom headers. */
     @JvmStatic
     fun postBody(
