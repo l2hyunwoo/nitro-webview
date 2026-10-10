@@ -10,7 +10,7 @@
 | 일반 이벤트 함수 | `callback(handler)`로 감싸기 |
 | React `ref`의 WebView 메서드 | `hybridRef={callback(...)}` |
 | `originWhitelist` prop | 탐색 콜백에 `createOriginWhitelistGuard` 적용 |
-| 동기 가로채기 가정 | 공개 `boolean | Promise<boolean>`과 플랫폼별 대기 동작 |
+| 동기 가로채기 가정 | 공개 `boolean \| Promise<boolean>`과 플랫폼별 대기 동작 |
 | 페이지의 `ReactNativeWebView.postMessage` | 같은 문자열 계약 |
 
 문서에 있는 prop만 구현합니다. react-native-webview의 모든 prop에 대응하는 기능이 있는 것은 아닙니다. [Props](../reference/props.md)와 [플랫폼 지원](../reference/platforms.md)을 확인하세요.

@@ -10,7 +10,7 @@ Nitro WebView shares familiar WebView concepts, but migration requires API and b
 | Raw event functions | `callback(handler)` wrappers |
 | WebView methods on React `ref` | `hybridRef={callback(...)}` |
 | `originWhitelist` prop | `createOriginWhitelistGuard` in the navigation callback |
-| Synchronous interception assumptions | Public `boolean | Promise<boolean>` with platform-specific timing |
+| Synchronous interception assumptions | Public `boolean \| Promise<boolean>` with platform-specific timing |
 | Page `ReactNativeWebView.postMessage` | Same string contract |
 
 Only documented props are implemented. There is no automatic equivalent for every react-native-webview prop. Check [props](../reference/props.md) and [platform support](../reference/platforms.md).
