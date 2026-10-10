@@ -682,9 +682,8 @@ export function RegressionVerificationScreen() {
             'failing navigation callback settlement',
           );
           check(
-            view.decisions.filter(target => target.includes('/target')).length ===
-              1 &&
-              decision.error !== undefined,
+            view.decisions.filter(target => target.includes('/target'))
+              .length === 1 && decision.error !== undefined,
             `target hook did not fail exactly once: ${decision.error ?? 'no error'}`,
           );
           await ready(view, '/target');
@@ -1304,54 +1303,68 @@ export function RegressionVerificationScreen() {
       );
     }
 
-    try {
-      await fixture('/reset');
-      await report(false);
+    async function describeCaseFailure(error: unknown): Promise<string> {
+      await Promise.all(
+        liveViews.current
+          .filter(
+            view =>
+              view.ref &&
+              view.settings.javaScriptEnabled &&
+              view.rendererEvents.length === 0,
+          )
+          .map(view => pageDiagnostic(view, 'failure page')),
+      );
+      const observations = caseViews
+        .map(
+          view =>
+            `events=${view.events.join(',')}; errors=${view.errors.map(item => `${item.domain}:${item.code}:${item.description.slice(0, 160)}`).join(',')}; http=${view.httpStatuses.join(',')}; messages=${view.messages.length}; renderer=${view.rendererEvents.map(item => String(item.didCrash)).join(',')}; states=${JSON.stringify(view.states.slice(-6))}; timeline=${JSON.stringify(view.timeline.slice(-12))}; decisions=${JSON.stringify(view.decisionTimings)}; evaluation=${JSON.stringify(view.evaluationProbe)}; diagnostics=${view.diagnostics.join('; ')}`,
+        )
+        .join(' | ');
+      return `${String(error)}${observations ? ` (${observations})` : ''}`;
+    }
+
+    async function executeCase(
+      name: string,
+      test: () => Promise<string>,
+    ): Promise<CaseResult> {
+      caseIndex += 1;
+      caseViews = [];
+      setCurrent(name);
+      const started = Date.now();
+      try {
+        return {
+          name,
+          ok: true,
+          detail: await test(),
+          durationMs: Date.now() - started,
+        };
+      } catch (error) {
+        return {
+          name,
+          ok: false,
+          detail: await describeCaseFailure(error),
+          durationMs: Date.now() - started,
+        };
+      } finally {
+        await unmount();
+      }
+    }
+
+    async function executeCases() {
       for (const [name, test] of tests) {
         if (!active()) return;
-        caseIndex += 1;
-        caseViews = [];
-        setCurrent(name);
-        const started = Date.now();
-        let result: CaseResult;
-        try {
-          result = {
-            name,
-            ok: true,
-            detail: await test(),
-            durationMs: Date.now() - started,
-          };
-        } catch (error) {
-          await Promise.all(
-            liveViews.current
-              .filter(
-                view =>
-                  view.ref &&
-                  view.settings.javaScriptEnabled &&
-                  view.rendererEvents.length === 0,
-              )
-              .map(view => pageDiagnostic(view, 'failure page')),
-          );
-          const observations = caseViews
-            .map(
-              view =>
-                `events=${view.events.join(',')}; errors=${view.errors.map(item => `${item.domain}:${item.code}:${item.description.slice(0, 160)}`).join(',')}; http=${view.httpStatuses.join(',')}; messages=${view.messages.length}; renderer=${view.rendererEvents.map(item => String(item.didCrash)).join(',')}; states=${JSON.stringify(view.states.slice(-6))}; timeline=${JSON.stringify(view.timeline.slice(-12))}; decisions=${JSON.stringify(view.decisionTimings)}; evaluation=${JSON.stringify(view.evaluationProbe)}; diagnostics=${view.diagnostics.join('; ')}`,
-            )
-            .join(' | ');
-          result = {
-            name,
-            ok: false,
-            detail: `${String(error)}${observations ? ` (${observations})` : ''}`,
-            durationMs: Date.now() - started,
-          };
-        } finally {
-          await unmount();
-        }
+        const result = await executeCase(name, test);
         if (!active()) return;
         completed.push(result);
         setResults([...completed]);
         await report(false);
       }
+    }
+
+    try {
+      await fixture('/reset');
+      await report(false);
+      await executeCases();
     } catch (error) {
       completed.push({
         name: 'fixture-connection',
