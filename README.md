@@ -189,7 +189,7 @@ Object key order and JSON whitespace are not part of the contract.
 The package root exports HTTP error, renderer exit, scroll, and open-window events, including their nested payload types and `WebViewPoint`.
 Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions. The React component forwards its standard `ref` and passes `hybridRef` through to the native view. Set `onShouldStartLoadWithRequest` through React props; assigning it directly through `hybridRef` bypasses the component's result bridge and is unsupported.
 
-The 0.2 candidate changes the internal native navigation callback ABI to a request plus a completion object. The React component settles the user's boolean or Promise before calling the object's resolver. Rebuild the native app when upgrading; mixing an older native binary with this JS component is unsupported. Public callback, event, and method signatures remain unchanged.
+Rebuild the native app when upgrading to the 0.2 candidate; its navigation callback bindings are incompatible with older native binaries. Public callback signatures remain unchanged.
 
 #### `WebViewSource`
 
