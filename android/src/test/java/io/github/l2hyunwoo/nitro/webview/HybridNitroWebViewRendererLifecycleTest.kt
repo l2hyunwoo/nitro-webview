@@ -7,7 +7,11 @@ import com.facebook.react.bridge.BridgeReactContext
 import com.facebook.react.uimanager.ThemedReactContext
 import com.margelo.nitro.nitrowebview.UriSource
 import com.margelo.nitro.nitrowebview.WebViewSource
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -25,12 +29,15 @@ class HybridNitroWebViewRendererLifecycleTest {
     return HybridNitroWebView(ThemedReactContext(BridgeReactContext(app), app, "test", 1))
   }
 
-  private fun detail(crashed: Boolean) = object : RenderProcessGoneDetail() {
-    override fun didCrash() = crashed
-    override fun rendererPriorityAtExit() = 0
-  }
+  private fun detail(crashed: Boolean) =
+    object : RenderProcessGoneDetail() {
+      override fun didCrash() = crashed
 
-  @Test fun `renderer exit destroys before one notification and callback may unmount`() {
+      override fun rendererPriorityAtExit() = 0
+    }
+
+  @Test
+  fun `renderer exit destroys before one notification and callback may unmount`() {
     val hybrid = newView()
     val view = hybrid.view
     val parent = FrameLayout(view.context).apply { addView(view) }
@@ -58,7 +65,8 @@ class HybridNitroWebViewRendererLifecycleTest {
     assertEquals(0, loads)
   }
 
-  @Test fun `queued and stale methods cannot touch a destroyed WebView`() {
+  @Test
+  fun `queued and stale methods cannot touch a destroyed WebView`() {
     val hybrid = newView()
     val shadow = shadowOf(hybrid.view)
     val settings = hybrid.view.settings
@@ -85,7 +93,8 @@ class HybridNitroWebViewRendererLifecycleTest {
     assertTrue(shadow.wasDestroyCalled())
   }
 
-  @Test fun `shared renderer notifications only clean up their own instance`() {
+  @Test
+  fun `shared renderer notifications only clean up their own instance`() {
     val first = newView()
     val second = newView()
     val firstClient = first.view.webViewClient
@@ -106,7 +115,8 @@ class HybridNitroWebViewRendererLifecycleTest {
     second.onDropView()
   }
 
-  @Test fun `drop before renderer callback suppresses notification`() {
+  @Test
+  fun `drop before renderer callback suppresses notification`() {
     val hybrid = newView()
     val client = hybrid.view.webViewClient
     hybrid.onRenderProcessGone = { fail("Dropped view must not emit") }

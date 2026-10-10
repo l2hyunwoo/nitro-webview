@@ -12,8 +12,9 @@ private class StubJavaScriptEvaluator(
   var stubResult: String? = null,
   var throwOnEvaluate: Throwable? = null,
 ) : JavaScriptEvaluator {
-
-  data class Invocation(val code: String)
+  data class Invocation(
+    val code: String,
+  )
 
   val invocations: MutableList<Invocation> = mutableListOf()
 
@@ -44,17 +45,20 @@ private class Outcome {
 }
 
 class NitroWebViewEvaluateJavaScriptHandlerTest {
-
   @Test
   fun `identical pending evaluations settle independently and only once`() {
     val handler = NitroWebViewEvaluateJavaScriptHandler()
     val callbacks = mutableListOf<(String?) -> Unit>()
-    val evaluator = object : JavaScriptEvaluator {
-      override fun evaluateJavaScriptPayload(code: String, resultCallback: (String?) -> Unit) {
-        assertEquals("same()", code)
-        callbacks.add(resultCallback)
+    val evaluator =
+      object : JavaScriptEvaluator {
+        override fun evaluateJavaScriptPayload(
+          code: String,
+          resultCallback: (String?) -> Unit,
+        ) {
+          assertEquals("same()", code)
+          callbacks.add(resultCallback)
+        }
       }
-    }
     val outcome = Outcome()
     repeat(2) {
       handler.evaluate("same()", evaluator, outcome.resolve, outcome.reject)
@@ -78,11 +82,15 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
   fun `dispose rejects pending evaluations once and ignores late results`() {
     val handler = NitroWebViewEvaluateJavaScriptHandler()
     val callbacks = mutableListOf<(String?) -> Unit>()
-    val evaluator = object : JavaScriptEvaluator {
-      override fun evaluateJavaScriptPayload(code: String, resultCallback: (String?) -> Unit) {
-        callbacks.add(resultCallback)
+    val evaluator =
+      object : JavaScriptEvaluator {
+        override fun evaluateJavaScriptPayload(
+          code: String,
+          resultCallback: (String?) -> Unit,
+        ) {
+          callbacks.add(resultCallback)
+        }
       }
-    }
     val first = Outcome()
     val second = Outcome()
     val error = IllegalStateException("NitroWebViewState: destroyed")
@@ -171,14 +179,15 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
     val handler = NitroWebViewEvaluateJavaScriptHandler()
     val evaluator = StubJavaScriptEvaluator(stubResult = "\"ok\"")
 
-    val cases = listOf(
-      "",
-      "1+1",
-      "(function(){return 42})()",
-      "document.title",
-      "'漢字 🎉'",
-      "</script><script>alert(1)</script>",
-    )
+    val cases =
+      listOf(
+        "",
+        "1+1",
+        "(function(){return 42})()",
+        "document.title",
+        "'漢字 🎉'",
+        "</script><script>alert(1)</script>",
+      )
 
     for (raw in cases) {
       handler.evaluate(

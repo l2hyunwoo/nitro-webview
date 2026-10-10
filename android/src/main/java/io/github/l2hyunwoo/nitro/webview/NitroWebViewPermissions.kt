@@ -39,7 +39,9 @@ internal class NitroWebViewPermissions(
       val granted = resources.filter { granted(permissionFor(it)!!) }
       if (!disposed && allows(mediaOrigins, request.origin.toString()) && granted.isNotEmpty()) {
         request.grant(granted.toTypedArray())
-      } else request.deny()
+      } else {
+        request.deny()
+      }
     }
   }
 
@@ -47,7 +49,10 @@ internal class NitroWebViewPermissions(
     if (media === request) media = null
   }
 
-  fun requestLocation(origin: String, callback: GeolocationPermissions.Callback) {
+  fun requestLocation(
+    origin: String,
+    callback: GeolocationPermissions.Callback,
+  ) {
     if (disposed || media != null || location != null || !allows(locationOrigins, origin)) {
       callback.invoke(origin, false, false)
       return
@@ -55,9 +60,15 @@ internal class NitroWebViewPermissions(
     val pending = origin to callback
     location = pending
     // Request both together: Android 12+ lets the user choose approximate location.
-    val permissions = if (hasLocation()) emptyList() else listOf(
-      Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION,
-    )
+    val permissions =
+      if (hasLocation()) {
+        emptyList()
+      } else {
+        listOf(
+          Manifest.permission.ACCESS_COARSE_LOCATION,
+          Manifest.permission.ACCESS_FINE_LOCATION,
+        )
+      }
     requestRuntime(permissions) {
       if (location !== pending) return@requestRuntime
       location = null
@@ -65,7 +76,9 @@ internal class NitroWebViewPermissions(
     }
   }
 
-  fun cancelLocation() { location = null }
+  fun cancelLocation() {
+    location = null
+  }
 
   fun dispose() {
     if (disposed) return
@@ -78,13 +91,16 @@ internal class NitroWebViewPermissions(
     pendingLocation?.let { (origin, callback) -> callback.invoke(origin, false, false) }
   }
 
-  private fun granted(permission: String) =
-    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+  private fun granted(permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-  private fun hasLocation() = granted(Manifest.permission.ACCESS_COARSE_LOCATION) ||
-    granted(Manifest.permission.ACCESS_FINE_LOCATION)
+  private fun hasLocation() =
+    granted(Manifest.permission.ACCESS_COARSE_LOCATION) ||
+      granted(Manifest.permission.ACCESS_FINE_LOCATION)
 
-  private fun requestRuntime(permissions: List<String>, complete: () -> Unit) {
+  private fun requestRuntime(
+    permissions: List<String>,
+    complete: () -> Unit,
+  ) {
     val missing = permissions.filterNot(::granted)
     if (missing.isEmpty()) {
       complete()
@@ -99,13 +115,19 @@ internal class NitroWebViewPermissions(
     val permissionRequestToken = Any()
     busy[host] = permissionRequestToken
     try {
-      host.requestPermissions(missing.toTypedArray(), REQUEST_CODE, PermissionListener { code, _, _ ->
-        if (code != REQUEST_CODE) false else {
-          if (busy[host] === permissionRequestToken) busy.remove(host)
-          complete()
-          true
-        }
-      })
+      host.requestPermissions(
+        missing.toTypedArray(),
+        REQUEST_CODE,
+        PermissionListener { code, _, _ ->
+          if (code != REQUEST_CODE) {
+            false
+          } else {
+            if (busy[host] === permissionRequestToken) busy.remove(host)
+            complete()
+            true
+          }
+        },
+      )
     } catch (_: RuntimeException) {
       if (busy[host] === permissionRequestToken) busy.remove(host)
       complete()
@@ -116,25 +138,40 @@ internal class NitroWebViewPermissions(
     private const val REQUEST_CODE = 0x4E58
     private val busy = WeakHashMap<PermissionAwareActivity, Any>()
 
-    private fun permissionFor(resource: String): String? = when (resource) {
-      PermissionRequest.RESOURCE_VIDEO_CAPTURE -> Manifest.permission.CAMERA
-      PermissionRequest.RESOURCE_AUDIO_CAPTURE -> Manifest.permission.RECORD_AUDIO
-      else -> null
-    }
+    private fun permissionFor(resource: String): String? =
+      when (resource) {
+        PermissionRequest.RESOURCE_VIDEO_CAPTURE -> Manifest.permission.CAMERA
+        PermissionRequest.RESOURCE_AUDIO_CAPTURE -> Manifest.permission.RECORD_AUDIO
+        else -> null
+      }
 
-    internal fun allows(origins: Array<String>?, origin: String): Boolean {
+    internal fun allows(
+      origins: Array<String>?,
+      origin: String,
+    ): Boolean {
       val target = canonicalOrigin(origin) ?: return false
       return origins?.any { canonicalOrigin(it) == target } == true
     }
 
-    private fun canonicalOrigin(value: String): String? = try {
-      val uri = URI(value)
-      val scheme = uri.scheme?.lowercase()
-      val host = uri.host?.lowercase()
-      if (scheme !in listOf("https", "http") || host == null || uri.userInfo != null ||
-        uri.rawQuery != null || uri.rawFragment != null || uri.path !in listOf("", "/") ||
-        uri.port < -1 || uri.port > 65535) null
-      else "$scheme://$host:${if (uri.port == -1) { if (scheme == "https") 443 else 80 } else uri.port}"
-    } catch (_: Exception) { null }
+    private fun canonicalOrigin(value: String): String? =
+      try {
+        val uri = URI(value)
+        val scheme = uri.scheme?.lowercase()
+        val host = uri.host?.lowercase()
+        if (scheme !in listOf("https", "http") || host == null || uri.userInfo != null ||
+          uri.rawQuery != null || uri.rawFragment != null || uri.path !in listOf("", "/") ||
+          uri.port < -1 || uri.port > 65535
+        ) {
+          null
+        } else {
+          "$scheme://$host:${if (uri.port == -1) {
+            if (scheme == "https") 443 else 80
+          } else {
+            uri.port
+          }}"
+        }
+      } catch (_: Exception) {
+        null
+      }
   }
 }

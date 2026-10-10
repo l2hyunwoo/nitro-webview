@@ -9,7 +9,11 @@ import android.webkit.ValueCallback
 import android.webkit.WebView
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -21,17 +25,28 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class NitroWebChromeClientLifecycleTest {
-  @Test fun `dispose cancels chooser once and late result cannot reach it`() {
+  @Test
+  fun `dispose cancels chooser once and late result cannot reach it`() {
     var launches = 0
-    val client = NitroWebChromeClient(
-      context = RuntimeEnvironment.getApplication(),
-      chooserLauncher = { _, _ -> launches++; true },
-    )
+    val client =
+      NitroWebChromeClient(
+        context = RuntimeEnvironment.getApplication(),
+        chooserLauncher = { _, _ ->
+          launches++
+          true
+        },
+      )
     val results = mutableListOf<Array<android.net.Uri>?>()
-    assertTrue(client.onShowFileChooser(null, ValueCallback {
-      results.add(it)
-      client.dispose()
-    }, null))
+    assertTrue(
+      client.onShowFileChooser(
+        null,
+        ValueCallback {
+          results.add(it)
+          client.dispose()
+        },
+        null,
+      ),
+    )
     client.dispose()
     client.dispose()
     assertEquals(1, results.size)
@@ -43,7 +58,8 @@ class NitroWebChromeClientLifecycleTest {
     assertEquals(1, launches)
   }
 
-  @Test fun `dispose restores fullscreen and releases its callback once`() {
+  @Test
+  fun `dispose restores fullscreen and releases its callback once`() {
     val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
     val page = View(activity)
     activity.setContentView(page)
@@ -64,7 +80,8 @@ class NitroWebChromeClientLifecycleTest {
     assertEquals(2, hidden)
   }
 
-  @Test fun `dispose destroys pending popup WebViews and detaches notifications`() {
+  @Test
+  fun `dispose destroys pending popup WebViews and detaches notifications`() {
     val app = RuntimeEnvironment.getApplication()
     val parent = WebView(app)
     val client = NitroWebChromeClient(context = app)

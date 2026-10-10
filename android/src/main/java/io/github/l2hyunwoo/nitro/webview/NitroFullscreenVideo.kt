@@ -19,7 +19,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 internal class NitroFullscreenVideo {
   private var dismiss: (() -> Unit)? = null
 
-  fun show(activity: Activity?, webView: View?, video: View, callback: WebChromeClient.CustomViewCallback) {
+  fun show(
+    activity: Activity?,
+    webView: View?,
+    video: View,
+    callback: WebChromeClient.CustomViewCallback,
+  ) {
     val root = activity?.window?.decorView as? ViewGroup
     if (dismiss != null || activity == null || activity.isFinishing || root == null || video.parent != null) {
       callback.onCustomViewHidden()
@@ -34,20 +39,24 @@ internal class NitroFullscreenVideo {
     val navigationVisible = insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) ?: true
     val controller = WindowCompat.getInsetsController(window, root)
     val behavior = controller.systemBarsBehavior
-    val overlay = FrameLayout(activity).apply {
-      setBackgroundColor(Color.BLACK)
-      isFocusableInTouchMode = true
-      addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-      setOnKeyListener { _, keyCode, event ->
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-          if (event.action == KeyEvent.ACTION_UP) hide()
-          true
-        } else false
+    val overlay =
+      FrameLayout(activity).apply {
+        setBackgroundColor(Color.BLACK)
+        isFocusableInTouchMode = true
+        addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        setOnKeyListener { _, keyCode, event ->
+          if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (event.action == KeyEvent.ACTION_UP) hide()
+            true
+          } else {
+            false
+          }
+        }
       }
-    }
-    val back = object : OnBackPressedCallback(true) {
-      override fun handleOnBackPressed() = hide()
-    }
+    val back =
+      object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() = hide()
+      }
     // Clear ownership before removing the overlay or invoking WebKit: either
     // operation can synchronously call onHideCustomView again.
     var overlayDetached = false
@@ -58,22 +67,31 @@ internal class NitroFullscreenVideo {
       if (visibility != null) webView?.visibility = visibility
       activity.requestedOrientation = orientation
       controller.systemBarsBehavior = behavior
-      if (statusVisible) controller.show(WindowInsetsCompat.Type.statusBars())
-      else controller.hide(WindowInsetsCompat.Type.statusBars())
-      if (navigationVisible) controller.show(WindowInsetsCompat.Type.navigationBars())
-      else controller.hide(WindowInsetsCompat.Type.navigationBars())
+      if (statusVisible) {
+        controller.show(WindowInsetsCompat.Type.statusBars())
+      } else {
+        controller.hide(WindowInsetsCompat.Type.statusBars())
+      }
+      if (navigationVisible) {
+        controller.show(WindowInsetsCompat.Type.navigationBars())
+      } else {
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+      }
       focus?.requestFocus()
       callback.onCustomViewHidden()
     }
-    overlay.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-      override fun onViewAttachedToWindow(v: View) = Unit
-      override fun onViewDetachedFromWindow(v: View) {
-        // Parent removal is already in progress; removing the same child
-        // again would corrupt ViewGroup's child array.
-        overlayDetached = true
-        hide()
-      }
-    })
+    overlay.addOnAttachStateChangeListener(
+      object : View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(v: View) = Unit
+
+        override fun onViewDetachedFromWindow(v: View) {
+          // Parent removal is already in progress; removing the same child
+          // again would corrupt ViewGroup's child array.
+          overlayDetached = true
+          hide()
+        }
+      },
+    )
     (activity as? OnBackPressedDispatcherOwner)?.onBackPressedDispatcher?.addCallback(back)
     root.addView(overlay, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
     webView?.visibility = View.INVISIBLE

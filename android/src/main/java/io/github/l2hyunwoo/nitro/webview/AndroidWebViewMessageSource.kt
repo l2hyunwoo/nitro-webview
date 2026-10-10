@@ -8,7 +8,9 @@ import android.webkit.WebView
  * `currentURL` is computed (not stored) so the value is always read live at
  * message-delivery time, never cached.
  */
-class AndroidWebViewMessageSource(private val webView: WebView) : MessageWebView {
+class AndroidWebViewMessageSource(
+  private val webView: WebView,
+) : MessageWebView {
   override val currentURL: String?
     get() = webView.url
 }

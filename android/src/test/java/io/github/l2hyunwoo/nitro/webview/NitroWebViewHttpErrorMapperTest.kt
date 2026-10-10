@@ -13,7 +13,6 @@ private data class FakeHttpErrorRequest(
 ) : WebResourceRequestSource
 
 class NitroWebViewHttpErrorMapperTest {
-
   @Test
   fun `event_mapsStatusUrlAndReasonPhrase`() {
     val response = FakeWebResourceResponse(statusCode = 404, reasonPhrase = "Not Found")
@@ -35,35 +34,39 @@ class NitroWebViewHttpErrorMapperTest {
   fun `event_statusCode_isPropagatedVerbatim`() {
     val cases = listOf(400, 401, 403, 404, 418, 429, 500, 502, 503)
     for (code in cases) {
-      val event = NitroWebViewHttpErrorMapper.event(
-        response = FakeWebResourceResponse(statusCode = code, reasonPhrase = "x"),
-        request = FakeHttpErrorRequest(url = "https://x.test/"),
-      )
+      val event =
+        NitroWebViewHttpErrorMapper.event(
+          response = FakeWebResourceResponse(statusCode = code, reasonPhrase = "x"),
+          request = FakeHttpErrorRequest(url = "https://x.test/"),
+        )
       assertEquals("statusCode must round-trip (failed for $code)", code, event.statusCode)
     }
   }
 
   @Test
   fun `event_url_prefersRequestUrl_thenFallback_reusingErrorMapperLadder`() {
-    val fromRequest = NitroWebViewHttpErrorMapper.event(
-      response = FakeWebResourceResponse(statusCode = 500, reasonPhrase = "x"),
-      request = FakeHttpErrorRequest(url = "https://from-request.test/"),
-      fallbackUrl = "https://from-fallback.test/",
-    )
+    val fromRequest =
+      NitroWebViewHttpErrorMapper.event(
+        response = FakeWebResourceResponse(statusCode = 500, reasonPhrase = "x"),
+        request = FakeHttpErrorRequest(url = "https://from-request.test/"),
+        fallbackUrl = "https://from-fallback.test/",
+      )
     assertEquals("https://from-request.test/", fromRequest.url)
 
-    val fromFallback = NitroWebViewHttpErrorMapper.event(
-      response = FakeWebResourceResponse(statusCode = 500, reasonPhrase = "x"),
-      request = FakeHttpErrorRequest(url = null),
-      fallbackUrl = "https://from-fallback.test/",
-    )
+    val fromFallback =
+      NitroWebViewHttpErrorMapper.event(
+        response = FakeWebResourceResponse(statusCode = 500, reasonPhrase = "x"),
+        request = FakeHttpErrorRequest(url = null),
+        fallbackUrl = "https://from-fallback.test/",
+      )
     assertEquals("https://from-fallback.test/", fromFallback.url)
 
-    val collapsed = NitroWebViewHttpErrorMapper.event(
-      response = FakeWebResourceResponse(statusCode = 500, reasonPhrase = "x"),
-      request = null,
-      fallbackUrl = null,
-    )
+    val collapsed =
+      NitroWebViewHttpErrorMapper.event(
+        response = FakeWebResourceResponse(statusCode = 500, reasonPhrase = "x"),
+        request = null,
+        fallbackUrl = null,
+      )
     assertEquals(
       "url must collapse to empty string, never null, to preserve JS contract",
       "",
@@ -75,10 +78,11 @@ class NitroWebViewHttpErrorMapperTest {
   fun `event_reasonPhrase_isPropagatedVerbatim_includingEmpty`() {
     val cases = listOf("Not Found", "Internal Server Error", "", "漢字 with 🎉")
     for (raw in cases) {
-      val event = NitroWebViewHttpErrorMapper.event(
-        response = FakeWebResourceResponse(statusCode = 404, reasonPhrase = raw),
-        request = FakeHttpErrorRequest(url = "https://x.test/"),
-      )
+      val event =
+        NitroWebViewHttpErrorMapper.event(
+          response = FakeWebResourceResponse(statusCode = 404, reasonPhrase = raw),
+          request = FakeHttpErrorRequest(url = "https://x.test/"),
+        )
       assertEquals("reasonPhrase must round-trip verbatim (failed for \"$raw\")", raw, event.description)
     }
   }

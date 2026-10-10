@@ -8,7 +8,9 @@ import android.webkit.WebView
  * Thread-safety: `WebView.loadDataWithBaseURL` is UI-thread only; this adapter
  * performs no dispatch and inherits that constraint.
  */
-class AndroidWebViewHtmlLoader(private val webView: WebView) : WebViewHTMLLoader {
+class AndroidWebViewHtmlLoader(
+  private val webView: WebView,
+) : WebViewHTMLLoader {
   override fun loadDataWithBaseUrlPayload(
     baseUrl: String?,
     data: String,

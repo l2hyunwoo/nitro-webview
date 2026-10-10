@@ -9,7 +9,10 @@ package io.github.l2hyunwoo.nitro.webview
  *   - the callback fires exactly once per call.
  */
 interface JavaScriptEvaluator {
-  fun evaluateJavaScriptPayload(code: String, resultCallback: (String?) -> Unit)
+  fun evaluateJavaScriptPayload(
+    code: String,
+    resultCallback: (String?) -> Unit,
+  )
 }
 
 /**
@@ -60,8 +63,6 @@ class NitroWebViewEvaluateJavaScriptHandler {
 
   companion object {
     @JvmStatic
-    fun normalize(raw: String?): String {
-      return raw ?: ""
-    }
+    fun normalize(raw: String?): String = raw ?: ""
   }
 }

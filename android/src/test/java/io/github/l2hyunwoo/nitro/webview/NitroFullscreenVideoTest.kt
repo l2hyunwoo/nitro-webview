@@ -4,7 +4,9 @@ import android.content.pm.ActivityInfo
 import android.view.View
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -14,7 +16,8 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class NitroFullscreenVideoTest {
-  @Test fun backRestoresHostAndNotifiesOnce() {
+  @Test
+  fun backRestoresHostAndNotifiesOnce() {
     val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
     val page = View(activity)
     activity.setContentView(page)
@@ -34,7 +37,8 @@ class NitroFullscreenVideoTest {
     assertEquals(1, hidden)
   }
 
-  @Test fun duplicateRequestIsRejectedWithoutLosingOriginalSession() {
+  @Test
+  fun duplicateRequestIsRejectedWithoutLosingOriginalSession() {
     val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
     val page = View(activity)
     activity.setContentView(page)
@@ -53,7 +57,8 @@ class NitroFullscreenVideoTest {
     assertEquals(1, firstHidden)
   }
 
-  @Test fun missingActivityAndDetachedOverlayReleaseCallbacks() {
+  @Test
+  fun missingActivityAndDetachedOverlayReleaseCallbacks() {
     val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
     val page = View(activity).apply { visibility = View.INVISIBLE }
     activity.setContentView(page)

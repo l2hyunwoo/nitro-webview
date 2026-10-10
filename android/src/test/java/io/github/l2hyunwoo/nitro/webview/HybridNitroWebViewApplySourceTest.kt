@@ -22,7 +22,6 @@ import org.junit.Test
  * to control both branches without static mocking.
  */
 class HybridNitroWebViewApplySourceTest {
-
   // region: applyUriSource
 
   /**
@@ -30,15 +29,27 @@ class HybridNitroWebViewApplySourceTest {
    * `loadUrl` call so tests can assert on both the URL and the header map.
    */
   private class RecordingUrlLoader : HybridNitroWebView.UrlLoader {
-    data class Call(val url: String, val headers: Map<String, String>)
+    data class Call(
+      val url: String,
+      val headers: Map<String, String>,
+    )
 
     var postedBody: ByteArray? = null
-    override fun postUrl(url: String, body: ByteArray) { postedBody = body }
+
+    override fun postUrl(
+      url: String,
+      body: ByteArray,
+    ) {
+      postedBody = body
+    }
 
     var lastCall: Call? = null
       private set
 
-    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+    override fun loadUrl(
+      url: String,
+      additionalHttpHeaders: Map<String, String>,
+    ) {
       lastCall = Call(url, additionalHttpHeaders)
     }
   }
@@ -46,11 +57,13 @@ class HybridNitroWebViewApplySourceTest {
   @Test
   fun `applyUriSource_callsLoadUrlWithMergedHeaders`() {
     val loader = RecordingUrlLoader()
-    val uriSource = UriSource(
-      method = null, body = null,
-      uri = "https://example.com",
-      headers = mapOf("X-Per-Request" to "from-source"),
-    )
+    val uriSource =
+      UriSource(
+        method = null,
+        body = null,
+        uri = "https://example.com",
+        headers = mapOf("X-Per-Request" to "from-source"),
+      )
     val defaults = mapOf("X-App" to "nitro", "X-Per-Request" to "default-value")
 
     HybridNitroWebView.applyUriSource(uriSource, defaults, loader)
@@ -83,11 +96,13 @@ class HybridNitroWebViewApplySourceTest {
   @Test
   fun `applyUriSource_perRequestHeadersOverrideDefaults`() {
     val loader = RecordingUrlLoader()
-    val uriSource = UriSource(
-      method = null, body = null,
-      uri = "https://api.example.com/data",
-      headers = mapOf("Authorization" to "Bearer per-request"),
-    )
+    val uriSource =
+      UriSource(
+        method = null,
+        body = null,
+        uri = "https://api.example.com/data",
+        headers = mapOf("Authorization" to "Bearer per-request"),
+      )
     val defaults = mapOf("Authorization" to "Bearer default")
 
     HybridNitroWebView.applyUriSource(uriSource, defaults, loader)
@@ -108,11 +123,13 @@ class HybridNitroWebViewApplySourceTest {
   @Test
   fun `applyUriSource_emptyHeaders_stillInvokesLoadUrl_withEmptyMap`() {
     val loader = RecordingUrlLoader()
-    val uriSource = UriSource(
-      method = null, body = null,
-      uri = "https://example.com/empty",
-      headers = null,
-    )
+    val uriSource =
+      UriSource(
+        method = null,
+        body = null,
+        uri = "https://example.com/empty",
+        headers = null,
+      )
 
     HybridNitroWebView.applyUriSource(uriSource, null, loader)
 
@@ -147,8 +164,13 @@ class HybridNitroWebViewApplySourceTest {
   @Test
   fun `post forwards UTF8 body without loadUrl`() {
     val loader = RecordingUrlLoader()
-    val source = UriSource("https://example.com", null,
-      com.margelo.nitro.nitrowebview.WebViewSourceMethod.POST, "name=한글")
+    val source =
+      UriSource(
+        "https://example.com",
+        null,
+        com.margelo.nitro.nitrowebview.WebViewSourceMethod.POST,
+        "name=한글",
+      )
     HybridNitroWebView.applyUriSource(source, null, loader)
     assertNull(loader.lastCall)
     assertEquals("name=한글", loader.postedBody?.toString(Charsets.UTF_8))
@@ -156,8 +178,13 @@ class HybridNitroWebViewApplySourceTest {
 
   @Test(expected = IllegalArgumentException::class)
   fun `post rejects default headers`() {
-    val source = UriSource("https://example.com", null,
-      com.margelo.nitro.nitrowebview.WebViewSourceMethod.POST, null)
+    val source =
+      UriSource(
+        "https://example.com",
+        null,
+        com.margelo.nitro.nitrowebview.WebViewSourceMethod.POST,
+        null,
+      )
     HybridNitroWebView.applyUriSource(source, mapOf("X-App" to "test"), RecordingUrlLoader())
   }
 
@@ -169,23 +196,24 @@ class HybridNitroWebViewApplySourceTest {
     var primaryReceivedCd: String? = "NOT_SET"
     var primaryReceivedUrl: String? = null
 
-    val result = HybridNitroWebView.deriveDownloadFileName(
-      url = "https://example.com/file",
-      contentDisposition = "attachment%3B%20filename%3Dreport.pdf",
-      mimetype = "application/pdf",
-      decoder = { input, _ ->
-        // Simulate URLDecoder.decode succeeding.
-        "attachment; filename=report.pdf"
-      },
-      primary = { cd, _, u, _ ->
-        primaryReceivedCd = cd
-        primaryReceivedUrl = u
-        "report.pdf"
-      },
-      fallback = { _, _, _ ->
-        "fallback.pdf"
-      },
-    )
+    val result =
+      HybridNitroWebView.deriveDownloadFileName(
+        url = "https://example.com/file",
+        contentDisposition = "attachment%3B%20filename%3Dreport.pdf",
+        mimetype = "application/pdf",
+        decoder = { input, _ ->
+          // Simulate URLDecoder.decode succeeding.
+          "attachment; filename=report.pdf"
+        },
+        primary = { cd, _, u, _ ->
+          primaryReceivedCd = cd
+          primaryReceivedUrl = u
+          "report.pdf"
+        },
+        fallback = { _, _, _ ->
+          "fallback.pdf"
+        },
+      )
 
     assertEquals(
       "happy-path result must come from the primary (DownloadUtils) branch",
@@ -209,22 +237,23 @@ class HybridNitroWebViewApplySourceTest {
     var fallbackReceivedUrl: String? = null
     var fallbackReceivedCd: String? = "NOT_SET"
 
-    val result = HybridNitroWebView.deriveDownloadFileName(
-      url = "https://example.com/download",
-      contentDisposition = "malformed%XX",
-      mimetype = "application/octet-stream",
-      decoder = { _, _ ->
-        throw IllegalArgumentException("simulated URLDecoder failure")
-      },
-      primary = { _, _, _, _ ->
-        "should-not-be-called.bin"
-      },
-      fallback = { u, cd, _ ->
-        fallbackReceivedUrl = u
-        fallbackReceivedCd = cd
-        "fallback-result.bin"
-      },
-    )
+    val result =
+      HybridNitroWebView.deriveDownloadFileName(
+        url = "https://example.com/download",
+        contentDisposition = "malformed%XX",
+        mimetype = "application/octet-stream",
+        decoder = { _, _ ->
+          throw IllegalArgumentException("simulated URLDecoder failure")
+        },
+        primary = { _, _, _, _ ->
+          "should-not-be-called.bin"
+        },
+        fallback = { u, cd, _ ->
+          fallbackReceivedUrl = u
+          fallbackReceivedCd = cd
+          "fallback-result.bin"
+        },
+      )
 
     assertEquals(
       "when the decoder throws the fallback branch must supply the file name",
@@ -248,22 +277,23 @@ class HybridNitroWebViewApplySourceTest {
     var decoderInvoked = false
     var primaryReceivedCd: String? = "SENTINEL"
 
-    val result = HybridNitroWebView.deriveDownloadFileName(
-      url = "https://example.com/nocd",
-      contentDisposition = null,
-      mimetype = null,
-      decoder = { _, _ ->
-        decoderInvoked = true
-        "should-not-be-called"
-      },
-      primary = { cd, _, _, _ ->
-        primaryReceivedCd = cd
-        "primary-result.bin"
-      },
-      fallback = { _, _, _ ->
-        "fallback.bin"
-      },
-    )
+    val result =
+      HybridNitroWebView.deriveDownloadFileName(
+        url = "https://example.com/nocd",
+        contentDisposition = null,
+        mimetype = null,
+        decoder = { _, _ ->
+          decoderInvoked = true
+          "should-not-be-called"
+        },
+        primary = { cd, _, _, _ ->
+          primaryReceivedCd = cd
+          "primary-result.bin"
+        },
+        fallback = { _, _, _ ->
+          "fallback.bin"
+        },
+      )
 
     assertEquals(
       "null Content-Disposition must not invoke the decoder",
@@ -285,19 +315,20 @@ class HybridNitroWebViewApplySourceTest {
   fun `deriveDownloadFileName_whenPrimaryThrows_fallsBackToUrlUtilGuessFileName`() {
     var fallbackInvoked = false
 
-    val result = HybridNitroWebView.deriveDownloadFileName(
-      url = "https://example.com/file2",
-      contentDisposition = "attachment; filename=doc.pdf",
-      mimetype = "application/pdf",
-      decoder = { input, _ -> input },
-      primary = { _, _, _, _ ->
-        throw RuntimeException("simulated DownloadUtils failure")
-      },
-      fallback = { _, _, _ ->
-        fallbackInvoked = true
-        "fallback-doc.pdf"
-      },
-    )
+    val result =
+      HybridNitroWebView.deriveDownloadFileName(
+        url = "https://example.com/file2",
+        contentDisposition = "attachment; filename=doc.pdf",
+        mimetype = "application/pdf",
+        decoder = { input, _ -> input },
+        primary = { _, _, _, _ ->
+          throw RuntimeException("simulated DownloadUtils failure")
+        },
+        fallback = { _, _, _ ->
+          fallbackInvoked = true
+          "fallback-doc.pdf"
+        },
+      )
 
     assertEquals(
       "when primary throws the fallback branch must supply the file name",

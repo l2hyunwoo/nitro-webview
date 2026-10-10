@@ -31,7 +31,7 @@ private class SpyHtmlLoader : WebViewHTMLLoader {
         mimeType = mimeType,
         encoding = encoding,
         historyUrl = historyUrl,
-      )
+      ),
     )
   }
 }
@@ -41,16 +41,20 @@ class NitroWebViewSourceHandlerTest {
   fun postBodyDefaultsAndUTF8() {
     org.junit.Assert.assertNull(NitroWebViewSourceHandler.postBody("about:blank", null, null, emptyMap()))
     org.junit.Assert.assertArrayEquals(byteArrayOf(), NitroWebViewSourceHandler.postBody("https://example.com", "POST", null, emptyMap()))
-    org.junit.Assert.assertArrayEquals("한글".toByteArray(Charsets.UTF_8), NitroWebViewSourceHandler.postBody("https://example.com", "POST", "한글", emptyMap()))
+    org.junit.Assert.assertArrayEquals(
+      "한글".toByteArray(Charsets.UTF_8),
+      NitroWebViewSourceHandler.postBody("https://example.com", "POST", "한글", emptyMap()),
+    )
   }
 
   @org.junit.Test
   fun rejectsUnsupportedPostCombinations() {
-    val cases = listOf(
-      Triple("https://example.com", "GET", ""),
-      Triple("file:///tmp/form", "POST", ""),
-      Triple("https://example.com", "PUT", ""),
-    )
+    val cases =
+      listOf(
+        Triple("https://example.com", "GET", ""),
+        Triple("file:///tmp/form", "POST", ""),
+        Triple("https://example.com", "PUT", ""),
+      )
     for ((uri, method, body) in cases) {
       org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
         NitroWebViewSourceHandler.postBody(uri, method, body, emptyMap())
@@ -60,7 +64,6 @@ class NitroWebViewSourceHandlerTest {
       NitroWebViewSourceHandler.postBody("https://example.com", "POST", "", mapOf("X-Test" to "value"))
     }
   }
-
 
   @Test
   fun `applyHtmlPayload_withNoBaseUrl_callsLoadDataWithBaseURL_withNullBaseUrl`() {
@@ -94,10 +97,11 @@ class NitroWebViewSourceHandlerTest {
   fun `applyHtmlPayload_withBaseUrl_callsLoadDataWithBaseURL_withProvidedBaseUrl`() {
     val handler = NitroWebViewSourceHandler()
     val spy = SpyHtmlLoader()
-    val payload = NitroLoadHtmlPayload(
-      html = "<a href=\"/about\">About</a>",
-      baseUrlString = "https://example.com",
-    )
+    val payload =
+      NitroLoadHtmlPayload(
+        html = "<a href=\"/about\">About</a>",
+        baseUrlString = "https://example.com",
+      )
 
     handler.applyHtmlPayload(payload, spy)
 
@@ -122,14 +126,15 @@ class NitroWebViewSourceHandlerTest {
   fun `applyHtmlPayload_preservesHtmlBodyVerbatim_includingMultibyte`() {
     val handler = NitroWebViewSourceHandler()
     val spy = SpyHtmlLoader()
-    val body = listOf(
-      "<!DOCTYPE html>",
-      "<html><head><meta charset=\"utf-8\"><title>π</title></head>",
-      "<body>",
-      "  <p>Hello, world! 漢字 🎉</p>",
-      "  <script>window.x = 1 < 2 && 3 > 0;</script>",
-      "</body></html>",
-    ).joinToString(separator = "\n")
+    val body =
+      listOf(
+        "<!DOCTYPE html>",
+        "<html><head><meta charset=\"utf-8\"><title>π</title></head>",
+        "<body>",
+        "  <p>Hello, world! 漢字 🎉</p>",
+        "  <script>window.x = 1 < 2 && 3 > 0;</script>",
+        "</body></html>",
+      ).joinToString(separator = "\n")
 
     handler.applyHtmlPayload(
       NitroLoadHtmlPayload(html = body, baseUrlString = null),
@@ -160,11 +165,12 @@ class NitroWebViewSourceHandlerTest {
   @Test
   fun `applyHtmlPayload_supportsHttp_https_andFileSchemes`() {
     val handler = NitroWebViewSourceHandler()
-    val cases = listOf(
-      "http://example.com",
-      "https://example.com",
-      "file:///android_asset/",
-    )
+    val cases =
+      listOf(
+        "http://example.com",
+        "https://example.com",
+        "file:///android_asset/",
+      )
 
     for (raw in cases) {
       val spy = SpyHtmlLoader()

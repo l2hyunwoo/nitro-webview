@@ -19,9 +19,11 @@ interface WebViewHTMLLoader {
 
 /** Native handler for the `loadHtml` command on Android. */
 class NitroWebViewSourceHandler {
-
   /** Apply a normalised HTML payload to the given WebView. */
-  fun applyHtmlPayload(payload: NitroLoadHtmlPayload, webView: WebViewHTMLLoader) {
+  fun applyHtmlPayload(
+    payload: NitroLoadHtmlPayload,
+    webView: WebViewHTMLLoader,
+  ) {
     val baseUrl = normalizeBaseUrl(payload.baseUrlString)
     webView.loadDataWithBaseUrlPayload(
       baseUrl = baseUrl,
@@ -35,7 +37,12 @@ class NitroWebViewSourceHandler {
   companion object {
     /** Validate before invoking postUrl, which cannot carry custom headers. */
     @JvmStatic
-    fun postBody(uri: String, method: String?, body: String?, headers: Map<String, String>): ByteArray? {
+    fun postBody(
+      uri: String,
+      method: String?,
+      body: String?,
+      headers: Map<String, String>,
+    ): ByteArray? {
       val verb = method ?: "GET"
       require(verb == "GET" || verb == "POST") { "source.method must be GET or POST" }
       require(verb == "POST" || body == null) { "source.body requires POST" }
