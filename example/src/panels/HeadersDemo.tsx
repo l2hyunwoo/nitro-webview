@@ -1,22 +1,5 @@
-/**
- * HeadersDemo panel — modularized "Headers demo" screen.
- *
- * Migrated from the inline section in the original `example/App.tsx`:
- *   - the HTTPBIN_SOURCE / HEADERS_SOURCE WebViewSource constants
- *   - the SectionLabel + two-button toolbar ("Open httpbin", "Send with
- *     headers")
- *   - the hint text describing the expected request headers
- *
- * Per the Seed contract this panel owns its own NitroWebView mount with
- * `defaultHeaders` set to the global { 'X-Nitro-Default': 'global',
- * 'X-Nitro-Test': 'default-loses' } pair so that the per-request
- * `X-Nitro-Test: per-request` override is observable when the user taps
- * "Send with headers". Existing demo behavior, HTML literals, and
- * callback wiring are migrated intact rather than rewritten.
- */
-
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -25,15 +8,12 @@ import type {
   WebViewSource,
 } from 'nitro-webview'
 
+import { DemoTabs } from '../components/DemoTabs'
 import { NavToolbar } from '../components/NavToolbar'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusBanner } from '../components/StatusBanner'
 import { ToolbarButton } from '../components/ToolbarButton'
 import { color, fontSize, spacing } from '../components/theme'
-
-// ---------------------------------------------------------------------------
-// Static sources — migrated verbatim from example/App.tsx
-// ---------------------------------------------------------------------------
 
 const HTTPBIN_SOURCE: WebViewSource = { uri: 'https://httpbin.org' }
 
@@ -41,10 +21,6 @@ const HEADERS_SOURCE: WebViewSource = {
   uri: 'https://httpbin.org/headers',
   headers: { 'x-nitro-test': 'per-request' },
 }
-
-// ---------------------------------------------------------------------------
-// Panel
-// ---------------------------------------------------------------------------
 
 export function HeadersDemo() {
   const ref = useRef<NitroWebViewMethods | null>(null)
@@ -61,10 +37,7 @@ export function HeadersDemo() {
   >(null)
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={color.headerBackground} />
-
-      {/* Header */}
+    <View style={styles.root}>
       <View style={styles.header}>
         <Text style={styles.title}>Headers demo</Text>
         <Text style={styles.subtitle} numberOfLines={1}>
@@ -86,15 +59,6 @@ export function HeadersDemo() {
         onReload={() => ref.current?.reload()}
       />
 
-      {lastError ? (
-        <StatusBanner
-          status="error"
-          title={`onError fired (${lastError.domain} ${lastError.code})`}
-          body={lastError.description}
-          footer={lastError.url || '(no url)'}
-        />
-      ) : null}
-
       <NitroWebView
         style={styles.webview}
         source={source}
@@ -113,36 +77,55 @@ export function HeadersDemo() {
         })}
       />
 
-      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
-        <SectionLabel text="Headers demo" />
-        <View style={styles.toolbar}>
-          <ToolbarButton
-            label="Open httpbin"
-            onPress={() => {
-              setLastError(null)
-              setSource(HTTPBIN_SOURCE)
-            }}
-          />
-          <ToolbarButton
-            label="Send with headers"
-            onPress={() => {
-              setLastError(null)
-              setSource(HEADERS_SOURCE)
-            }}
-          />
-        </View>
-        <Text style={styles.hint}>
-          Expected: X-Nitro-Default: global • x-nitro-test: per-request. Header
-          names are case-insensitive. Duplicate names within one map reject the source.
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+      <DemoTabs
+        controls={
+          <>
+            <SectionLabel text="Headers demo" />
+            <View style={styles.toolbar}>
+              <ToolbarButton
+                label="Open httpbin"
+                onPress={() => {
+                  setLastError(null)
+                  setSource(HTTPBIN_SOURCE)
+                }}
+              />
+              <ToolbarButton
+                label="Send with headers"
+                onPress={() => {
+                  setLastError(null)
+                  setSource(HEADERS_SOURCE)
+                }}
+              />
+            </View>
+            <Text style={styles.hint}>
+              Expected: X-Nitro-Default: global • x-nitro-test: per-request.
+              Header names are case-insensitive. Duplicate names within one map
+              reject the source.
+            </Text>
+          </>
+        }
+        results={
+          <>
+            <StatusBanner
+              status="eval"
+              title="Observed navigation"
+              body={`URL: ${navState.url || '(not reported)'}\nTitle: ${navState.title || '(empty)'}\nLoading: ${navState.loading}\nThe server response remains visible in the WebView above.`}
+              bodyNumberOfLines={0}
+            />
+            {lastError ? (
+              <StatusBanner
+                status="error"
+                title={`onError fired (${lastError.domain} ${lastError.code})`}
+                body={`${lastError.description}\n${lastError.url || '(no url)'}`}
+                bodyNumberOfLines={0}
+              />
+            ) : null}
+          </>
+        }
+      />
+    </View>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Styles — panel-local, tokens sourced from theme.ts
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.appBackground },
@@ -155,27 +138,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     fontWeight: '700',
-    color: color.textOnDark,
+    color: color.headerText,
     letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: fontSize.xs,
-    color: color.textMutedOnDark,
+    color: color.headerMuted,
     marginTop: spacing.xxs,
   },
   pageTitle: {
     fontSize: fontSize.sm,
-    color: color.textSecondaryOnDark,
+    color: color.headerSecondary,
     marginTop: spacing.xs,
     fontWeight: '500',
   },
   webview: { flex: 1 },
-  controls: {
-    backgroundColor: color.appBackground,
-    borderTopWidth: 2,
-    borderTopColor: color.divider,
-  },
-  controlsContent: { paddingBottom: spacing.xl5 },
   toolbar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,

@@ -1,28 +1,5 @@
-/**
- * FileUploadDemo panel — modularized "File upload demo" screen.
- *
- * Migrated from the inline section in the original `example/App.tsx`:
- *   - the `UPLOAD_SOURCE` WebViewSource constant — an inline HTML page
- *     pinned to the `https://nitro-webview.local/` base URL so Android
- *     WebView does not block `<input type="file">` on a null-origin page
- *   - the `uploadStatus` useState slot tracking the most recent upload
- *     postMessage payload as a human-readable banner string
- *   - the `handleMessage` callback that filters postMessage payloads
- *     starting with `'single'` or `'multi'` and routes them into
- *     `setUploadStatus('upload event: ' + data)`
- *   - the SectionLabel + green upload pill + single-button "Open upload
- *     page" toolbar + hint text describing the expected interaction
- *
- * Per the Seed contract this panel owns its own NitroWebView mount
- * (initially pointed at the upload demo HTML so opening the panel lands
- * the user directly on the file-picker UI) and uses shared chrome
- * primitives (NavToolbar, SectionLabel, StatusBanner, ToolbarButton)
- * plus tokens from `theme.ts`. Existing demo behavior, HTML literals,
- * and callback wiring are migrated intact rather than rewritten.
- */
-
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -32,15 +9,12 @@ import type {
   WebViewSource,
 } from 'nitro-webview'
 
+import { DemoTabs } from '../components/DemoTabs'
 import { NavToolbar } from '../components/NavToolbar'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusBanner } from '../components/StatusBanner'
 import { ToolbarButton } from '../components/ToolbarButton'
 import { color, fontSize, radii, spacing } from '../components/theme'
-
-// ---------------------------------------------------------------------------
-// Static sources — migrated verbatim from example/App.tsx
-// ---------------------------------------------------------------------------
 
 const UPLOAD_SOURCE: WebViewSource = {
   // Android WebView blocks `<input type="file">` on null-origin pages (the
@@ -78,10 +52,6 @@ const UPLOAD_SOURCE: WebViewSource = {
 </body></html>`,
 }
 
-// ---------------------------------------------------------------------------
-// Panel
-// ---------------------------------------------------------------------------
-
 export function FileUploadDemo() {
   const ref = useRef<NitroWebViewMethods | null>(null)
   const [source, setSource] = useState<WebViewSource>(UPLOAD_SOURCE)
@@ -96,12 +66,8 @@ export function FileUploadDemo() {
     NitroWebViewErrorEvent['nativeEvent'] | null
   >(null)
 
-  // Upload demo state — migrated verbatim from App.tsx.
   const [uploadStatus, setUploadStatus] = useState<string | null>(null)
 
-  // Migrated from App.tsx's `handleMessage` — only the upload-event
-  // branch is retained here since this panel is upload-only. The
-  // payload contract ("single x N" / "multi x N") is unchanged.
   const handleMessage = callback((event: WebViewMessageEvent) => {
     const data = event.nativeEvent.data
     if (data.startsWith('single') || data.startsWith('multi')) {
@@ -110,10 +76,7 @@ export function FileUploadDemo() {
   })
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={color.headerBackground} />
-
-      {/* Header */}
+    <View style={styles.root}>
       <View style={styles.header}>
         <Text style={styles.title}>File upload demo</Text>
         <Text style={styles.subtitle} numberOfLines={1}>
@@ -135,15 +98,6 @@ export function FileUploadDemo() {
         onReload={() => ref.current?.reload()}
       />
 
-      {lastError ? (
-        <StatusBanner
-          status="error"
-          title={`onError fired (${lastError.domain} ${lastError.code})`}
-          body={lastError.description}
-          footer={lastError.url || '(no url)'}
-        />
-      ) : null}
-
       <NitroWebView
         style={styles.webview}
         source={source}
@@ -159,34 +113,49 @@ export function FileUploadDemo() {
         onMessage={handleMessage}
       />
 
-      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
-        <SectionLabel text="File upload demo" />
-        {uploadStatus ? (
-          <View style={styles.uploadPill}>
-            <Text style={styles.uploadPillText}>{uploadStatus}</Text>
-          </View>
-        ) : null}
-        <View style={styles.toolbar}>
-          <ToolbarButton
-            label="Open upload page"
-            onPress={() => {
-              setLastError(null)
-              setUploadStatus(null)
-              setSource(UPLOAD_SOURCE)
-            }}
-          />
-        </View>
-        <Text style={styles.hint}>
-          Tap an input in the WebView, pick a file — pill updates above
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+      <DemoTabs
+        controls={
+          <>
+            <SectionLabel text="File upload demo" />
+            <View style={styles.toolbar}>
+              <ToolbarButton
+                label="Open upload page"
+                onPress={() => {
+                  setLastError(null)
+                  setUploadStatus(null)
+                  setSource(UPLOAD_SOURCE)
+                }}
+              />
+            </View>
+            <Text style={styles.hint}>
+              Tap an input in the WebView and pick a file, then open Results.
+              Image previews remain visible in the page above.
+            </Text>
+          </>
+        }
+        results={
+          <>
+            {uploadStatus ? (
+              <View style={styles.uploadPill}>
+                <Text style={styles.uploadPillText}>{uploadStatus}</Text>
+              </View>
+            ) : (
+              <Text style={styles.hint}>No file selection reported yet.</Text>
+            )}
+            {lastError ? (
+              <StatusBanner
+                status="error"
+                title={`onError fired (${lastError.domain} ${lastError.code})`}
+                body={`${lastError.description}\n${lastError.url || '(no url)'}`}
+                bodyNumberOfLines={0}
+              />
+            ) : null}
+          </>
+        }
+      />
+    </View>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Styles — panel-local, tokens sourced from theme.ts
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.appBackground },
@@ -199,27 +168,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     fontWeight: '700',
-    color: color.textOnDark,
+    color: color.headerText,
     letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: fontSize.xs,
-    color: color.textMutedOnDark,
+    color: color.headerMuted,
     marginTop: spacing.xxs,
   },
   pageTitle: {
     fontSize: fontSize.sm,
-    color: color.textSecondaryOnDark,
+    color: color.headerSecondary,
     marginTop: spacing.xs,
     fontWeight: '500',
   },
   webview: { flex: 1 },
-  controls: {
-    backgroundColor: color.appBackground,
-    borderTopWidth: 2,
-    borderTopColor: color.divider,
-  },
-  controlsContent: { paddingBottom: spacing.xl5 },
   toolbar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.xl,

@@ -1,20 +1,18 @@
+import { color } from './components/theme'
 import React, { useState } from 'react'
-import {
-  Button,
-  Platform,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { Button, Platform, StyleSheet, Text, View } from 'react-native'
 import { NitroWebView } from 'nitro-webview'
 
 const origin = 'https://permissions.nitro.test'
 
 function page(deny: boolean) {
   return `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{font:18px system-ui;padding:16px;background:#eef4ff;color:#15223a}button{display:block;font:inherit;padding:14px;margin:12px 0;width:100%}pre{white-space:pre-wrap}video{width:100%;height:140px;background:#111}</style>
-<h2>Real WebView permissions</h2><p>${deny ? 'Expect origin policy denial (Android)' : 'Allow OS prompts to verify hardware access'}</p>
+<style>body{font:18px system-ui;padding:16px;background:#fafafa;color:#18181b}button{display:block;font:inherit;padding:14px;margin:12px 0;width:100%}pre{white-space:pre-wrap}video{width:100%;height:140px;background:#111}</style>
+<h2>Real WebView permissions</h2><p>${
+    deny
+      ? 'Expect origin policy denial (Android)'
+      : 'Allow OS prompts to verify hardware access'
+  }</p>
 <button onclick="media('camera')">Test camera</button><button onclick="media('microphone')">Test microphone</button><button onclick="locate()">Test location</button>
 <video id="preview" autoplay muted playsinline></video><pre id="results">READY — tap a test</pre>
 <script>
@@ -28,7 +26,7 @@ function locate(){navigator.geolocation.getCurrentPosition(p=>report('location',
 export function PermissionsVerificationScreen() {
   const [deny, setDeny] = useState(false)
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>Camera · microphone · location</Text>
       <Text style={styles.description}>
         {Platform.OS === 'android'
@@ -38,6 +36,7 @@ export function PermissionsVerificationScreen() {
       {Platform.OS === 'android' && (
         <View style={styles.actions}>
           <Button
+            color={color.textPrimary}
             title={deny ? 'Switch to ALLOW origin' : 'Switch to DENY origin'}
             onPress={() => setDeny(!deny)}
           />
@@ -51,12 +50,12 @@ export function PermissionsVerificationScreen() {
         geolocationPermissionOrigins={deny ? [] : [origin]}
         allowsInlineMediaPlayback
       />
-    </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#eef4ff' },
+  container: { flex: 1, backgroundColor: '#fafafa' },
   title: { fontSize: 22, padding: 12 },
   description: { paddingHorizontal: 12 },
   actions: { padding: 12 },

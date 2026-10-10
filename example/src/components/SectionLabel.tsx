@@ -1,19 +1,3 @@
-/**
- * SectionLabel — shared primitive for the modularized example app.
- *
- * Migrated verbatim from the inline `SectionLabel` defined at the
- * bottom of the original `example/App.tsx`. The visual identity
- * (accent bar width/height/color, label color, font size/weight,
- * letter spacing, uppercase transform, row padding/gap) is preserved
- * by sourcing every literal from `theme.ts` rather than inlining the
- * original hex/number values.
- *
- * Per the Seed contract, this primitive lives under
- * `example/src/components/` and owns its own `StyleSheet.create()`
- * call so panels can compose it without importing a panel-specific
- * style sheet.
- */
-
 import React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 

@@ -1,31 +1,5 @@
-/**
- * NavigationInterceptionDemo panel — modularized "Navigation
- * interception demo" screen.
- *
- * Migrated from the inline section in the original `example/App.tsx`:
- *   - the NAV_DEMO_SOURCE WebViewSource constant with its two real
- *     `<a href>` links so user-initiated navigation flows through
- *     Android's WebViewClient.shouldOverrideUrlLoading hook (a
- *     programmatic `view.loadUrl(...)` would bypass that hook on
- *     Android, while iOS WKWebView fires decidePolicyFor for every
- *     navigation including programmatic ones).
- *   - the `blockedHosts` state seeded with `['example.org']`
- *   - the `handleShouldStartLoad` callback wired through
- *     `onShouldStartLoadWithRequest`
- *   - the `lastDecision` state used to surface the most recent allow /
- *     block verdict in the chrome below the WebView
- *   - the SectionLabel + status row + "Open nav demo page" button + hint
- *     copy describing the cross-platform caveats
- *
- * Per the Seed contract this panel owns its own NitroWebView mount and
- * uses shared chrome primitives (NavToolbar, SectionLabel, StatusBanner,
- * ToolbarButton) plus tokens from `theme.ts`. Existing demo behavior,
- * HTML literals, and callback wiring are migrated intact rather than
- * rewritten.
- */
-
 import React, { useRef, useState } from 'react'
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView, wrapWithOriginWhitelist } from 'nitro-webview'
 import type {
   NitroWebViewErrorEvent,
@@ -35,15 +9,18 @@ import type {
   WebViewSource,
 } from 'nitro-webview'
 
+import { DemoTabs } from '../components/DemoTabs'
 import { NavToolbar } from '../components/NavToolbar'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusBanner } from '../components/StatusBanner'
 import { ToolbarButton } from '../components/ToolbarButton'
-import { color, fontFamily, fontSize, radii, spacing } from '../components/theme'
-
-// ---------------------------------------------------------------------------
-// Static sources — migrated verbatim from example/App.tsx
-// ---------------------------------------------------------------------------
+import {
+  color,
+  fontFamily,
+  fontSize,
+  radii,
+  spacing,
+} from '../components/theme'
 
 /**
  * Navigation-interception demo page. Hosts two real `<a href>` links so
@@ -63,10 +40,6 @@ const NAV_DEMO_SOURCE: WebViewSource = {
 </body></html>`,
 }
 
-// ---------------------------------------------------------------------------
-// Panel
-// ---------------------------------------------------------------------------
-
 export function NavigationInterceptionDemo() {
   const ref = useRef<NitroWebViewMethods | null>(null)
   const [source, setSource] = useState<WebViewSource>(NAV_DEMO_SOURCE)
@@ -81,7 +54,6 @@ export function NavigationInterceptionDemo() {
     NitroWebViewErrorEvent['nativeEvent'] | null
   >(null)
 
-  // Navigation interception demo state — migrated verbatim from App.tsx.
   const [blockedHosts] = useState<string[]>(['example.org'])
   const [lastDecision, setLastDecision] = useState<{
     url: string
@@ -101,10 +73,7 @@ export function NavigationInterceptionDemo() {
   )
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={color.headerBackground} />
-
-      {/* Header */}
+    <View style={styles.root}>
       <View style={styles.header}>
         <Text style={styles.title}>Navigation interception demo</Text>
         <Text style={styles.subtitle} numberOfLines={1}>
@@ -126,15 +95,6 @@ export function NavigationInterceptionDemo() {
         onReload={() => ref.current?.reload()}
       />
 
-      {lastError ? (
-        <StatusBanner
-          status="error"
-          title={`onError fired (${lastError.domain} ${lastError.code})`}
-          body={lastError.description}
-          footer={lastError.url || '(no url)'}
-        />
-      ) : null}
-
       <NitroWebView
         style={styles.webview}
         source={source}
@@ -150,40 +110,55 @@ export function NavigationInterceptionDemo() {
         onShouldStartLoadWithRequest={handleShouldStartLoad}
       />
 
-      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
-        <SectionLabel text="Navigation interception demo" />
-        <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>last decision:</Text>
-          <Text style={styles.statusValue} numberOfLines={2}>
-            {lastDecision
-              ? `${lastDecision.url} — ${lastDecision.allowed ? 'ALLOWED' : 'BLOCKED'} (${new Date(lastDecision.at).toLocaleTimeString()})`
-              : 'no decisions yet'}
-          </Text>
-        </View>
-        <View style={styles.toolbar}>
-          <ToolbarButton
-            label="Open nav demo page"
-            onPress={() => {
-              setLastError(null)
-              setSource(NAV_DEMO_SOURCE)
-            }}
-          />
-        </View>
-        <Text style={styles.hint}>
-          Tap &quot;Open nav demo page&quot;, then in the WebView tap the green
-          or red link. example.com is allowed; example.org is blocked silently
-          (the WebView stays on the demo page). This callback checks only delivered
-          navigation events. It does not cover initial source, Android POST
-          requests, subresources, or message origins, and is not a network ACL.
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+      <DemoTabs
+        controls={
+          <>
+            <SectionLabel text="Navigation interception demo" />
+            <View style={styles.toolbar}>
+              <ToolbarButton
+                label="Open nav demo page"
+                onPress={() => {
+                  setLastError(null)
+                  setSource(NAV_DEMO_SOURCE)
+                }}
+              />
+            </View>
+            <Text style={styles.hint}>
+              Tap &quot;Open nav demo page&quot;, then in the WebView tap the
+              Allow or Block link. example.com is allowed; example.org is
+              blocked silently (the WebView stays on the demo page). This
+              callback checks only delivered navigation events. It does not
+              cover initial source, Android POST requests, subresources, or
+              message origins, and is not a network ACL.
+            </Text>
+          </>
+        }
+        results={
+          <>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>last decision:</Text>
+              <Text style={styles.statusValue}>
+                {lastDecision
+                  ? `${lastDecision.url} — ${
+                      lastDecision.allowed ? 'ALLOWED' : 'BLOCKED'
+                    } (${new Date(lastDecision.at).toLocaleTimeString()})`
+                  : 'no decisions yet'}
+              </Text>
+            </View>
+            {lastError ? (
+              <StatusBanner
+                status="error"
+                title={`onError fired (${lastError.domain} ${lastError.code})`}
+                body={`${lastError.description}\n${lastError.url || '(no url)'}`}
+                bodyNumberOfLines={0}
+              />
+            ) : null}
+          </>
+        }
+      />
+    </View>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Styles — panel-local, tokens sourced from theme.ts
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.appBackground },
@@ -196,27 +171,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     fontWeight: '700',
-    color: color.textOnDark,
+    color: color.headerText,
     letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: fontSize.xs,
-    color: color.textMutedOnDark,
+    color: color.headerMuted,
     marginTop: spacing.xxs,
   },
   pageTitle: {
     fontSize: fontSize.sm,
-    color: color.textSecondaryOnDark,
+    color: color.headerSecondary,
     marginTop: spacing.xs,
     fontWeight: '500',
   },
   webview: { flex: 1 },
-  controls: {
-    backgroundColor: color.appBackground,
-    borderTopWidth: 2,
-    borderTopColor: color.divider,
-  },
-  controlsContent: { paddingBottom: spacing.xl5 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
