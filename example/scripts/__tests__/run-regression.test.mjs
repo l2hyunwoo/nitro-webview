@@ -491,6 +491,35 @@ test('file chooser waits for the native presentation before cancelling', async (
   assert.ok(context.calls.some(call => call.includes('keyevent')));
 });
 
+test('iOS document picker cancellation recognizes a localized navigation bar', async () => {
+  const calls = [];
+  const context = {
+    platform: 'ios',
+    device: 'simulator',
+    bundleID: 'com.example',
+    command: async () => {
+      throw new Error('iOS must not use adb');
+    },
+    agent: async args => {
+      calls.push(args);
+      if (args[0] !== 'snapshot') return '';
+      if (calls.some(call => call[0] === 'click' && call[1] === '@e3'))
+        return '@e1 [button] "Run regression"';
+      if (calls.some(call => call[0] === 'click' && call[1] === '@e2'))
+        return '@e1 [navigation-bar] "최근 항목"\n@e3 [button] "Cancel"';
+      return '@e2 [button] "Upload fixture"';
+    },
+  };
+  await performNativeInteraction(
+    { id: 'localized-picker', action: 'chooser-cancel' },
+    context,
+  );
+  assert.deepEqual(calls.filter(call => call[0] === 'click'), [
+    ['click', '@e2'],
+    ['click', '@e3'],
+  ]);
+});
+
 test('upload selects one fixed file through DocumentsUI after preparing its real bytes', async () => {
   const context = nativeContext();
   await performNativeInteraction(

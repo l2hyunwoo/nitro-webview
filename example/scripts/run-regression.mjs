@@ -225,7 +225,12 @@ export async function performNativeInteraction(value, context) {
     let picker;
     while (true) {
       picker = await agent(['snapshot', '-i'], 30000);
-      if (/Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(picker))
+      if (
+        /Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(picker) ||
+        (platform === 'ios' &&
+          picker.includes('[navigation-bar]') &&
+          /^\s*@e\d+ \[button\] "Cancel"/m.test(picker))
+      )
         break;
       if (Date.now() >= pickerDeadline)
         throw new Error('The OS file chooser did not appear');
