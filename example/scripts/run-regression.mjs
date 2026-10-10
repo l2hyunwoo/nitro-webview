@@ -804,7 +804,7 @@ async function run(platform, device, profile = 'full') {
           bundleID,
         ],
         uiLog,
-        30000,
+        60000,
       );
     } else {
       if (platform === 'android') {

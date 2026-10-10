@@ -125,6 +125,9 @@ test('packed iOS gate requires explicit core coverage and a bounded Release run'
   assert(ios.steps.indexOf(build) < ios.steps.indexOf(boot))
   assert.match(build.run, /generic\/platform=iOS Simulator/)
   assert.equal(boot['timeout-minutes'], 4)
+  const install = ios.steps.find(step => step.name === 'Install app on simulator')
+  assert.equal(install['timeout-minutes'], 3)
+  assert.match(install.run, /timeout: 120000/)
   assert(!ios.steps.some((step) => step.run?.includes('list devices')))
   assert(ios.steps.some((step) => step.run?.includes('"$IOS_PROFILE"')))
   const gate = e2e.jobs['packed-release-gate'].steps.find(

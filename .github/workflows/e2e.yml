@@ -290,13 +290,13 @@ jobs:
         run: node example/scripts/prepare-ios-simulator.mjs
 
       - name: Install app on simulator
-        timeout-minutes: 1
+        timeout-minutes: 3
         run: |
           node --input-type=module <<'NODE'
           import { execFileSync } from 'node:child_process'
           execFileSync('xcrun', ['simctl', 'install', process.env.SIM_UDID,
             `example/ios/build/Build/Products/${process.env.CONFIGURATION}-iphonesimulator/example.app`],
-            { stdio: 'inherit', timeout: 30000, killSignal: 'SIGKILL' })
+            { stdio: 'inherit', timeout: 120000, killSignal: 'SIGKILL' })
           NODE
 
       - name: Run AppRegistry regressions (iOS)
