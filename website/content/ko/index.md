@@ -1,7 +1,7 @@
 ---
 layout: page
 sidebar: false
-title: 웹 콘텐츠에, 네이티브의 제어를.
+title: Nitro + WebView = 🚀
 description: Nitro Modules 기반 React Native WebView. 시작 가이드와 API, 플랫폼별 동작을 확인하세요.
 ---
 

@@ -1,7 +1,7 @@
 ---
 layout: page
 sidebar: false
-title: Web content. Native control.
+title: Nitro + WebView = 🚀
 description: A React Native WebView built on Nitro Modules. Read the guides, explore the API, and understand platform differences.
 ---
 
