@@ -21,7 +21,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class HybridNitroWebViewCacheModeTest {
-
   @Test
   fun `cacheModeFor_true_isLoadDefault`() {
     assertEquals(

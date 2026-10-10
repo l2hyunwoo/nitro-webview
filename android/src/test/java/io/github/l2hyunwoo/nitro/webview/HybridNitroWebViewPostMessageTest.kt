@@ -25,21 +25,21 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class HybridNitroWebViewPostMessageTest {
-
   private val ls = " "
   private val ps = " "
 
-  private val hostile = listOf(
-    "",
-    "plain",
-    "has \"double\" and 'single' quotes",
-    "line1\nline2\ttab\r",
-    "</script><script>alert(1)</script>",
-    "漢字 🎉 unicode",
-    "sep${ls}here${ps}too",
-    "{\"nested\":\"json\",\"n\":42}",
-    "back\\slash",
-  )
+  private val hostile =
+    listOf(
+      "",
+      "plain",
+      "has \"double\" and 'single' quotes",
+      "line1\nline2\ttab\r",
+      "</script><script>alert(1)</script>",
+      "漢字 🎉 unicode",
+      "sep${ls}here${ps}too",
+      "{\"nested\":\"json\",\"n\":42}",
+      "back\\slash",
+    )
 
   @Test
   fun `postMessageScript dispatches message event on document for every payload`() {

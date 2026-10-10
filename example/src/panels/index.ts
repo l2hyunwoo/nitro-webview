@@ -27,6 +27,7 @@ import type { ComponentType } from 'react';
 import { PostVerificationScreen } from '../PostVerificationScreen';
 import { LoadEventsVerificationScreen } from '../LoadEventsVerificationScreen';
 import { MediaVerificationScreen } from '../MediaVerificationScreen';
+import { RendererRecoveryVerificationScreen } from '../RendererRecoveryVerificationScreen';
 
 import { DialogsVerificationScreen } from '../DialogsVerificationScreen';
 import { PermissionsVerificationScreen } from '../PermissionsVerificationScreen';
@@ -44,6 +45,7 @@ import { UserAgentDemo } from './UserAgentDemo';
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'renderer-recovery'
   | 'post-verification'
   | 'js-dialogs'
   | 'permissions'
@@ -76,6 +78,11 @@ export type PanelEntry = {
  * surfaced first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'renderer-recovery',
+    title: 'Android renderer recovery verification',
+    component: RendererRecoveryVerificationScreen,
+  },
   {
     id: 'post-verification',
     title: 'POST source verification',

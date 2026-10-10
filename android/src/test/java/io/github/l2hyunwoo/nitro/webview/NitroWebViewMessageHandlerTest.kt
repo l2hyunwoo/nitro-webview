@@ -1,8 +1,8 @@
 package io.github.l2hyunwoo.nitro.webview
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -17,10 +17,11 @@ private class SpyMessageDispatcher : NitroWebViewMessageDispatcher {
   }
 }
 
-private class StubMessageWebView(override var currentURL: String?) : MessageWebView
+private class StubMessageWebView(
+  override var currentURL: String?,
+) : MessageWebView
 
 class NitroWebViewMessageHandlerTest {
-
   @Test
   fun `postMessage_dispatchesEventWithDataAndUrl`() {
     val spy = SpyMessageDispatcher()
@@ -49,8 +50,9 @@ class NitroWebViewMessageHandlerTest {
 
   @Test
   fun `postMessage_method_isAnnotatedWithJavascriptInterface`() {
-    val method: Method = NitroWebViewMessageHandler::class.java
-      .getDeclaredMethod("postMessage", String::class.java)
+    val method: Method =
+      NitroWebViewMessageHandler::class.java
+        .getDeclaredMethod("postMessage", String::class.java)
     val annotation = method.getAnnotation(android.webkit.JavascriptInterface::class.java)
     assertNotNull(
       "postMessage(String) must carry @JavascriptInterface so Android API 17+ exposes it to JS",
@@ -64,13 +66,14 @@ class NitroWebViewMessageHandlerTest {
     val webView = StubMessageWebView(currentURL = "https://x.test/")
     val handler = NitroWebViewMessageHandler(messageWebView = webView, dispatcher = spy)
 
-    val cases = listOf(
-      "",
-      "  leading and trailing whitespace  ",
-      "{\"k\":\"v\",\"n\":42}",
-      "漢字 🎉 \n multiline\t tab",
-      "</script><script>alert(1)</script>",
-    )
+    val cases =
+      listOf(
+        "",
+        "  leading and trailing whitespace  ",
+        "{\"k\":\"v\",\"n\":42}",
+        "漢字 🎉 \n multiline\t tab",
+        "</script><script>alert(1)</script>",
+      )
 
     for (raw in cases) {
       handler.postMessage(raw)

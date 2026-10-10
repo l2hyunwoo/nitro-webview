@@ -33,7 +33,6 @@ interface WebResourceRequestSource {
  * that the JS-side `onError` callback expects.
  */
 object NitroWebViewErrorMapper {
-
   /**
    * Stable domain identifier emitted for every Android-side error event.
    *
@@ -48,14 +47,13 @@ object NitroWebViewErrorMapper {
     error: WebResourceErrorSource,
     request: WebResourceRequestSource? = null,
     fallbackUrl: String? = null,
-  ): MappedNitroWebViewError {
-    return MappedNitroWebViewError(
+  ): MappedNitroWebViewError =
+    MappedNitroWebViewError(
       code = error.errorCode,
       description = error.errorDescription,
       url = extractFailingURL(request = request, fallbackUrl = fallbackUrl),
       domain = ANDROID_ERROR_DOMAIN,
     )
-  }
 
   /**
    * Resolve the failing URL, falling back through the delegate-supplied values.

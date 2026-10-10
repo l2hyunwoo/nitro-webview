@@ -131,13 +131,21 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation failure (network, SSL). |
 | `onFileDownload` | `(event: FileDownloadEvent) => void` | Native intercepts a download and surfaces `{ url, mimeType?, fileName?, contentLength?, userAgent? }`. Storage is the JS layer's responsibility. Also fires for `blob:` downloads, with `url` resolved to a local `file://` (iOS) / `data:` (Android) URL — see [`FileDownload`](#filedownload--filedownloadevent). |
 | `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
-| `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Recover by calling `reload()`. |
+| `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Android: clear the old hybrid ref and remount with a new React `key`. iOS: call `reload()`. |
 | `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
 | `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow/block each navigation before it starts. Returning `false` (or a `Promise` resolving to `false`) cancels silently. Sub-frame (iframe) navigations surface with `isTopFrame: false` — always on iOS, and on Android only when `interceptSubframeNavigation` is enabled. |
 | `interceptSubframeNavigation` | `boolean` | Opt-in: also intercept sub-frame (iframe) navigations via `onShouldStartLoadWithRequest`, not just the main frame. Default `false`. Android note: each intercepted sub-frame navigation blocks the WebView thread up to 250 ms awaiting the JS decision; on iframe-heavy pages this stacks and risks jank / ANR — hence off by default. No effect on iOS (its `decidePolicyFor` parks asynchronously, so sub-frames already reach the handler). |
 | `onOpenWindow` | `(event: OpenWindowEvent) => void` | Fired for `window.open` / `target=_blank`. The WebView never spawns a second native web view; `nativeEvent.url` carries the requested URL and JS decides what to do. When the prop is unset, the URL loads in-place in the current WebView. Notify-only — the return value does not gate loading. |
 
 SPA route changes (`history.pushState` / `replaceState` / `popstate`) surface via `onNavigationStateChange` — not `onShouldStartLoadWithRequest`, because a pushState already happened and cannot be vetoed.
+
+On Android, renderer exit destroys the affected WebView before the event fires once.
+Calls through its old hybrid ref cannot reuse it: void methods do nothing, and Promise methods reject with `NitroWebViewState`.
+Pending JavaScript evaluations also reject. Cookie or cache work already submitted to the platform can still complete.
+Show a recovery screen, then change the React `key` when the user retries.
+Clear the old ref and capture the new ref through `hybridRef`.
+Remounting loses page history and input. Do not automatically resend POST sources.
+See the [renderer recovery example](example/src/RendererRecoveryVerificationScreen.tsx) and [device check](example/README.md#android-renderer-recovery).
 
 #### Methods (via `hybridRef`)
 

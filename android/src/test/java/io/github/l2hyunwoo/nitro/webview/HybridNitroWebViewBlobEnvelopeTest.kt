@@ -24,7 +24,6 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class HybridNitroWebViewBlobEnvelopeTest {
-
   // region: parseBlobEnvelope — happy path
 
   @Test

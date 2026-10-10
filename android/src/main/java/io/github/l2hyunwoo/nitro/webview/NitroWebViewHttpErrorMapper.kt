@@ -40,17 +40,15 @@ interface WebResourceResponseSource {
  * across both error callbacks.
  */
 object NitroWebViewHttpErrorMapper {
-
   @JvmStatic
   fun event(
     response: WebResourceResponseSource,
     request: WebResourceRequestSource? = null,
     fallbackUrl: String? = null,
-  ): MappedNitroWebViewHttpError {
-    return MappedNitroWebViewHttpError(
+  ): MappedNitroWebViewHttpError =
+    MappedNitroWebViewHttpError(
       statusCode = response.statusCode,
       url = NitroWebViewErrorMapper.extractFailingURL(request = request, fallbackUrl = fallbackUrl),
       description = response.reasonPhrase,
     )
-  }
 }

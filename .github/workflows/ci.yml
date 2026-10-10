@@ -68,6 +68,21 @@ jobs:
       - name: Lint (ESLint, --max-warnings 0)
         run: yarn lint-ci
 
+      - name: Setup JDK 17 for ktlint
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Check handwritten Kotlin with ktlint 1.8.0
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 180 \
+            https://github.com/ktlint/ktlint/releases/download/1.8.0/ktlint \
+            --output "$RUNNER_TEMP/ktlint"
+          printf '%s  %s\n' a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75 "$RUNNER_TEMP/ktlint" | sha256sum --check
+          java -Xmx256m -jar "$RUNNER_TEMP/ktlint" 'android/src/**/*.kt' 'example/android/app/src/**/*.kt'
+
       - name: Typecheck (tsc --noEmit)
         run: yarn typecheck
 

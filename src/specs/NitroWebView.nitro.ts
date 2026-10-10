@@ -532,17 +532,22 @@ export interface NitroWebViewProps extends HybridViewProps {
 
   /**
    * Fired when the WebView's renderer process is gone — a crash or an OS
-   * reclaim leaving a blank page with no built-in recovery. JS typically
-   * responds by calling {@linkcode NitroWebViewMethods.reload} or remounting.
+   * reclaim. Recovery depends on the platform.
    *
    *   - Android (`onRenderProcessGone`, API 26+): `nativeEvent.didCrash`
    *     mirrors `RenderProcessGoneDetail.didCrash()` (`false` = the OS
    *     reclaimed the renderer to free memory, not a crash). The native side
-   *     unconditionally returns `true` so the host app survives. API < 26
-   *     never emits.
+   *     cleans up and destroys this WebView before delivering the event once.
+   *     It returns `true` so the host app survives. Clear the old hybrid ref
+   *     and remount with a new React `key` after an explicit retry action.
+   *     Old void methods do nothing. Old Promise methods reject with
+   *     `NitroWebViewState`. API < 26 never emits.
    *   - iOS (`webViewWebContentProcessDidTerminate`): `nativeEvent.didCrash`
    *     is always `undefined` — WebKit exposes no crash-vs-reclaim
-   *     discriminator. Fires on the main thread.
+   *     discriminator. Fires on the main thread. Call `reload()` to recover.
+   *
+   * Android remounts lose history and page input. Do not automatically
+   * replay POST sources. Choose the retry data and timing in the app.
    */
   onRenderProcessGone?: (event: NitroWebViewRenderProcessGoneEvent) => void
 

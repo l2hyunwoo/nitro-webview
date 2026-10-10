@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.Message
 import android.provider.MediaStore
 import android.view.View
@@ -89,19 +91,33 @@ open class NitroWebChromeClient(
   },
   private val webViewProvider: () -> View? = { null },
 ) : WebChromeClient() {
+  private var disposed = false
+  private val mainHandler = Handler(Looper.getMainLooper())
+  private val childWindows = mutableSetOf<WebView>()
   var onLoadProgress: ((Int) -> Unit)? = null
 
-  override fun onProgressChanged(view: WebView, newProgress: Int) {
+  override fun onProgressChanged(
+    view: WebView,
+    newProgress: Int,
+  ) {
+    if (disposed) return
     onLoadProgress?.invoke(newProgress)
   }
+
   private val fullscreenVideo = NitroFullscreenVideo()
 
-  override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+  override fun onShowCustomView(
+    view: View,
+    callback: CustomViewCallback,
+  ) {
+    if (disposed) {
+      callback.onCustomViewHidden()
+      return
+    }
     fullscreenVideo.show(hostActivity ?: activityResolver.resolveActivity(), webViewProvider(), view, callback)
   }
 
   override fun onHideCustomView() = fullscreenVideo.hide()
-
 
   /**
    * Optional explicit override for the resolved Activity. When non-null,
@@ -112,22 +128,21 @@ open class NitroWebChromeClient(
    */
   var hostActivity: Activity? = null
 
-  internal val permissions = NitroWebViewPermissions(context) {
-    currentHostActivity() as? com.facebook.react.modules.core.PermissionAwareActivity
-  }
+  internal val permissions =
+    NitroWebViewPermissions(context) {
+      currentHostActivity() as? com.facebook.react.modules.core.PermissionAwareActivity
+    }
 
-  override fun onPermissionRequest(request: android.webkit.PermissionRequest) =
-    permissions.requestMedia(request)
+  override fun onPermissionRequest(request: android.webkit.PermissionRequest) = permissions.requestMedia(request)
 
-  override fun onPermissionRequestCanceled(request: android.webkit.PermissionRequest) =
-    permissions.cancelMedia(request)
+  override fun onPermissionRequestCanceled(request: android.webkit.PermissionRequest) = permissions.cancelMedia(request)
 
   override fun onGeolocationPermissionsShowPrompt(
-    origin: String, callback: android.webkit.GeolocationPermissions.Callback,
+    origin: String,
+    callback: android.webkit.GeolocationPermissions.Callback,
   ) = permissions.requestLocation(origin, callback)
 
   override fun onGeolocationPermissionsHidePrompt() = permissions.cancelLocation()
-
 
   /**
    * Convenience secondary constructor preserving the historical
@@ -168,39 +183,84 @@ open class NitroWebChromeClient(
     isUserGesture: Boolean,
     resultMsg: Message,
   ): Boolean {
-    val handler = onOpenWindow
-    val child = WebView(view.context)
-    child.webViewClient = object : WebViewClient() {
-      override fun shouldOverrideUrlLoading(
-        subView: WebView,
-        request: WebResourceRequest,
-      ): Boolean {
-        val url = request.url?.toString()
-        if (url != null) {
-          if (handler != null) {
-            handler(url) // fire onOpenWindow
-          } else {
-            view.loadUrl(url) // default: load in the parent WebView in-place
-          }
-        }
-        // Release the throwaway child now that it has served its purpose.
-        // Posted (not called synchronously) so destroy() runs after this
-        // callback unwinds — destroying a WebView mid-dispatch is unsafe.
-        subView.post { subView.destroy() }
-        return true // the child never loads the URL itself
-      }
-    }
+    if (disposed) return false
+    val child = createPopupWindow(view, onOpenWindow)
     (resultMsg.obj as WebView.WebViewTransport).webView = child
     resultMsg.sendToTarget()
     return true
   }
 
+  private fun createPopupWindow(
+    parent: WebView,
+    handler: ((String) -> Unit)?,
+  ): WebView {
+    val child = WebView(parent.context)
+    childWindows.add(child)
+    child.webViewClient =
+      object : WebViewClient() {
+        override fun shouldOverrideUrlLoading(
+          subView: WebView,
+          request: WebResourceRequest,
+        ): Boolean {
+          if (!childWindows.remove(subView)) return true
+          // Finish after this callback unwinds, even when the child was never attached.
+          mainHandler.post {
+            destroyChildWindow(subView)
+          }
+          if (disposed) return true
+          val url = request.url?.toString()
+          if (url != null) {
+            if (handler != null) {
+              handler(url) // fire onOpenWindow
+            } else {
+              parent.loadUrl(url) // default: load in the parent WebView in-place
+            }
+          }
+          return true // the child never loads the URL itself
+        }
+      }
+    return child
+  }
+
+  private fun destroyChildWindow(child: WebView) {
+    child.webViewClient = WebViewClient()
+    child.destroy()
+  }
+
   /** Resolve the effective host Activity for the next chooser invocation. */
-  private fun currentHostActivity(): Activity? =
-    hostActivity ?: activityResolver.resolveActivity()
+  private fun currentHostActivity(): Activity? = if (disposed) null else hostActivity ?: activityResolver.resolveActivity()
 
   private var pendingCallback: ValueCallback<Array<Uri>>? = null
   private var pendingCaptureUri: Uri? = null
+
+  private fun cancelFileChooser() {
+    val callback = pendingCallback
+    pendingCallback = null
+    pendingCaptureUri = null
+    callback?.onReceiveValue(null)
+  }
+
+  internal fun dispose() {
+    if (disposed) return
+    disposed = true
+    clearCallbacksAndHost()
+    cancelFileChooser()
+    permissions.dispose()
+    fullscreenVideo.hide()
+    destroyChildWindows()
+  }
+
+  private fun clearCallbacksAndHost() {
+    onLoadProgress = null
+    onOpenWindow = null
+    hostActivity = null
+  }
+
+  private fun destroyChildWindows() {
+    val children = childWindows.toList()
+    childWindows.clear()
+    children.forEach(::destroyChildWindow)
+  }
 
   override fun onShowFileChooser(
     webView: WebView?,
@@ -211,11 +271,18 @@ open class NitroWebChromeClient(
       return false
     }
 
-    // Cancel any previous in-flight chooser, releasing its callback.
-    pendingCallback?.onReceiveValue(null)
+    cancelFileChooser()
+    if (disposed) {
+      filePathCallback.onReceiveValue(null)
+      return false
+    }
     pendingCallback = filePathCallback
     pendingCaptureUri = null
 
+    return launchFileChooser(buildFileChooserIntent(fileChooserParams))
+  }
+
+  private fun buildFileChooserIntent(fileChooserParams: FileChooserParams?): Intent {
     val acceptTypes = fileChooserParams?.acceptTypes?.filter { it.isNotBlank() }.orEmpty()
     val allowMultiple =
       fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE
@@ -224,7 +291,7 @@ open class NitroWebChromeClient(
     val contentIntent = buildContentIntent(acceptTypes, allowMultiple)
     val captureIntents = if (isCapture) buildCaptureIntents(acceptTypes) else emptyList()
 
-    val chooser = Intent(Intent.ACTION_CHOOSER).apply {
+    return Intent(Intent.ACTION_CHOOSER).apply {
       putExtra(Intent.EXTRA_INTENT, contentIntent)
       putExtra(Intent.EXTRA_TITLE, fileChooserParams?.title ?: "Choose file")
       if (captureIntents.isNotEmpty()) {
@@ -234,20 +301,19 @@ open class NitroWebChromeClient(
         )
       }
     }
+  }
 
-    return try {
+  private fun launchFileChooser(chooser: Intent): Boolean =
+    try {
       val launched = launchChooser(chooser)
       if (!launched) {
-        pendingCallback = null
-        filePathCallback.onReceiveValue(null)
+        cancelFileChooser()
       }
       launched
     } catch (e: Throwable) {
-      pendingCallback = null
-      filePathCallback.onReceiveValue(null)
+      cancelFileChooser()
       false
     }
-  }
 
   /**
    * Launches the chooser through the resolved host Activity. Extracted as an
@@ -265,9 +331,7 @@ open class NitroWebChromeClient(
    *  - propagates any [Throwable] from the platform call so
    *    [onShowFileChooser] can apply unified failure cleanup.
    */
-  internal open fun launchChooser(chooser: Intent): Boolean {
-    return chooserLauncher(chooser, FILE_CHOOSER_REQUEST_CODE)
-  }
+  internal open fun launchChooser(chooser: Intent): Boolean = chooserLauncher(chooser, FILE_CHOOSER_REQUEST_CODE)
 
   /**
    * Forwards an Activity#onActivityResult callback to the pending file
@@ -286,11 +350,12 @@ open class NitroWebChromeClient(
     val captureUri = pendingCaptureUri
     pendingCaptureUri = null
 
-    val result: Array<Uri>? = when {
-      resultCode != Activity.RESULT_OK -> null
-      data == null && captureUri != null -> arrayOf(captureUri)
-      else -> extractUris(data, captureUri)
-    }
+    val result: Array<Uri>? =
+      when {
+        resultCode != Activity.RESULT_OK -> null
+        data == null && captureUri != null -> arrayOf(captureUri)
+        else -> extractUris(data, captureUri)
+      }
     callback.onReceiveValue(result)
     return true
   }
@@ -299,10 +364,11 @@ open class NitroWebChromeClient(
     acceptTypes: List<String>,
     allowMultiple: Boolean,
   ): Intent {
-    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-      addCategory(Intent.CATEGORY_OPENABLE)
-      type = "*/*"
-    }
+    val intent =
+      Intent(Intent.ACTION_GET_CONTENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "*/*"
+      }
     if (acceptTypes.isNotEmpty()) {
       intent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes.toTypedArray())
       // Use the single accept value as the base MIME when there's only one,
@@ -329,9 +395,7 @@ open class NitroWebChromeClient(
    * the canonical shape can be exercised verbatim by tests and embedded
    * callers without dragging in MIME-pre-filtering side-effects.
    */
-  internal fun buildContentIntent(
-    fileChooserParams: WebChromeClient.FileChooserParams,
-  ): Intent {
+  internal fun buildContentIntent(fileChooserParams: WebChromeClient.FileChooserParams): Intent {
     val intent = Intent(Intent.ACTION_GET_CONTENT)
     intent.addCategory(Intent.CATEGORY_OPENABLE)
     intent.type = "*/*"
@@ -354,10 +418,11 @@ open class NitroWebChromeClient(
       val outputUri = createCaptureOutputUri("img", ".jpg")
       if (outputUri != null) {
         pendingCaptureUri = outputUri
-        val image = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
-          putExtra(MediaStore.EXTRA_OUTPUT, outputUri)
-          addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        }
+        val image =
+          Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+            putExtra(MediaStore.EXTRA_OUTPUT, outputUri)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+          }
         if (pm == null || image.resolveActivity(pm) != null) {
           intents.add(image)
         }
@@ -378,8 +443,11 @@ open class NitroWebChromeClient(
     return intents
   }
 
-  private fun createCaptureOutputUri(prefix: String, suffix: String): Uri? {
-    return try {
+  private fun createCaptureOutputUri(
+    prefix: String,
+    suffix: String,
+  ): Uri? =
+    try {
       val dir = File(context.cacheDir, "nitro-webview-capture").apply { mkdirs() }
       val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
       val file = File.createTempFile("${prefix}_${stamp}_", suffix, dir)
@@ -391,7 +459,6 @@ open class NitroWebChromeClient(
     } catch (_: Throwable) {
       null
     }
-  }
 
   /**
    * Canonical builder for the camera-capture intent:
@@ -447,7 +514,10 @@ open class NitroWebChromeClient(
     file: File,
   ): Uri = FileProvider.getUriForFile(ctx, authority, file)
 
-  private fun extractUris(data: Intent?, captureUri: Uri?): Array<Uri>? {
+  private fun extractUris(
+    data: Intent?,
+    captureUri: Uri?,
+  ): Array<Uri>? {
     if (data == null) {
       return captureUri?.let { arrayOf(it) }
     }

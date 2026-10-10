@@ -33,7 +33,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class NitroWebChromeClientTest {
-
   @Test
   fun `progress callbacks deliver native values and detach cleanly`() {
     val client = newClient()
@@ -108,10 +107,11 @@ class NitroWebChromeClientTest {
   fun `buildContentIntent_multipleAcceptTypes_setsMimeArray_andKeepsWildcardBase`() {
     val client = newClient()
 
-    val intent = client.buildContentIntent(
-      acceptTypes = listOf("image/png", "image/jpeg", "application/pdf"),
-      allowMultiple = true,
-    )
+    val intent =
+      client.buildContentIntent(
+        acceptTypes = listOf("image/png", "image/jpeg", "application/pdf"),
+        allowMultiple = true,
+      )
 
     assertEquals(
       "multi-accept must keep a permissive base MIME so the chooser shows the union",
@@ -146,22 +146,28 @@ class NitroWebChromeClientTest {
     // null literal so the override matches the platform contract under
     // strict Kotlin null-safety.
     override fun createIntent(): Intent = Intent()
+
     override fun getAcceptTypes(): Array<String> = acceptTypes
+
     // Only `getFilenameHint()` is `@Nullable` on the platform; the rest of
     // the abstract members are non-nullable per the platform stub jar.
     override fun getFilenameHint(): String? = null
+
     override fun getMode(): Int = mode
+
     override fun getTitle(): CharSequence = ""
+
     override fun isCaptureEnabled(): Boolean = false
   }
 
   @Test
   fun `buildContentIntent_fromFileChooserParams_singleMode_matchesSpecLiteral`() {
     val client = newClient()
-    val params = StubFileChooserParams(
-      acceptTypes = arrayOf("image/png", "image/jpeg"),
-      mode = WebChromeClient.FileChooserParams.MODE_OPEN,
-    )
+    val params =
+      StubFileChooserParams(
+        acceptTypes = arrayOf("image/png", "image/jpeg"),
+        mode = WebChromeClient.FileChooserParams.MODE_OPEN,
+      )
 
     val intent = client.buildContentIntent(params)
 
@@ -205,10 +211,11 @@ class NitroWebChromeClientTest {
   @Test
   fun `buildContentIntent_fromFileChooserParams_multipleMode_matchesSpecLiteral`() {
     val client = newClient()
-    val params = StubFileChooserParams(
-      acceptTypes = arrayOf("application/pdf"),
-      mode = WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE,
-    )
+    val params =
+      StubFileChooserParams(
+        acceptTypes = arrayOf("application/pdf"),
+        mode = WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE,
+      )
 
     val intent = client.buildContentIntent(params)
 
@@ -243,11 +250,12 @@ class NitroWebChromeClientTest {
   fun `handleFileChooserResult_returnsFalse_whenRequestCodeMismatches`() {
     val client = newClient()
 
-    val consumed = client.handleFileChooserResult(
-      requestCode = 0xDEAD,
-      resultCode = -1,
-      data = null,
-    )
+    val consumed =
+      client.handleFileChooserResult(
+        requestCode = 0xDEAD,
+        resultCode = -1,
+        data = null,
+      )
 
     assertFalse(
       "Activity results for unrelated request codes must not consume the chooser callback",
@@ -259,11 +267,12 @@ class NitroWebChromeClientTest {
   fun `handleFileChooserResult_returnsFalse_whenNoCallbackIsPending`() {
     val client = newClient()
 
-    val consumed = client.handleFileChooserResult(
-      requestCode = NitroWebChromeClient.FILE_CHOOSER_REQUEST_CODE,
-      resultCode = -1,
-      data = null,
-    )
+    val consumed =
+      client.handleFileChooserResult(
+        requestCode = NitroWebChromeClient.FILE_CHOOSER_REQUEST_CODE,
+        resultCode = -1,
+        data = null,
+      )
 
     assertFalse(consumed)
     assertFalse(client.hasPendingCallback())
@@ -325,17 +334,21 @@ class NitroWebChromeClientTest {
     activityResolver: ActivityResolver,
     private val launchResult: LaunchResult,
   ) : NitroWebChromeClient(
-    context = NullContext(),
-    activityResolver = activityResolver,
-  ) {
+      context = NullContext(),
+      activityResolver = activityResolver,
+    ) {
     val launchedIntents: MutableList<Intent> = mutableListOf()
     var launchCount: Int = 0
       private set
 
     sealed class LaunchResult {
       object Success : LaunchResult()
+
       object NoHost : LaunchResult()
-      data class Throwing(val cause: Throwable) : LaunchResult()
+
+      data class Throwing(
+        val cause: Throwable,
+      ) : LaunchResult()
     }
 
     override fun launchChooser(chooser: Intent): Boolean {
@@ -352,17 +365,19 @@ class NitroWebChromeClientTest {
   @Test
   fun `onShowFileChooser_returnsTrue_andRetainsPendingCallback_whenLaunchSucceeds`() {
     val resolver = CountingResolver(activity = null)
-    val client = FakeLaunchClient(
-      activityResolver = resolver,
-      launchResult = FakeLaunchClient.LaunchResult.Success,
-    )
+    val client =
+      FakeLaunchClient(
+        activityResolver = resolver,
+        launchResult = FakeLaunchClient.LaunchResult.Success,
+      )
     val callback = RecordingFileCallback()
 
-    val returned = client.onShowFileChooser(
-      webView = null,
-      filePathCallback = callback,
-      fileChooserParams = null,
-    )
+    val returned =
+      client.onShowFileChooser(
+        webView = null,
+        filePathCallback = callback,
+        fileChooserParams = null,
+      )
 
     assertTrue(
       "onShowFileChooser must return true when launchChooser reports success — " +
@@ -394,17 +409,19 @@ class NitroWebChromeClientTest {
   @Test
   fun `onShowFileChooser_returnsFalse_andInvokesCallbackWithNull_whenActivityResolverYieldsNull`() {
     val resolver = CountingResolver(activity = null)
-    val client = FakeLaunchClient(
-      activityResolver = resolver,
-      launchResult = FakeLaunchClient.LaunchResult.NoHost,
-    )
+    val client =
+      FakeLaunchClient(
+        activityResolver = resolver,
+        launchResult = FakeLaunchClient.LaunchResult.NoHost,
+      )
     val callback = RecordingFileCallback()
 
-    val returned = client.onShowFileChooser(
-      webView = null,
-      filePathCallback = callback,
-      fileChooserParams = null,
-    )
+    val returned =
+      client.onShowFileChooser(
+        webView = null,
+        filePathCallback = callback,
+        fileChooserParams = null,
+      )
 
     assertFalse(
       "with no Activity host available the chooser MUST report failure so the " +
@@ -431,16 +448,18 @@ class NitroWebChromeClientTest {
   @Test
   fun `onShowFileChooser_returnsFalse_andDoesNotDelegate_whenValueCallbackIsNull`() {
     val resolver = CountingResolver(activity = null)
-    val client = FakeLaunchClient(
-      activityResolver = resolver,
-      launchResult = FakeLaunchClient.LaunchResult.Success,
-    )
+    val client =
+      FakeLaunchClient(
+        activityResolver = resolver,
+        launchResult = FakeLaunchClient.LaunchResult.Success,
+      )
 
-    val returned = client.onShowFileChooser(
-      webView = null,
-      filePathCallback = null,
-      fileChooserParams = null,
-    )
+    val returned =
+      client.onShowFileChooser(
+        webView = null,
+        filePathCallback = null,
+        fileChooserParams = null,
+      )
 
     assertFalse(
       "onShowFileChooser must short-circuit to false when there is no callback to fulfil",
@@ -460,19 +479,22 @@ class NitroWebChromeClientTest {
   @Test
   fun `onShowFileChooser_returnsFalse_andCleansUp_whenLaunchThrows`() {
     val resolver = CountingResolver(activity = null)
-    val client = FakeLaunchClient(
-      activityResolver = resolver,
-      launchResult = FakeLaunchClient.LaunchResult.Throwing(
-        RuntimeException("ActivityNotFound (simulated)"),
-      ),
-    )
+    val client =
+      FakeLaunchClient(
+        activityResolver = resolver,
+        launchResult =
+          FakeLaunchClient.LaunchResult.Throwing(
+            RuntimeException("ActivityNotFound (simulated)"),
+          ),
+      )
     val callback = RecordingFileCallback()
 
-    val returned = client.onShowFileChooser(
-      webView = null,
-      filePathCallback = callback,
-      fileChooserParams = null,
-    )
+    val returned =
+      client.onShowFileChooser(
+        webView = null,
+        filePathCallback = callback,
+        fileChooserParams = null,
+      )
 
     assertFalse(
       "a thrown Throwable from launchChooser must be caught and surface as a false return — " +
@@ -499,10 +521,11 @@ class NitroWebChromeClientTest {
   @Test
   fun `onShowFileChooser_cancelsPreviousPendingCallback_whenChooserIsReopened`() {
     val resolver = CountingResolver(activity = null)
-    val client = FakeLaunchClient(
-      activityResolver = resolver,
-      launchResult = FakeLaunchClient.LaunchResult.Success,
-    )
+    val client =
+      FakeLaunchClient(
+        activityResolver = resolver,
+        launchResult = FakeLaunchClient.LaunchResult.Success,
+      )
     val first = RecordingFileCallback()
     val second = RecordingFileCallback()
 
@@ -570,16 +593,17 @@ class NitroWebChromeClientTest {
     // extra bundle, so we can compare the EXTRA_OUTPUT extra back to this
     // exact sentinel below.
     val sentinelUri: android.net.Uri = android.net.Uri.EMPTY
-    val intent = client.buildCameraIntent(
-      context = NullContext(),
-      applicationId = applicationId,
-      outputFile = outputFile,
-      uriBuilder = { _, authority, file ->
-        capturedAuthorities.add(authority)
-        capturedFiles.add(file)
-        sentinelUri
-      },
-    )
+    val intent =
+      client.buildCameraIntent(
+        context = NullContext(),
+        applicationId = applicationId,
+        outputFile = outputFile,
+        uriBuilder = { _, authority, file ->
+          capturedAuthorities.add(authority)
+          capturedFiles.add(file)
+          sentinelUri
+        },
+      )
 
     assertEquals(
       "buildCameraIntent action must be MediaStore.ACTION_IMAGE_CAPTURE",
@@ -605,9 +629,10 @@ class NitroWebChromeClientTest {
       "EXTRA_OUTPUT must be present in the Intent extras so the camera writes the capture to a known URI",
       intent.hasExtra(android.provider.MediaStore.EXTRA_OUTPUT),
     )
-    val extra = intent.getParcelableExtra<android.net.Uri>(
-      android.provider.MediaStore.EXTRA_OUTPUT,
-    )
+    val extra =
+      intent.getParcelableExtra<android.net.Uri>(
+        android.provider.MediaStore.EXTRA_OUTPUT,
+      )
     assertNotNull(
       "EXTRA_OUTPUT extra must be readable as a Uri",
       extra,
@@ -663,10 +688,11 @@ class NitroWebChromeClientTest {
   fun `client_isAssignableToWebChromeClient_andExposesActivityResolver`() {
     val resolver = ActivityResolver { null }
 
-    val client = NitroWebChromeClient(
-      context = NullContext(),
-      activityResolver = resolver,
-    )
+    val client =
+      NitroWebChromeClient(
+        context = NullContext(),
+        activityResolver = resolver,
+      )
 
     assertTrue(
       "NitroWebChromeClient must be assignable to android.webkit.WebChromeClient " +
@@ -697,26 +723,26 @@ class NitroWebChromeClientTest {
  * behavior must be driven by HTML `accept`/`multiple`/`capture` only.
  */
 class NoFileUploadTsSurfaceTest {
-
   @Test
   fun `hybridSpec_doesNotExposeFileUploadProp_method_orCallback`() {
     val spec = HybridNitroWebViewSpec::class.java
-    val forbidden = setOf(
-      // Props that would imply a JS-side override.
-      "getOnFileChooser",
-      "setOnFileChooser",
-      "getOnFileUpload",
-      "setOnFileUpload",
-      "getOnShowFileChooser",
-      "setOnShowFileChooser",
-      "getAllowFileUpload",
-      "setAllowFileUpload",
-      // Methods that would imply imperative control.
-      "showFileChooser",
-      "uploadFile",
-      "pickFile",
-      "openFileChooser",
-    )
+    val forbidden =
+      setOf(
+        // Props that would imply a JS-side override.
+        "getOnFileChooser",
+        "setOnFileChooser",
+        "getOnFileUpload",
+        "setOnFileUpload",
+        "getOnShowFileChooser",
+        "setOnShowFileChooser",
+        "getAllowFileUpload",
+        "setAllowFileUpload",
+        // Methods that would imply imperative control.
+        "showFileChooser",
+        "uploadFile",
+        "pickFile",
+        "openFileChooser",
+      )
     val declared = spec.declaredMethods.map { it.name }.toSet()
     val violations = forbidden.intersect(declared)
     assertTrue(

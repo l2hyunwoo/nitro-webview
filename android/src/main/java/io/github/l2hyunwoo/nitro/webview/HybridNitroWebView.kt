@@ -5,6 +5,10 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.DownloadListener
 import android.webkit.JavascriptInterface
@@ -38,36 +42,77 @@ import com.margelo.nitro.nitrowebview.NitroWebViewScrollNativeEvent
 import com.margelo.nitro.nitrowebview.OpenWindowEvent
 import com.margelo.nitro.nitrowebview.OpenWindowNativeEvent
 import com.margelo.nitro.nitrowebview.ShouldStartLoadRequest
-import com.margelo.nitro.nitrowebview.WebViewPoint
 import com.margelo.nitro.nitrowebview.UriSource
+import com.margelo.nitro.nitrowebview.WebViewLoadEvent
 import com.margelo.nitro.nitrowebview.WebViewLoadProgressEvent
 import com.margelo.nitro.nitrowebview.WebViewLoadProgressNativeEvent
-import com.margelo.nitro.nitrowebview.WebViewLoadEvent
 import com.margelo.nitro.nitrowebview.WebViewMessageEvent
 import com.margelo.nitro.nitrowebview.WebViewMessageNativeEvent
 import com.margelo.nitro.nitrowebview.WebViewNavigationState
 import com.margelo.nitro.nitrowebview.WebViewNavigationType
+import com.margelo.nitro.nitrowebview.WebViewPoint
 import com.margelo.nitro.nitrowebview.WebViewSource
 import mozilla.components.support.utils.DownloadUtils
 import org.json.JSONObject
 import java.net.URLDecoder
 
 @SuppressLint("SetJavaScriptEnabled")
-class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec() {
+class HybridNitroWebView(
+  context: ThemedReactContext,
+) : HybridNitroWebViewSpec() {
+  override val view: WebView =
+    WebView(context).also { wv ->
+      // Baseline defaults. Android WebView ships JavaScript and DOM storage
+      // OFF; without JS the `<input type="file">` chooser never reaches the
+      // WebChromeClient (Chromium routes the picker through its renderer,
+      // dormant when JS is off) and the injected message bridge is dead. These
+      // stay ON by default; the prop setters below override them on demand.
+      wv.settings.javaScriptEnabled = true
+      wv.settings.domStorageEnabled = true
+      // Required for `<input type="file">` to open the file chooser via the
+      // WebChromeClient bridge (NitroWebChromeClient). Without these, Android
+      // WebView short-circuits the input element to a no-op.
+      wv.settings.allowFileAccess = true
+      wv.settings.allowContentAccess = true
+    }
 
-  override val view: WebView = WebView(context).also { wv ->
-    // Baseline defaults. Android WebView ships JavaScript and DOM storage
-    // OFF; without JS the `<input type="file">` chooser never reaches the
-    // WebChromeClient (Chromium routes the picker through its renderer,
-    // dormant when JS is off) and the injected message bridge is dead. These
-    // stay ON by default; the prop setters below override them on demand.
-    wv.settings.javaScriptEnabled = true
-    wv.settings.domStorageEnabled = true
-    // Required for `<input type="file">` to open the file chooser via the
-    // WebChromeClient bridge (NitroWebChromeClient). Without these, Android
-    // WebView short-circuits the input element to a no-op.
-    wv.settings.allowFileAccess = true
-    wv.settings.allowContentAccess = true
+  private val mainHandler = Handler(Looper.getMainLooper())
+
+  @Volatile
+  private var destroyed = false
+
+  private fun destroyedViewException() =
+    IllegalStateException(
+      "NitroWebViewState: This WebView is destroyed. Remount it with a new React key.",
+    )
+
+  private fun warnDestroyed() {
+    if (BuildConfig.DEBUG) Log.w("NitroWebView", destroyedViewException().message!!)
+  }
+
+  private fun postIfAvailable(action: () -> Unit) {
+    if (destroyed) {
+      warnDestroyed()
+      return
+    }
+    mainHandler.post { if (!destroyed) action() }
+  }
+
+  private inline fun <T> withView(crossinline action: (Promise<T>) -> Unit): Promise<T> {
+    val promise = Promise<T>()
+    if (destroyed) {
+      warnDestroyed()
+      promise.reject(destroyedViewException())
+      return promise
+    }
+    mainHandler.post {
+      if (destroyed) {
+        promise.reject(destroyedViewException())
+      } else {
+        action(promise)
+      }
+    }
+    return promise
   }
 
   private val sourceHandler = NitroWebViewSourceHandler()
@@ -78,14 +123,22 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   // Thin adapter that forwards UrlLoader calls to the underlying WebView.
   // Extracted so applyUriSource (companion) can be exercised in unit tests
   // via a fake UrlLoader without a real android.webkit.WebView.
-  private val viewLoader: UrlLoader = object : UrlLoader {
-    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
-      view.loadUrl(url, additionalHttpHeaders)
+  private val viewLoader: UrlLoader =
+    object : UrlLoader {
+      override fun loadUrl(
+        url: String,
+        additionalHttpHeaders: Map<String, String>,
+      ) {
+        view.loadUrl(url, additionalHttpHeaders)
+      }
+
+      override fun postUrl(
+        url: String,
+        body: ByteArray,
+      ) {
+        view.postUrl(url, body)
+      }
     }
-    override fun postUrl(url: String, body: ByteArray) {
-      view.postUrl(url, body)
-    }
-  }
 
   /**
    * File-upload bridge. Bound to the WebView's `webChromeClient` so HTML
@@ -168,7 +221,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var userAgent: String? = null
     set(value) {
       field = value
-      view.post {
+      postIfAvailable {
         view.settings.userAgentString = value ?: ""
       }
     }
@@ -177,7 +230,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   //
   // Every Android WebSettings / CookieManager setter is mutable at any time,
   // but WebSettings is not thread-safe, so each mutation hops to the UI
-  // thread via `view.post { }` (same convention as `userAgent`). Props are
+  // thread via `postIfAvailable { }` (same convention as `userAgent`). Props are
   // nullable: `null` (prop unset) leaves the platform default untouched.
 
   override var mediaCapturePermissionOrigins: Array<String>? = null
@@ -195,19 +248,19 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var javaScriptEnabled: Boolean? = null
     set(value) {
       field = value
-      if (value != null) view.post { view.settings.javaScriptEnabled = value }
+      if (value != null) postIfAvailable { view.settings.javaScriptEnabled = value }
     }
 
   override var domStorageEnabled: Boolean? = null
     set(value) {
       field = value
-      if (value != null) view.post { view.settings.domStorageEnabled = value }
+      if (value != null) postIfAvailable { view.settings.domStorageEnabled = value }
     }
 
   override var cacheEnabled: Boolean? = null
     set(value) {
       field = value
-      if (value != null) view.post { view.settings.cacheMode = cacheModeFor(value) }
+      if (value != null) postIfAvailable { view.settings.cacheMode = cacheModeFor(value) }
     }
 
   /**
@@ -225,7 +278,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var incognito: Boolean? = null
     set(value) {
       field = value
-      view.post {
+      postIfAvailable {
         if (value == true) {
           view.settings.domStorageEnabled = false
           view.settings.cacheMode = WebSettings.LOAD_NO_CACHE
@@ -240,7 +293,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     set(value) {
       field = value
       if (value != null) {
-        view.post { view.settings.mediaPlaybackRequiresUserGesture = value }
+        postIfAvailable { view.settings.mediaPlaybackRequiresUserGesture = value }
       }
     }
 
@@ -248,7 +301,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     set(value) {
       field = value
       if (value != null) {
-        view.post {
+        postIfAvailable {
           view.settings.loadWithOverviewMode = value
           view.settings.useWideViewPort = value
         }
@@ -259,7 +312,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     set(value) {
       field = value
       if (value != null) {
-        view.post {
+        postIfAvailable {
           CookieManager.getInstance().setAcceptThirdPartyCookies(view, value)
         }
       }
@@ -296,7 +349,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var injectedJavaScriptBeforeContentLoaded: String? = null
     set(value) {
       field = value
-      view.post { applyDocumentStartScript() }
+      postIfAvailable { applyDocumentStartScript() }
     }
 
   /**
@@ -365,47 +418,58 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   override var onOpenWindow: ((event: OpenWindowEvent) -> Unit)? = null
 
   init {
-    // Required for WebChromeClient.onCreateWindow to fire at all — without it
-    // `window.open` / `target=_blank` are silently swallowed by the WebView
-    // and onOpenWindow can never surface (see NitroWebChromeClient).
+    installWebViewClients()
+    installJavaScriptInterfaces()
+    bindOpenWindowEvents()
+    view.setDownloadListener(DownloadListenerImpl())
+    reactContext.addActivityEventListener(activityEventListener)
+    bindScrollEvents()
+  }
+
+  private fun installWebViewClients() {
+    // WebView only reports window.open when multiple-window support is enabled.
     view.settings.setSupportMultipleWindows(true)
     view.webViewClient = ClientImpl()
+    bindLoadProgressEvents()
+    view.webChromeClient = webChromeClient
+  }
+
+  private fun bindLoadProgressEvents() {
     webChromeClient.onLoadProgress = { progress ->
       if (loadActive) {
         val state = snapshotNavigationState()
-        onLoadProgress?.invoke(WebViewLoadProgressEvent(WebViewLoadProgressNativeEvent(
-          url = state.url, title = state.title, loading = state.loading,
-          canGoBack = state.canGoBack, canGoForward = state.canGoForward,
-          progress = progress.coerceIn(0, 100) / 100.0,
-        )))
+        onLoadProgress?.invoke(
+          WebViewLoadProgressEvent(
+            WebViewLoadProgressNativeEvent(
+              url = state.url,
+              title = state.title,
+              loading = state.loading,
+              canGoBack = state.canGoBack,
+              canGoForward = state.canGoForward,
+              progress = progress.coerceIn(0, 100) / 100.0,
+            ),
+          ),
+        )
       }
     }
-    view.webChromeClient = webChromeClient
+  }
+
+  private fun installJavaScriptInterfaces() {
     view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
-    // Second, DISTINCT @JavascriptInterface for the SPA history shim. A route
-    // change (pushState/replaceState/popstate) posts here — never the
-    // ReactNativeWebView bridge — so it can never be mistaken for onMessage.
+    // History changes use a separate interface so they cannot become onMessage events.
     view.addJavascriptInterface(HistoryShimInterface(), HISTORY_SHIM_NAME)
-    // New-window requests route through the chrome client; forward the URL to
-    // onOpenWindow on the UI thread when a handler is set.
+  }
+
+  private fun bindOpenWindowEvents() {
     webChromeClient.onOpenWindow = { url ->
-      view.post {
+      postIfAvailable {
         onOpenWindow?.invoke(OpenWindowEvent(OpenWindowNativeEvent(url)))
       }
     }
-    // File-download bridge. Every Android-side download notification is
-    // translated 1:1 into an `onFileDownload` emission. The WebView itself
-    // does NOT save anything — JS decides.
-    view.setDownloadListener(DownloadListenerImpl())
-    // Wire up the file chooser result path. The ReactContext dispatches
-    // onActivityResult to every registered listener, so the consumer app's
-    // MainActivity does not need any manual wiring.
-    reactContext.addActivityEventListener(activityEventListener)
-    // Scroll stream. `View.setOnScrollChangeListener` (API 23+) delivers the
-    // scroll offset directly; `contentSize` stays a zero point because
-    // `computeVerticalScrollRange()` / `computeHorizontalScrollRange()` are
-    // protected on View and only reachable by subclassing WebView, which this
-    // library avoids everywhere. NOT throttled and NOT deduped (RNW parity).
+  }
+
+  private fun bindScrollEvents() {
+    // WebView's protected content-range APIs are unavailable without subclassing it.
     view.setOnScrollChangeListener { _, scrollX, scrollY, _, _ ->
       onScroll?.invoke(
         NitroWebViewScrollEvent(
@@ -422,51 +486,41 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   override fun goBack() {
-    view.post { view.goBack() }
+    postIfAvailable { view.goBack() }
   }
 
   override fun goForward() {
-    view.post { view.goForward() }
+    postIfAvailable { view.goForward() }
   }
 
   override fun reload() {
-    view.post { view.reload() }
+    postIfAvailable { view.reload() }
   }
 
   override fun stopLoading() {
-    view.post { view.stopLoading() }
+    postIfAvailable { view.stopLoading() }
   }
 
-  override fun clearCache(): Promise<Unit> {
-    val promise = Promise<Unit>()
-    view.post {
+  override fun clearCache(): Promise<Unit> =
+    withView { promise ->
       view.clearCache(true) // true = also delete on-disk cache files
       promise.resolve(Unit)
     }
-    return promise
-  }
 
-  override fun clearHistory(): Promise<Unit> {
-    val promise = Promise<Unit>()
-    view.post {
+  override fun clearHistory(): Promise<Unit> =
+    withView { promise ->
       view.clearHistory()
       promise.resolve(Unit)
     }
-    return promise
-  }
 
-  override fun requestFocus(): Promise<Unit> {
-    val promise = Promise<Unit>()
-    view.post {
-      view.requestFocus() // View.requestFocus(): Boolean — discard
+  override fun requestFocus(): Promise<Unit> =
+    withView { promise ->
+      view.requestFocus()
       promise.resolve(Unit)
     }
-    return promise
-  }
 
-  override fun evaluateJavaScript(code: String): Promise<String> {
-    val promise = Promise<String>()
-    view.post {
+  override fun evaluateJavaScript(code: String): Promise<String> =
+    withView { promise ->
       evaluator.evaluate(
         code = code,
         evaluator = jsEvaluatorAdapter,
@@ -474,8 +528,6 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         reject = { promise.reject(it) },
       )
     }
-    return promise
-  }
 
   /**
    * Fire-and-forget JS execution — no result surfaced to JS. Hops to the UI
@@ -483,7 +535,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * is main-thread-only and the Nitro call can land off-thread).
    */
   override fun injectJavaScript(code: String) {
-    view.post { view.evaluateJavascript(code, null) }
+    postIfAvailable { view.evaluateJavascript(code, null) }
   }
 
   /**
@@ -493,7 +545,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * companion [postMessageScript] helper, then evaluated fire-and-forget.
    */
   override fun postMessage(data: String) {
-    view.post { view.evaluateJavascript(postMessageScript(data), null) }
+    postIfAvailable { view.evaluateJavascript(postMessageScript(data), null) }
   }
 
   /**
@@ -503,7 +555,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * don't stack scripts. No-op when the feature is unsupported — those
    * WebViews fall back to injecting in [ClientImpl.onPageStarted].
    *
-   * Must run on the UI thread (callers hop via `view.post`).
+   * Must run on the UI thread (callers use `postIfAvailable`).
    */
   private fun applyDocumentStartScript() {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -514,11 +566,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     val script = injectedJavaScriptBeforeContentLoaded
     if (script.isNullOrEmpty()) return
     // Wrap in an IIFE for scope isolation, matching react-native-webview.
-    documentStartScriptHandler = WebViewCompat.addDocumentStartJavaScript(
-      view,
-      "(function(){\n$script\n})();",
-      setOf("*"),
-    )
+    documentStartScriptHandler =
+      WebViewCompat.addDocumentStartJavaScript(
+        view,
+        "(function(){\n$script\n})();",
+        setOf("*"),
+      )
   }
 
   // region: Cookie API
@@ -541,13 +594,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * `secure`, `expires`, `domain`, or `path` — only name/value pairs survive
    * the round-trip — so each returned [Cookie] only carries name and value.
    */
-  override fun getCookies(url: String): Promise<Array<Cookie>> {
-    val promise = Promise<Array<Cookie>>()
-    val raw = CookieManager.getInstance().getCookie(url)
-    val cookies = parseCookieHeader(raw)
-    promise.resolve(cookies)
-    return promise
-  }
+  override fun getCookies(url: String): Promise<Array<Cookie>> =
+    withView { promise ->
+      val raw = CookieManager.getInstance().getCookie(url)
+      val cookies = parseCookieHeader(raw)
+      promise.resolve(cookies)
+    }
 
   /**
    * Persist a single [cookie] into the shared `CookieManager`. The `url`
@@ -556,17 +608,19 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * before the promise resolves so callers see the cookie immediately on
    * subsequent [getCookies] reads.
    */
-  override fun setCookie(url: String, cookie: Cookie): Promise<Unit> {
-    val promise = Promise<Unit>()
-    // Delegated through the companion helper so unit tests can pin both
-    // the assembled Set-Cookie string AND the underlying `CookieManager`
-    // invocation without needing Robolectric. Production code paths use
-    // the default writer which delegates 1:1 to
-    // `CookieManager.getInstance().setCookie(url, value, callback)` and
-    // `flush()`. See [HybridNitroWebView.Companion.assembleAndWriteCookie].
-    assembleAndWriteCookie(url, cookie, cookieWriter) { promise.resolve(Unit) }
-    return promise
-  }
+  override fun setCookie(
+    url: String,
+    cookie: Cookie,
+  ): Promise<Unit> =
+    withView { promise ->
+      // Delegated through the companion helper so unit tests can pin both
+      // the assembled Set-Cookie string AND the underlying `CookieManager`
+      // invocation without needing Robolectric. Production code paths use
+      // the default writer which delegates 1:1 to
+      // `CookieManager.getInstance().setCookie(url, value, callback)` and
+      // `flush()`. See [HybridNitroWebView.Companion.assembleAndWriteCookie].
+      assembleAndWriteCookie(url, cookie, cookieWriter) { promise.resolve(Unit) }
+    }
 
   /**
    * Remove every cookie from the shared `CookieManager`. The promise
@@ -582,35 +636,59 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * and `flush()`. See
    * [HybridNitroWebView.Companion.clearAllCookies].
    */
-  override fun clearCookies(): Promise<Unit> {
-    val promise = Promise<Unit>()
-    clearAllCookies(cookieWriter) { promise.resolve(Unit) }
-    return promise
+  override fun clearCookies(): Promise<Unit> =
+    withView { promise ->
+      clearAllCookies(cookieWriter) { promise.resolve(Unit) }
+    }
+
+  override fun onDropView() = destroyView()
+
+  private fun destroyView() {
+    if (destroyed) return
+    destroyed = true
+    loadActive = false
+    clearEventCallbacks()
+    disposePendingWork()
+    detachNativeListeners()
+    detachAndDestroyWebView()
   }
 
-  override fun onDropView() {
-    webChromeClient.permissions.dispose()
-    loadActive = false
+  private fun clearEventCallbacks() {
     onLoadStart = null
     onLoad = null
     onLoadEnd = null
     onLoadProgress = null
-    webChromeClient.onLoadProgress = null
-    webChromeClient.onHideCustomView()
-    view.webViewClient = WebViewClient() // detach our client
-    // Release the chooser-bound activity to avoid leaking the host while
-    // the WebView itself is being torn down. The chooser client is
-    // GC-eligible once the WebView drops its strong reference below.
-    webChromeClient.hostActivity = null
-    webChromeClient.onOpenWindow = null
+    onNavigationStateChange = null
+    onMessage = null
+    onError = null
+    onFileDownload = null
+    onHttpError = null
+    onRenderProcessGone = null
+    onScroll = null
+    onOpenWindow = null
+    onShouldStartLoadWithRequest = null
+  }
+
+  private fun disposePendingWork() {
+    evaluator.dispose(destroyedViewException())
+    webChromeClient.dispose()
+    documentStartScriptHandler?.remove()
+    documentStartScriptHandler = null
+  }
+
+  private fun detachNativeListeners() {
+    reactContext.removeActivityEventListener(activityEventListener)
+    view.webViewClient = WebViewClient()
     view.webChromeClient = null
+    view.setDownloadListener(null)
     view.removeJavascriptInterface(BRIDGE_NAME)
     view.removeJavascriptInterface(HISTORY_SHIM_NAME)
     view.setOnScrollChangeListener(null)
-    view.stopLoading()
-    // Deregister the activity-result forwarder so this WebView can be GC'd
-    // cleanly and no stale chooser callbacks fire after teardown.
-    reactContext.removeActivityEventListener(activityEventListener)
+  }
+
+  private fun detachAndDestroyWebView() {
+    (view.parent as? ViewGroup)?.removeView(view)
+    view.destroy()
   }
 
   /**
@@ -630,11 +708,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * `currentActivity` was null at construction time).
    */
   fun bindHostActivity(activity: Activity?) {
-    webChromeClient.hostActivity = activity
+    if (!destroyed) webChromeClient.hostActivity = activity
   }
 
   private fun applySource(source: WebViewSource) {
-    view.post {
+    postIfAvailable {
       source.match(
         first = { uriSource ->
           // Delegate to the companion helper so the header-merge + loadUrl
@@ -642,17 +720,24 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
           try {
             applyUriSource(uriSource, defaultHeaders, viewLoader)
           } catch (error: IllegalArgumentException) {
-            onError?.invoke(NitroWebViewErrorEvent(NitroWebViewErrorNativeEvent(
-              code = -1.0, description = error.message ?: "Invalid source",
-              url = uriSource.uri, domain = "NitroWebViewSource",
-            )))
+            onError?.invoke(
+              NitroWebViewErrorEvent(
+                NitroWebViewErrorNativeEvent(
+                  code = -1.0,
+                  description = error.message ?: "Invalid source",
+                  url = uriSource.uri,
+                  domain = "NitroWebViewSource",
+                ),
+              ),
+            )
           }
         },
         second = { html ->
-          val payload = NitroLoadHtmlPayload(
-            html = html.html,
-            baseUrlString = html.baseUrl,
-          )
+          val payload =
+            NitroLoadHtmlPayload(
+              html = html.html,
+              baseUrlString = html.baseUrl,
+            )
           sourceHandler.applyHtmlPayload(payload, htmlLoaderAdapter)
         },
       )
@@ -676,6 +761,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
   }
 
   private fun emitNavigationState() {
+    if (destroyed) return
     onNavigationStateChange?.invoke(snapshotNavigationState())
   }
 
@@ -684,19 +770,21 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     request: WebResourceRequestSource?,
     fallbackUrl: String?,
   ) {
-    val mapped = NitroWebViewErrorMapper.event(
-      error = error,
-      request = request,
-      fallbackUrl = fallbackUrl,
-    )
-    val payload = NitroWebViewErrorEvent(
-      NitroWebViewErrorNativeEvent(
-        code = mapped.code.toDouble(),
-        description = mapped.description,
-        url = mapped.url,
-        domain = mapped.domain,
-      ),
-    )
+    val mapped =
+      NitroWebViewErrorMapper.event(
+        error = error,
+        request = request,
+        fallbackUrl = fallbackUrl,
+      )
+    val payload =
+      NitroWebViewErrorEvent(
+        NitroWebViewErrorNativeEvent(
+          code = mapped.code.toDouble(),
+          description = mapped.description,
+          url = mapped.url,
+          domain = mapped.domain,
+        ),
+      )
     onError?.invoke(payload)
   }
 
@@ -705,11 +793,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     request: WebResourceRequestSource?,
     fallbackUrl: String?,
   ) {
-    val mapped = NitroWebViewHttpErrorMapper.event(
-      response = response,
-      request = request,
-      fallbackUrl = fallbackUrl,
-    )
+    val mapped =
+      NitroWebViewHttpErrorMapper.event(
+        response = response,
+        request = request,
+        fallbackUrl = fallbackUrl,
+      )
     onHttpError?.invoke(
       NitroWebViewHttpErrorEvent(
         NitroWebViewHttpErrorNativeEvent(
@@ -731,7 +820,12 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     )
 
   private inner class ClientImpl : WebViewClient() {
-    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+    override fun onPageStarted(
+      view: WebView,
+      url: String?,
+      favicon: Bitmap?,
+    ) {
+      if (destroyed) return
       loadUrl = url
       loadActive = true
       // Chromium can report the response error before onPageStarted.
@@ -758,8 +852,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       emitNavigationState()
     }
 
-    override fun onPageFinished(view: WebView, url: String?) {
-      if (!loadActive || url != loadUrl) return
+    override fun onPageFinished(
+      view: WebView,
+      url: String?,
+    ) {
+      if (destroyed || !loadActive || url != loadUrl) return
       val script = injectedJavaScript
       if (!script.isNullOrEmpty()) {
         view.evaluateJavascript(script, null)
@@ -793,6 +890,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       view: WebView,
       request: WebResourceRequest,
     ): Boolean {
+      if (destroyed) return true
       val hook = onShouldStartLoadWithRequest ?: return false
       val url = request.url?.toString() ?: return false
       // Sub-frame (iframe) navigations only reach the JS hook when the caller
@@ -802,13 +900,14 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       if (!request.isForMainFrame && interceptSubframeNavigation != true) {
         return false // allow
       }
-      val payload = ShouldStartLoadRequest(
-        url = url,
-        navigationType = WebViewNavigationType.OTHER,
-        mainDocumentURL = null,
-        isTopFrame = request.isForMainFrame, // was null; now meaningful
-        hasTargetFrame = null, // Android has no target-frame concept here
-      )
+      val payload =
+        ShouldStartLoadRequest(
+          url = url,
+          navigationType = WebViewNavigationType.OTHER,
+          mainDocumentURL = null,
+          isTopFrame = request.isForMainFrame, // was null; now meaningful
+          hasTargetFrame = null, // Android has no target-frame concept here
+        )
       val allow = dispatchShouldStart(hook, payload)
       // Convention: shouldOverrideUrlLoading returns `true` to BLOCK.
       return !allow
@@ -819,6 +918,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       request: WebResourceRequest,
       error: WebResourceError,
     ) {
+      if (destroyed) return
       // Only main-frame errors should surface to JS, matching iOS semantics.
       if (request.isForMainFrame && loadActive && request.url.toString() == loadUrl) {
         loadFailed = true
@@ -846,7 +946,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       request: WebResourceRequest,
       errorResponse: WebResourceResponse,
     ) {
-      if (!request.isForMainFrame) return
+      if (destroyed || !request.isForMainFrame) return
       if (loadActive && request.url.toString() == loadUrl) {
         loadFailed = true
       } else {
@@ -862,8 +962,8 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     /**
      * Renderer-process-gone recovery hook (API 26+; guarded because minSdk
      * is lower). MUST return `true` unconditionally: returning `false` lets
-     * Android kill the entire host app. JS is notified so it can
-     * [reload]/remount. `didCrash()` distinguishes a real crash (`true`)
+     * Android kill the entire host app. JS is notified after cleanup so it
+     * can remount with a new React key. `didCrash()` distinguishes a real crash (`true`)
      * from an OS memory reclaim (`false`).
      */
     @RequiresApi(Build.VERSION_CODES.O)
@@ -871,11 +971,18 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       view: WebView,
       detail: RenderProcessGoneDetail,
     ): Boolean {
-      onRenderProcessGone?.invoke(
+      if (destroyed) return true
+      val callback = onRenderProcessGone
+      val event =
         NitroWebViewRenderProcessGoneEvent(
           NitroWebViewRenderProcessGoneNativeEvent(detail.didCrash()),
-        ),
-      )
+        )
+      destroyView()
+      try {
+        callback?.invoke(event)
+      } catch (error: RuntimeException) {
+        Log.e("NitroWebView", "Renderer exit callback failed", error)
+      }
       return true
     }
   }
@@ -903,9 +1010,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
     payload: ShouldStartLoadRequest,
     timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
-  ): Boolean {
-    return Companion.awaitShouldStart(hook, payload, timeoutMs)
-  }
+  ): Boolean = Companion.awaitShouldStart(hook, payload, timeoutMs)
 
   private inner class BridgeInterface {
     @JavascriptInterface
@@ -917,7 +1022,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       // onFileDownload, everything else falls through unchanged.
       val blob = parseBlobEnvelope(data)
       if (blob != null) {
-        view.post {
+        postIfAvailable {
           // The data URL is the ONE place a data: URL is a legitimate
           // FileDownload.url (blob bytes bridged in-band as base64).
           emitFileDownload(
@@ -932,13 +1037,14 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
         }
         return
       }
-      view.post {
-        val payload = WebViewMessageEvent(
-          WebViewMessageNativeEvent(
-            data = data,
-            url = view.url ?: "",
-          ),
-        )
+      postIfAvailable {
+        val payload =
+          WebViewMessageEvent(
+            WebViewMessageNativeEvent(
+              data = data,
+              url = view.url ?: "",
+            ),
+          )
         onMessage?.invoke(payload)
       }
     }
@@ -958,7 +1064,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
     fun postMessage(navType: String) {
       // Runs on the JavaBridge thread; hop to the UI thread to read
       // view.url and deliver the callback.
-      view.post { emitNavigationState() }
+      postIfAvailable { emitNavigationState() }
     }
   }
 
@@ -990,7 +1096,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       mimetype: String?,
       contentLength: Long,
     ) {
-      if (url == null) return
+      if (destroyed || url == null) return
       // blob: bytes live only in the web context — inject a reader that
       // resolves the blob to a data URL and posts it back through the bridge
       // (demuxed in BridgeInterface.postMessage). The real onFileDownload is
@@ -998,20 +1104,21 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       if (url.startsWith("blob:")) {
         val guessed = deriveDownloadFileName(url, contentDisposition, mimetype)
         val js = buildBlobReaderScript(url, guessed)
-        view.post { view.evaluateJavascript(js, null) }
+        postIfAvailable { view.evaluateJavascript(js, null) }
         return
       }
       val fileName = deriveDownloadFileName(url, contentDisposition, mimetype)
-      val event = FileDownload(
-        url = url,
-        mimeType = mimetype?.takeIf { it.isNotEmpty() },
-        fileName = fileName,
-        contentLength = if (contentLength <= 0L) null else contentLength.toDouble(),
-        userAgent = userAgent?.takeIf { it.isNotEmpty() },
-      )
+      val event =
+        FileDownload(
+          url = url,
+          mimeType = mimetype?.takeIf { it.isNotEmpty() },
+          fileName = fileName,
+          contentLength = if (contentLength <= 0L) null else contentLength.toDouble(),
+          userAgent = userAgent?.takeIf { it.isNotEmpty() },
+        )
       // Surface to JS. The native side performs NO automatic
       // DownloadManager.enqueue and NO file save — JS decides what to do.
-      view.post { emitFileDownload(event) }
+      postIfAvailable { emitFileDownload(event) }
     }
   }
 
@@ -1023,8 +1130,15 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    */
   internal interface UrlLoader {
     /** Mirror of `WebView.loadUrl(url, additionalHttpHeaders)`. */
-    fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>)
-    fun postUrl(url: String, body: ByteArray)
+    fun loadUrl(
+      url: String,
+      additionalHttpHeaders: Map<String, String>,
+    )
+
+    fun postUrl(
+      url: String,
+      body: ByteArray,
+    )
   }
 
   /**
@@ -1039,7 +1153,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
      * Mirror of `CookieManager.setCookie(url, value, ValueCallback<Boolean>)`.
      * The callback is invoked exactly once with `true` on success.
      */
-    fun setCookie(url: String, value: String, callback: (Boolean) -> Unit)
+    fun setCookie(
+      url: String,
+      value: String,
+      callback: (Boolean) -> Unit,
+    )
 
     /**
      * Mirror of
@@ -1064,7 +1182,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
    * is byte-for-byte equivalent to the inline calls this seam replaced.
    */
   private class SystemCookieWriter : CookieWriter {
-    override fun setCookie(url: String, value: String, callback: (Boolean) -> Unit) {
+    override fun setCookie(
+      url: String,
+      value: String,
+      callback: (Boolean) -> Unit,
+    ) {
       CookieManager.getInstance().setCookie(url, value) { ok -> callback(ok) }
     }
 
@@ -1100,11 +1222,11 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
      * Post-escape those two so the emitted statement always parses.
      */
     @JvmStatic
-    internal fun encodeJsStringLiteral(message: String): String {
-      return JSONObject.quote(message)
+    internal fun encodeJsStringLiteral(message: String): String =
+      JSONObject
+        .quote(message)
         .replace(" ", "\\u2028")
         .replace(" ", "\\u2029")
-    }
 
     /**
      * @JavascriptInterface name for the SPA history sink. Must match
@@ -1265,15 +1387,23 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       defaultHeaders: Map<String, String>?,
       loader: UrlLoader,
     ) {
-      val merged = HashMap<String, String>().apply {
-        putAll(defaultHeaders ?: emptyMap())
-        putAll(uriSource.headers ?: emptyMap())
+      val merged =
+        HashMap<String, String>().apply {
+          putAll(defaultHeaders ?: emptyMap())
+          putAll(uriSource.headers ?: emptyMap())
+        }
+      val body =
+        NitroWebViewSourceHandler.postBody(
+          uriSource.uri,
+          uriSource.method?.name,
+          uriSource.body,
+          merged,
+        )
+      if (body == null) {
+        loader.loadUrl(uriSource.uri, merged)
+      } else {
+        loader.postUrl(uriSource.uri, body)
       }
-      val body = NitroWebViewSourceHandler.postBody(
-        uriSource.uri, uriSource.method?.name, uriSource.body, merged,
-      )
-      if (body == null) loader.loadUrl(uriSource.uri, merged)
-      else loader.postUrl(uriSource.uri, body)
     }
 
     /**
@@ -1309,18 +1439,18 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
       fallback: (String, String?, String?) -> String = { u, cd, mt ->
         URLUtil.guessFileName(u, cd, mt)
       },
-    ): String {
-      return try {
-        val decoded = if (contentDisposition != null) {
-          decoder(contentDisposition, "utf-8")
-        } else {
-          null
-        }
+    ): String =
+      try {
+        val decoded =
+          if (contentDisposition != null) {
+            decoder(contentDisposition, "utf-8")
+          } else {
+            null
+          }
         primary(decoded, null, url, mimetype)
       } catch (e: Exception) {
         fallback(url, contentDisposition, mimetype)
       }
-    }
 
     /**
      * Map the `cacheEnabled` prop to a `WebSettings.cacheMode` constant:
@@ -1329,8 +1459,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
      * constant mapping can be unit-tested without a real `WebView`.
      */
     @JvmStatic
-    internal fun cacheModeFor(enabled: Boolean): Int =
-      if (enabled) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_NO_CACHE
+    internal fun cacheModeFor(enabled: Boolean): Int = if (enabled) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_NO_CACHE
 
     /**
      * Merge `defaults` and `perRequest` headers with per-request taking
@@ -1382,7 +1511,7 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
             expires = null,
             secure = null,
             httpOnly = null,
-          )
+          ),
         )
       }
       return out.toTypedArray()
@@ -1415,7 +1544,10 @@ class HybridNitroWebView(context: ThemedReactContext) : HybridNitroWebViewSpec()
      * `suggestedName` is native-derived (usually junk off the blob URL).
      */
     @JvmStatic
-    internal fun buildBlobReaderScript(blobUrl: String, suggestedName: String): String {
+    internal fun buildBlobReaderScript(
+      blobUrl: String,
+      suggestedName: String,
+    ): String {
       val urlLit = jsonQuote(blobUrl)
       val nameLit = jsonQuote(suggestedName)
       val keyLit = jsonQuote(BLOB_ENVELOPE_KEY)

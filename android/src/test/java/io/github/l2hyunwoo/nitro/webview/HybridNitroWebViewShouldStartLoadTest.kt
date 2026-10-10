@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit
  *                   parity pin).
  */
 class HybridNitroWebViewShouldStartLoadTest {
-
   // region: timeout constant pin
 
   @Test
@@ -47,10 +46,11 @@ class HybridNitroWebViewShouldStartLoadTest {
   @Test
   fun `awaitBoolean_resolveTrue_returnsTrue_andDoesNotWait`() {
     val start = System.currentTimeMillis()
-    val result = HybridNitroWebView.awaitBooleanWithTimeout(
-      timeoutMs = 500L, // generous — we should never reach the deadline.
-      subscribe = { onResolve, _ -> onResolve(true) },
-    )
+    val result =
+      HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = 500L, // generous — we should never reach the deadline.
+        subscribe = { onResolve, _ -> onResolve(true) },
+      )
     val elapsed = System.currentTimeMillis() - start
     assertEquals("synchronous resolve(true) must return true", true, result)
     assertTrue(
@@ -69,10 +69,11 @@ class HybridNitroWebViewShouldStartLoadTest {
   @Test
   fun `awaitBoolean_resolveFalse_returnsFalse_andDoesNotWait`() {
     val start = System.currentTimeMillis()
-    val result = HybridNitroWebView.awaitBooleanWithTimeout(
-      timeoutMs = 500L,
-      subscribe = { onResolve, _ -> onResolve(false) },
-    )
+    val result =
+      HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = 500L,
+        subscribe = { onResolve, _ -> onResolve(false) },
+      )
     val elapsed = System.currentTimeMillis() - start
     assertEquals("synchronous resolve(false) must return false", false, result)
     assertTrue(
@@ -93,10 +94,13 @@ class HybridNitroWebViewShouldStartLoadTest {
   fun `awaitBoolean_noResolution_defaultsToAllow_afterWaitWindowElapses`() {
     val window = 50L
     val start = System.currentTimeMillis()
-    val result = HybridNitroWebView.awaitBooleanWithTimeout(
-      timeoutMs = window,
-      subscribe = { _, _ -> /* never resolve */ },
-    )
+    val result =
+      HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = window,
+        subscribe = { _, _ ->
+          // Never resolve.
+        },
+      )
     val elapsed = System.currentTimeMillis() - start
     assertEquals(
       "no resolution within the wait window must default to true (allow)",
@@ -119,10 +123,11 @@ class HybridNitroWebViewShouldStartLoadTest {
   @Test
   fun `awaitBoolean_rejection_defaultsToAllow_andDoesNotWait`() {
     val start = System.currentTimeMillis()
-    val result = HybridNitroWebView.awaitBooleanWithTimeout(
-      timeoutMs = 500L,
-      subscribe = { _, onReject -> onReject(RuntimeException("simulated JS error")) },
-    )
+    val result =
+      HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = 500L,
+        subscribe = { _, onReject -> onReject(RuntimeException("simulated JS error")) },
+      )
     val elapsed = System.currentTimeMillis() - start
     assertEquals(
       "a rejected Promise must default to true (allow), mirroring RNW",
@@ -147,16 +152,17 @@ class HybridNitroWebViewShouldStartLoadTest {
   fun `awaitBoolean_backgroundResolution_unblocksWaiter_andReturnsResolvedValue`() {
     val executor = Executors.newSingleThreadScheduledExecutor()
     try {
-      val result = HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = 250L,
-        subscribe = { onResolve, _ ->
-          executor.schedule(
-            { onResolve(false) },
-            25L,
-            TimeUnit.MILLISECONDS,
-          )
-        },
-      )
+      val result =
+        HybridNitroWebView.awaitBooleanWithTimeout(
+          timeoutMs = 250L,
+          subscribe = { onResolve, _ ->
+            executor.schedule(
+              { onResolve(false) },
+              25L,
+              TimeUnit.MILLISECONDS,
+            )
+          },
+        )
       assertEquals(
         "background resolve(false) must unblock the waiter and return false",
         false,
@@ -179,14 +185,15 @@ class HybridNitroWebViewShouldStartLoadTest {
   @Test
   fun `awaitBoolean_lateResolution_doesNotAffectAlreadyReturnedVerdict`() {
     var resolverHolder: ((Boolean) -> Unit)? = null
-    val first = HybridNitroWebView.awaitBooleanWithTimeout(
-      timeoutMs = 30L,
-      subscribe = { onResolve, _ ->
-        // Stash the callback so the test can fire it AFTER the window
-        // elapses, simulating a JS Promise that resolves too late.
-        resolverHolder = onResolve
-      },
-    )
+    val first =
+      HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = 30L,
+        subscribe = { onResolve, _ ->
+          // Stash the callback so the test can fire it AFTER the window
+          // elapses, simulating a JS Promise that resolves too late.
+          resolverHolder = onResolve
+        },
+      )
     assertEquals(
       "no resolution before the deadline must default to allow",
       true,

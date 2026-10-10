@@ -26,7 +26,6 @@ import kotlin.reflect.jvm.javaField
  * `org.mozilla.components:support-utils`.
  */
 class HybridNitroWebViewCompanionTest {
-
   // region: mergeHeaders
 
   @Test
@@ -62,10 +61,11 @@ class HybridNitroWebViewCompanionTest {
 
   @Test
   fun `mergeHeaders_perRequest_overwrites_defaults_onExactKeyConflict`() {
-    val defaults = mapOf(
-      "Authorization" to "Bearer default",
-      "X-App" to "nitro",
-    )
+    val defaults =
+      mapOf(
+        "Authorization" to "Bearer default",
+        "X-App" to "nitro",
+      )
     val per = mapOf("Authorization" to "Bearer override")
 
     val merged = HybridNitroWebView.mergeHeaders(defaults, per)
@@ -117,9 +117,10 @@ class HybridNitroWebViewCompanionTest {
 
   @Test
   fun `parseCookieHeader_multiplePairs_areAllReturned_inOrder`() {
-    val cookies = HybridNitroWebView.parseCookieHeader(
-      "session=abc; theme=dark; locale=ko-KR"
-    )
+    val cookies =
+      HybridNitroWebView.parseCookieHeader(
+        "session=abc; theme=dark; locale=ko-KR",
+      )
 
     assertEquals(3, cookies.size)
     assertEquals("session", cookies[0].name)
@@ -133,9 +134,10 @@ class HybridNitroWebViewCompanionTest {
   @Test
   fun `parseCookieHeader_skipsMalformedPairs`() {
     // Missing-name, missing-`=`, and pure-blank segments must be dropped.
-    val cookies = HybridNitroWebView.parseCookieHeader(
-      "foo=bar; =onlyvalue; baz; ; qux=quux"
-    )
+    val cookies =
+      HybridNitroWebView.parseCookieHeader(
+        "foo=bar; =onlyvalue; baz; ; qux=quux",
+      )
 
     val names = cookies.map { it.name }
     assertEquals(
@@ -160,26 +162,28 @@ class HybridNitroWebViewCompanionTest {
 
   @Test
   fun `serializeCookie_minimalNameValue`() {
-    val serialized = HybridNitroWebView.serializeCookie(
-      Cookie(name = "foo", value = "bar", domain = null, path = null, expires = null, secure = null, httpOnly = null),
-    )
+    val serialized =
+      HybridNitroWebView.serializeCookie(
+        Cookie(name = "foo", value = "bar", domain = null, path = null, expires = null, secure = null, httpOnly = null),
+      )
 
     assertEquals("foo=bar", serialized)
   }
 
   @Test
   fun `serializeCookie_includesDomainAndPath_whenProvided`() {
-    val serialized = HybridNitroWebView.serializeCookie(
-      Cookie(
-        name = "session",
-        value = "abc",
-        domain = ".example.com",
-        path = "/app",
-        expires = null,
-        secure = null,
-        httpOnly = null,
-      ),
-    )
+    val serialized =
+      HybridNitroWebView.serializeCookie(
+        Cookie(
+          name = "session",
+          value = "abc",
+          domain = ".example.com",
+          path = "/app",
+          expires = null,
+          secure = null,
+          httpOnly = null,
+        ),
+      )
 
     assertEquals(
       "session=abc; Domain=.example.com; Path=/app",
@@ -189,17 +193,18 @@ class HybridNitroWebViewCompanionTest {
 
   @Test
   fun `serializeCookie_appendsSecureAndHttpOnly_flags_whenTrue`() {
-    val serialized = HybridNitroWebView.serializeCookie(
-      Cookie(
-        name = "session",
-        value = "abc",
-        domain = null,
-        path = null,
-        expires = null,
-        secure = true,
-        httpOnly = true,
-      ),
-    )
+    val serialized =
+      HybridNitroWebView.serializeCookie(
+        Cookie(
+          name = "session",
+          value = "abc",
+          domain = null,
+          path = null,
+          expires = null,
+          secure = true,
+          httpOnly = true,
+        ),
+      )
 
     assertTrue(
       "Secure flag must be present when cookie.secure == true",
@@ -213,12 +218,14 @@ class HybridNitroWebViewCompanionTest {
 
   @Test
   fun `serializeCookie_omitsSecureAndHttpOnly_whenFalseOrNull`() {
-    val omittedAll = HybridNitroWebView.serializeCookie(
-      Cookie(name = "x", value = "y", domain = null, path = null, expires = null, secure = null, httpOnly = null),
-    )
-    val falseAll = HybridNitroWebView.serializeCookie(
-      Cookie(name = "x", value = "y", domain = null, path = null, expires = null, secure = false, httpOnly = false),
-    )
+    val omittedAll =
+      HybridNitroWebView.serializeCookie(
+        Cookie(name = "x", value = "y", domain = null, path = null, expires = null, secure = null, httpOnly = null),
+      )
+    val falseAll =
+      HybridNitroWebView.serializeCookie(
+        Cookie(name = "x", value = "y", domain = null, path = null, expires = null, secure = false, httpOnly = false),
+      )
 
     assertEquals("x=y", omittedAll)
     assertEquals(
@@ -231,9 +238,10 @@ class HybridNitroWebViewCompanionTest {
   @Test
   fun `serializeCookie_expires_isEmittedAsMaxAge`() {
     val futureMs = System.currentTimeMillis() + 60_000L // ~60s ahead
-    val serialized = HybridNitroWebView.serializeCookie(
-      Cookie(name = "x", value = "y", domain = null, path = null, expires = futureMs.toDouble(), secure = null, httpOnly = null),
-    )
+    val serialized =
+      HybridNitroWebView.serializeCookie(
+        Cookie(name = "x", value = "y", domain = null, path = null, expires = futureMs.toDouble(), secure = null, httpOnly = null),
+      )
 
     assertTrue(
       "future expires should serialize as a non-negative Max-Age",
@@ -244,9 +252,10 @@ class HybridNitroWebViewCompanionTest {
   @Test
   fun `serializeCookie_pastExpires_clampsMaxAgeToZero_nonNegative`() {
     val past = System.currentTimeMillis() - 60_000L
-    val serialized = HybridNitroWebView.serializeCookie(
-      Cookie(name = "x", value = "y", domain = null, path = null, expires = past.toDouble(), secure = null, httpOnly = null),
-    )
+    val serialized =
+      HybridNitroWebView.serializeCookie(
+        Cookie(name = "x", value = "y", domain = null, path = null, expires = past.toDouble(), secure = null, httpOnly = null),
+      )
 
     assertTrue(
       "past expires must clamp to Max-Age=0, never a negative number",
@@ -299,8 +308,10 @@ class HybridNitroWebViewCompanionTest {
    */
   @Test
   fun `hybridNitroWebView_declaresWebChromeClientField_typedAsNitroWebChromeClient`() {
-    val prop = HybridNitroWebView::class.declaredMemberProperties
-      .firstOrNull { it.name == "webChromeClient" }
+    val prop =
+      HybridNitroWebView::class
+        .declaredMemberProperties
+        .firstOrNull { it.name == "webChromeClient" }
 
     assertNotNull(
       "HybridNitroWebView must declare a `webChromeClient` property so the chooser " +
@@ -334,9 +345,11 @@ class HybridNitroWebViewCompanionTest {
    */
   @Test
   fun `hybridNitroWebView_webChromeClient_isNonNullable_andTypedAsNitroWebChromeClient`() {
-    val prop = HybridNitroWebView::class.declaredMemberProperties
-      .firstOrNull { it.name == "webChromeClient" }
-      ?: error("HybridNitroWebView.webChromeClient property is missing")
+    val prop =
+      HybridNitroWebView::class
+        .declaredMemberProperties
+        .firstOrNull { it.name == "webChromeClient" }
+        ?: error("HybridNitroWebView.webChromeClient property is missing")
 
     assertFalse(
       "`webChromeClient` must be declared non-nullable so the WebView is wired " +
@@ -363,7 +376,10 @@ class HybridNitroWebViewCompanionTest {
    * behavior on success.
    */
   private class RecordingCookieWriter : HybridNitroWebView.CookieWriter {
-    data class Call(val url: String, val value: String)
+    data class Call(
+      val url: String,
+      val value: String,
+    )
 
     val calls: MutableList<Call> = mutableListOf()
     var flushCount: Int = 0
@@ -375,7 +391,11 @@ class HybridNitroWebViewCompanionTest {
     var lastRemoveAllCallback: ((Boolean) -> Unit)? = null
       private set
 
-    override fun setCookie(url: String, value: String, callback: (Boolean) -> Unit) {
+    override fun setCookie(
+      url: String,
+      value: String,
+      callback: (Boolean) -> Unit,
+    ) {
       calls.add(Call(url, value))
       lastCallback = callback
       // Mirror CookieManager.setCookie's success path: invoke the
@@ -399,15 +419,16 @@ class HybridNitroWebViewCompanionTest {
   @Test
   fun `setCookie_pipeline_forwardsAssembledSetCookieString_toWriter`() {
     val writer = RecordingCookieWriter()
-    val cookie = Cookie(
-      name = "session",
-      value = "abc",
-      domain = ".example.com",
-      path = "/app",
-      expires = null,
-      secure = true,
-      httpOnly = true,
-    )
+    val cookie =
+      Cookie(
+        name = "session",
+        value = "abc",
+        domain = ".example.com",
+        path = "/app",
+        expires = null,
+        secure = true,
+        httpOnly = true,
+      )
 
     var resolved = false
     HybridNitroWebView.assembleAndWriteCookie(
@@ -476,20 +497,28 @@ class HybridNitroWebViewCompanionTest {
     // CookieManager contract: the success/failure callback is dispatched
     // asynchronously off the calling thread, so flush() must wait.
     var deferred: (() -> Unit)? = null
-    val writer = object : HybridNitroWebView.CookieWriter {
-      var flushCount = 0
-      val calls = mutableListOf<RecordingCookieWriter.Call>()
-      override fun setCookie(url: String, value: String, callback: (Boolean) -> Unit) {
-        calls.add(RecordingCookieWriter.Call(url, value))
-        deferred = { callback(true) }
+    val writer =
+      object : HybridNitroWebView.CookieWriter {
+        var flushCount = 0
+        val calls = mutableListOf<RecordingCookieWriter.Call>()
+
+        override fun setCookie(
+          url: String,
+          value: String,
+          callback: (Boolean) -> Unit,
+        ) {
+          calls.add(RecordingCookieWriter.Call(url, value))
+          deferred = { callback(true) }
+        }
+
+        override fun removeAllCookies(callback: (Boolean) -> Unit) {
+          // Not exercised in this test path; defined to satisfy the interface.
+        }
+
+        override fun flush() {
+          flushCount += 1
+        }
       }
-      override fun removeAllCookies(callback: (Boolean) -> Unit) {
-        // Not exercised in this test path; defined to satisfy the interface.
-      }
-      override fun flush() {
-        flushCount += 1
-      }
-    }
 
     var resolved = false
     HybridNitroWebView.assembleAndWriteCookie(
@@ -552,8 +581,10 @@ class HybridNitroWebViewCompanionTest {
    */
   @Test
   fun `hybridNitroWebView_exposesCookieWriterSeam_typedAsCookieWriter`() {
-    val prop = HybridNitroWebView::class.declaredMemberProperties
-      .firstOrNull { it.name == "cookieWriter" }
+    val prop =
+      HybridNitroWebView::class
+        .declaredMemberProperties
+        .firstOrNull { it.name == "cookieWriter" }
 
     assertNotNull(
       "HybridNitroWebView must expose a `cookieWriter` seam so unit " +
@@ -584,13 +615,15 @@ class HybridNitroWebViewCompanionTest {
   @Test
   fun `cookieExpires_isModeledAsDouble_forNitroBridgeCompatibility`() {
     val c = Cookie(name = "x", value = "y", domain = null, path = null, expires = 1.0, secure = null, httpOnly = null)
-    val type = Cookie::class.java
-      .getDeclaredField("expires")
-      .type
+    val type =
+      Cookie::class.java
+        .getDeclaredField("expires")
+        .type
     // Nitro typically codegens nullable Double for optional `number` fields.
-    val isDoubleLike = type == java.lang.Double::class.java ||
-      type == java.lang.Double.TYPE ||
-      type.simpleName == "Double"
+    val isDoubleLike =
+      type == java.lang.Double::class.java ||
+        type == java.lang.Double.TYPE ||
+        type.simpleName == "Double"
     assertTrue(
       "Cookie.expires must be a Double (Nitro-friendly), not Date/Long. Saw: $type",
       isDoubleLike,
@@ -646,20 +679,28 @@ class HybridNitroWebViewCompanionTest {
     // success/failure callback is dispatched asynchronously off the
     // calling thread, so flush() AND the promise resolution must wait.
     var deferred: (() -> Unit)? = null
-    val writer = object : HybridNitroWebView.CookieWriter {
-      var flushCount = 0
-      var removeAllCount = 0
-      override fun setCookie(url: String, value: String, callback: (Boolean) -> Unit) {
-        // Not exercised in this test path; defined to satisfy the interface.
+    val writer =
+      object : HybridNitroWebView.CookieWriter {
+        var flushCount = 0
+        var removeAllCount = 0
+
+        override fun setCookie(
+          url: String,
+          value: String,
+          callback: (Boolean) -> Unit,
+        ) {
+          // Not exercised in this test path; defined to satisfy the interface.
+        }
+
+        override fun removeAllCookies(callback: (Boolean) -> Unit) {
+          removeAllCount += 1
+          deferred = { callback(true) }
+        }
+
+        override fun flush() {
+          flushCount += 1
+        }
       }
-      override fun removeAllCookies(callback: (Boolean) -> Unit) {
-        removeAllCount += 1
-        deferred = { callback(true) }
-      }
-      override fun flush() {
-        flushCount += 1
-      }
-    }
 
     var resolved = false
     HybridNitroWebView.clearAllCookies(writer) { resolved = true }

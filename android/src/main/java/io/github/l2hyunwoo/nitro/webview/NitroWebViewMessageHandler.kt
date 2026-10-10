@@ -38,7 +38,6 @@ class NitroWebViewMessageHandler(
   private val messageWebView: MessageWebView,
   var dispatcher: NitroWebViewMessageDispatcher? = null,
 ) {
-
   @JavascriptInterface
   fun postMessage(data: String) {
     val url = messageWebView.currentURL ?: ""
