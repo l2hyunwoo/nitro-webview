@@ -46,6 +46,24 @@ export const expectedRegressionCases = {
   ],
 };
 
+export async function tapRegressionControl(agent, label) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const snapshot = await agent(['snapshot', '-i'], 30000);
+    if (snapshot.includes('Open debugger to view warnings.')) {
+      await agent(['react-native', 'dismiss-overlay'], 30000);
+      continue;
+    }
+    const target = snapshot
+      .split('\n')
+      .map(line => line.match(/^\s*(@e\d+) \[(button|link)\] "([^"]+)"/))
+      .find(match => match?.[3] === label);
+    if (!target) throw new Error(`${label} control was not observed`);
+    await agent(['click', target[1]], 30000);
+    return;
+  }
+  throw new Error(`${label} remained obscured by a development warning`);
+}
+
 export function validateRegressionResults(result, platform) {
   if (
     result?.complete !== true ||
@@ -385,8 +403,7 @@ async function run(platform, device) {
     await agent(['snapshot', '-i']);
     await agent(['wait', 'text', 'Regression verification', '60000']);
     await agent(['find', 'Regression verification', 'click', '--first']);
-    await agent(['snapshot', '-i']);
-    await agent(['find', 'Run regression', 'click', '--first']);
+    await tapRegressionControl(agent, 'Run regression');
     const deadline = Date.now() + 240000;
     const printed = new Set();
     const handledInteractions = new Set();
@@ -407,8 +424,7 @@ async function run(platform, device) {
         // Clear before tapping so polling cannot repeat the same gesture.
         await fetchJSON('/interaction', null);
         console.log(`Native tap: ${interaction.label} (${interaction.id})`);
-        await agent(['snapshot', '-i'], 10000);
-        await agent(['find', 'Navigate', 'click', '--first'], 10000);
+        await tapRegressionControl(agent, 'Navigate');
       }
       if (result !== null) {
         lastResult = result;

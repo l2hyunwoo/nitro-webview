@@ -7,7 +7,43 @@ import {
   isPlatformRegressionArtifact,
   validateRegressionResults,
   validateRegressionInteraction,
+  tapRegressionControl,
 } from '../run-regression.mjs';
+
+test('native tap dismisses warnings and uses the refreshed link ref', async () => {
+  const calls = [];
+  const snapshots = [
+    '@e13 [link] "Navigate"\n@e51 [other] "!, Open debugger to view warnings."',
+    '@e4 [text] "Navigate"\n@e20 [link] "Navigate"',
+  ];
+  await tapRegressionControl(async args => {
+    calls.push(args);
+    return args[0] === 'snapshot' ? snapshots.shift() : '';
+  }, 'Navigate');
+  assert.deepEqual(calls, [
+    ['snapshot', '-i'],
+    ['react-native', 'dismiss-overlay'],
+    ['snapshot', '-i'],
+    ['click', '@e20'],
+  ]);
+});
+
+test('native tap refuses absent controls and persistent overlays', async () => {
+  await assert.rejects(
+    tapRegressionControl(async () => '@e1 [text] "Navigate"', 'Navigate'),
+    /Navigate control was not observed/,
+  );
+  const calls = [];
+  await assert.rejects(
+    tapRegressionControl(async args => {
+      calls.push(args);
+      return 'Open debugger to view warnings.';
+    }, 'Navigate'),
+    /Navigate remained obscured/,
+  );
+  assert.equal(calls.filter(args => args[0] === 'click').length, 0);
+  assert.equal(calls.filter(args => args[0] === 'snapshot').length, 3);
+});
 
 const result = (platform = 'ios') => ({
   complete: true,
