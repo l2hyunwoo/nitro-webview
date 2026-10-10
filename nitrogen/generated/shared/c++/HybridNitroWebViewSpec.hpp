@@ -94,6 +94,8 @@ namespace margelo::nitro::nitrowebview {
 
     public:
       // Properties
+      virtual std::optional<std::vector<std::string>> getAllowedMessageOrigins() = 0;
+      virtual void setAllowedMessageOrigins(const std::optional<std::vector<std::string>>& allowedMessageOrigins) = 0;
       virtual std::optional<std::vector<std::string>> getMediaCapturePermissionOrigins() = 0;
       virtual void setMediaCapturePermissionOrigins(const std::optional<std::vector<std::string>>& mediaCapturePermissionOrigins) = 0;
       virtual std::optional<std::vector<std::string>> getGeolocationPermissionOrigins() = 0;

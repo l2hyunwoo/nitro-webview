@@ -26,6 +26,16 @@ namespace margelo::nitro::nitrowebview::views {
                                                    const HybridNitroWebViewProps& sourceProps,
                                                    const react::RawProps& rawProps):
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
+    allowedMessageOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
+      try {
+        const react::RawValue* rawValue = rawProps.at("allowedMessageOrigins", nullptr, nullptr);
+        if (rawValue == nullptr) return sourceProps.allowedMessageOrigins;
+        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
+        return CachedProp<std::optional<std::vector<std::string>>>::fromRawValue(*runtime, value, sourceProps.allowedMessageOrigins);
+      } catch (const std::exception& exc) {
+        throw std::runtime_error(std::string("NitroWebView.allowedMessageOrigins: ") + exc.what());
+      }
+    }()),
     mediaCapturePermissionOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
       try {
         const react::RawValue* rawValue = rawProps.at("mediaCapturePermissionOrigins", nullptr, nullptr);
@@ -369,6 +379,7 @@ namespace margelo::nitro::nitrowebview::views {
 
   bool HybridNitroWebViewProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
+      case hashString("allowedMessageOrigins"): return true;
       case hashString("mediaCapturePermissionOrigins"): return true;
       case hashString("geolocationPermissionOrigins"): return true;
       case hashString("source"): return true;

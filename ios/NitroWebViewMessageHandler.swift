@@ -9,10 +9,14 @@ import Foundation
 struct NitroWebViewMessageEvent: Equatable {
   let data: String
   let url: String
+  let sourceOrigin: String?
+  let isMainFrame: Bool?
 
-  init(data: String, url: String) {
+  init(data: String, url: String, sourceOrigin: String? = nil, isMainFrame: Bool? = nil) {
     self.data = data
     self.url = url
+    self.sourceOrigin = sourceOrigin
+    self.isMainFrame = isMainFrame
   }
 }
 
@@ -28,6 +32,13 @@ protocol PostMessageScriptMessage {
   /// The web view that delivered the message. May be `nil` if WebKit has
   /// torn it down.
   var postMessageWebView: PostMessageWebView? { get }
+  var senderOrigin: String? { get }
+  var senderIsMainFrame: Bool? { get }
+}
+
+extension PostMessageScriptMessage {
+  var senderOrigin: String? { nil }
+  var senderIsMainFrame: Bool? { nil }
 }
 
 /// Abstraction over the subset of `WKWebView` this handler reads.
@@ -44,6 +55,14 @@ protocol PostMessageWebView: AnyObject {
 
   extension WKScriptMessage: PostMessageScriptMessage {
     var postMessageWebView: PostMessageWebView? { self.webView }
+    var senderOrigin: String? {
+      let origin = frameInfo.securityOrigin
+      // WebKit uses zero for both an omitted port and an explicit port zero.
+      if origin.port == 0, frameInfo.request.url?.port == 0 { return "null" }
+      return NitroWebViewMessagePolicy.senderOrigin(scheme: origin.protocol,
+        host: origin.host, port: origin.port)
+    }
+    var senderIsMainFrame: Bool? { frameInfo.isMainFrame }
   }
 #endif
 
@@ -64,6 +83,7 @@ final class NitroWebViewMessageHandler: NSObject {
 
   /// Weak to avoid retain cycles with the HybridView that owns the handler.
   weak var dispatcher: NitroWebViewMessageDispatcher?
+  var allowedOrigins: [String]?
 
   init(dispatcher: NitroWebViewMessageDispatcher? = nil) {
     self.dispatcher = dispatcher
@@ -77,9 +97,11 @@ final class NitroWebViewMessageHandler: NSObject {
   /// messages before/after the dispatcher is wired and we should not crash
   /// the app over a benign race.
   func handle(message: PostMessageScriptMessage) {
+    guard NitroWebViewMessagePolicy.allows(allowedOrigins, senderOrigin: message.senderOrigin) else { return }
     let data = Self.stringifyBody(message.body)
     let url = message.postMessageWebView?.currentURL?.absoluteString ?? ""
-    let event = NitroWebViewMessageEvent(data: data, url: url)
+    let event = NitroWebViewMessageEvent(data: data, url: url,
+      sourceOrigin: message.senderOrigin, isMainFrame: message.senderIsMainFrame)
     dispatcher?.dispatchMessage(event)
   }
 

@@ -692,3 +692,9 @@ Cache clearing removes resource cache only, leaving cookies and DOM storage.
 <NitroWebView key={`session-${sessionId}`} incognito={privateSession}
   source={{ uri: 'https://example.com' }} />
 ```
+
+### Message sender policy
+
+`onMessage.nativeEvent.url` is the top-level page URL. Authenticate a message with the native `sourceOrigin` and `isMainFrame` fields, never with a URL supplied in its JSON payload. Set `allowedMessageOrigins` to exact HTTP(S) origins to filter delivery natively. Omit it for unrestricted delivery; an empty array denies all. Origins may end in `/`; paths, credentials, wildcards, query strings, fragments and port zero are invalid. An invalid entry denies the entire list and emits `onError` with domain `NitroWebViewConfiguration`.
+
+On Android, sender metadata requires AndroidX `WEB_MESSAGE_LISTENER` support from the installed System WebView. Without it, unrestricted delivery retains the legacy bridge and omits sender fields; a configured policy denies delivery and emits a configuration error. iOS uses `WKScriptMessage.frameInfo.securityOrigin`. Opaque origins are represented as `"null"` and cannot match the HTTP(S) allowlist. Allowed origins can send from child frames: check `isMainFrame` when your application requires top-level messages. This policy controls messages only.

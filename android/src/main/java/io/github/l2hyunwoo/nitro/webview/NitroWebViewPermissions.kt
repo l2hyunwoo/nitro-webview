@@ -153,7 +153,7 @@ internal class NitroWebViewPermissions(
       return origins?.any { canonicalOrigin(it) == target } == true
     }
 
-    private fun canonicalOrigin(value: String): String? =
+    internal fun canonicalOrigin(value: String): String? =
       try {
         val uri = URI(value)
         val scheme = uri.scheme?.lowercase()

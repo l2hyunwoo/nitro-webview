@@ -79,6 +79,11 @@ using namespace margelo::nitro::nitrowebview::views;
   // 2. Update each prop individually
   swiftPart.beforeUpdate();
 
+  // allowedMessageOrigins: optional
+  if (newViewProps.allowedMessageOrigins.isDirty) {
+    swiftPart.setAllowedMessageOrigins(newViewProps.allowedMessageOrigins.value);
+    newViewProps.allowedMessageOrigins.isDirty = false;
+  }
   // mediaCapturePermissionOrigins: optional
   if (newViewProps.mediaCapturePermissionOrigins.isDirty) {
     swiftPart.setMediaCapturePermissionOrigins(newViewProps.mediaCapturePermissionOrigins.value);

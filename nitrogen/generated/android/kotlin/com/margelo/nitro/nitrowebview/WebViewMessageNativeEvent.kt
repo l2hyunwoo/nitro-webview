@@ -23,7 +23,13 @@ data class WebViewMessageNativeEvent(
   val data: String,
   @DoNotStrip
   @Keep
-  val url: String
+  val url: String,
+  @DoNotStrip
+  @Keep
+  val sourceOrigin: String?,
+  @DoNotStrip
+  @Keep
+  val isMainFrame: Boolean?
 ) {
   /* primary constructor */
 
@@ -32,12 +38,16 @@ data class WebViewMessageNativeEvent(
     if (other !is WebViewMessageNativeEvent) return false
     return Objects.deepEquals(this.data, other.data)
       && Objects.deepEquals(this.url, other.url)
+      && Objects.deepEquals(this.sourceOrigin, other.sourceOrigin)
+      && Objects.deepEquals(this.isMainFrame, other.isMainFrame)
   }
 
   override fun hashCode(): Int {
     return arrayOf<Any?>(
       data,
-      url
+      url,
+      sourceOrigin,
+      isMainFrame
     ).contentDeepHashCode()
   }
 
@@ -49,8 +59,8 @@ data class WebViewMessageNativeEvent(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(data: String, url: String): WebViewMessageNativeEvent {
-      return WebViewMessageNativeEvent(data, url)
+    private fun fromCpp(data: String, url: String, sourceOrigin: String?, isMainFrame: Boolean?): WebViewMessageNativeEvent {
+      return WebViewMessageNativeEvent(data, url, sourceOrigin, isMainFrame)
     }
   }
 }

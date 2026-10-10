@@ -145,6 +145,13 @@ namespace margelo::nitro::nitrowebview {
 
   public:
     // Properties
+    inline std::optional<std::vector<std::string>> getAllowedMessageOrigins() noexcept override {
+      auto __result = _swiftPart.getAllowedMessageOrigins();
+      return __result;
+    }
+    inline void setAllowedMessageOrigins(const std::optional<std::vector<std::string>>& allowedMessageOrigins) noexcept override {
+      _swiftPart.setAllowedMessageOrigins(allowedMessageOrigins);
+    }
     inline std::optional<std::vector<std::string>> getMediaCapturePermissionOrigins() noexcept override {
       auto __result = _swiftPart.getMediaCapturePermissionOrigins();
       return __result;

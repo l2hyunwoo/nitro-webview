@@ -59,6 +59,7 @@ namespace margelo::nitro::nitrowebview::views {
                             const react::RawProps& rawProps);
 
   public:
+    CachedProp<std::optional<std::vector<std::string>>> allowedMessageOrigins;
     CachedProp<std::optional<std::vector<std::string>>> mediaCapturePermissionOrigins;
     CachedProp<std::optional<std::vector<std::string>>> geolocationPermissionOrigins;
     CachedProp<std::variant<UriSource, HtmlSource>> source;
