@@ -64,13 +64,16 @@ test('real command failures and timeouts still reject and release the child', as
 });
 
 test('native tap dismisses warnings and uses the refreshed link ref', async () => {
-  for (const tap of [
-    agent => tapRegressionControl(agent, 'Navigate'),
-    agent =>
-      performNativeInteraction(
-        { id: 'history', label: 'Navigate' },
-        { platform: 'ios', agent },
-      ),
+  for (const [tap, hold] of [
+    [agent => tapRegressionControl(agent, 'Navigate'), []],
+    [
+      agent =>
+        performNativeInteraction(
+          { id: 'history', label: 'Navigate' },
+          { platform: 'ios', agent },
+        ),
+      ['--hold-ms', '100'],
+    ],
   ]) {
     const calls = [];
     const snapshots = [
@@ -99,9 +102,24 @@ test('native tap dismisses warnings and uses the refreshed link ref', async () =
       ['snapshot', '-i'],
       ['react-native', 'dismiss-overlay'],
       ['snapshot', '-i'],
-      ['click', '@e20'],
+      ['click', '@e20', ...hold],
     ]);
   }
+});
+
+test('native iOS buttons retain their ordinary ref tap', async () => {
+  const calls = [];
+  await performNativeInteraction(
+    { id: 'download', label: 'Download blob' },
+    {
+      platform: 'ios',
+      agent: async args => {
+        calls.push(args);
+        return '@e9 [button] "Download blob"';
+      },
+    },
+  );
+  assert.deepEqual(calls, [['snapshot', '-i'], ['click', '@e9']]);
 });
 
 test('native tap refuses absent controls and persistent overlays', async () => {

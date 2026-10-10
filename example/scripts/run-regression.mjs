@@ -261,7 +261,14 @@ export async function performNativeInteraction(value, context) {
             (match[2] === 'link' ||
               (label === 'Media' && match[2] === 'other'))),
       );
-      if (target) return agent(['click', target[1]], 30000);
+      if (target) {
+        // A short XCTest press avoids the synthesized tap path for iOS links.
+        const hold =
+          platform === 'ios' && target[2] === 'link'
+            ? ['--hold-ms', '100']
+            : [];
+        return agent(['click', target[1], ...hold], 30000);
+      }
       if (!fileInput && nodes.length)
         return agent(['find', label, 'click', '--first'], 30000);
       if (
