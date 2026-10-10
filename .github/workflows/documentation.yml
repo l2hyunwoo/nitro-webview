@@ -1,0 +1,76 @@
+name: Documentation
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'src/**'
+      - '.github/workflows/documentation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'src/**'
+      - '.github/workflows/documentation.yml'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy the validated main branch to GitHub Pages
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_OPTIONS: --max-old-space-size=768
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install documentation dependencies
+        working-directory: website
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build and check documentation
+        working-directory: website
+        run: npm run build
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-site
+          path: website/.vitepress/dist
+          retention-days: 7
+      - name: Upload Pages artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v4
