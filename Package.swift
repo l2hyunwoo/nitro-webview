@@ -69,6 +69,7 @@ let package = Package(
         // escaping. Standalone for the same reason — re-exposed on the
         // hybrid via `HybridNitroWebView.postMessageScript(_:)`.
         "NitroWebViewPostMessage.swift",
+        "NitroWebViewDownloadFiles.swift",
       ]
     ),
     .testTarget(
@@ -242,6 +243,11 @@ let package = Package(
       name: "HybridNitroWebViewImperativeMethodsTests",
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewImperativeMethodsTests"
+    ),
+    .testTarget(
+      name: "NitroWebViewDownloadFilesTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/NitroWebViewDownloadFilesTests"
     ),
   ]
 )

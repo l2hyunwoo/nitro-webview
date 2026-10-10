@@ -123,13 +123,15 @@ export interface WebViewMessageEvent {
 }
 
 /**
- * Payload of an `onError` event emitted when navigation fails on either
- * platform.
+ * Payload of navigation, configuration, or blob-download failures.
+ * Blob operational errors use domain NitroWebViewDownload and code -1.
+ * They do not change page-load success or emit load lifecycle events.
  *
  * Field mapping:
  *   - `code`        — `NSError.code` (iOS) / `WebResourceError.getErrorCode()` (Android).
  *   - `description` — `NSError.localizedDescription` (iOS) /
- *                     `WebResourceError.getDescription().toString()` (Android).
+ *                     `WebResourceError.getDescription().toString()` (Android),
+ *                     or an operational/configuration failure description.
  *   - `url`         — Target URL at failure time. Always a string; empty
  *                     when neither the platform error metadata nor the
  *                     delegate had one in hand.
@@ -382,7 +384,7 @@ export interface NitroWebViewProps extends HybridViewProps {
   /** Fired when the web page calls `window.ReactNativeWebView.postMessage(...)`. */
   onMessage?: (event: WebViewMessageEvent) => void
 
-  /** Fired when navigation fails on either platform. */
+  /** Navigation/configuration failures, or blob operational errors (domain NitroWebViewDownload, code -1). */
   onError?: (event: NitroWebViewErrorEvent) => void
 
   /**
@@ -409,8 +411,7 @@ export interface NitroWebViewProps extends HybridViewProps {
    *     OS scheduling cannot be preempted, so total UI delay can exceed 250 ms.
    *
    * When the prop is unset every navigation is allowed (allow-all default).
-   * Blocked navigations are silently cancelled — no new event is emitted
-   * (`onError` stays scoped to network / SSL failures).
+   * Blocked navigations are silently cancelled and do not emit onError.
    *
    * Sub-frame (iframe) navigations surface here with `isTopFrame: false`;
    * on Android that only happens when
@@ -487,7 +488,7 @@ export interface NitroWebViewProps extends HybridViewProps {
    *     from the `HTTPURLResponse` headers.
    *   - Android (android.webkit.WebView): bound via
    *     `WebView.setDownloadListener` — every `onDownloadStart` invocation
-   *     translates directly into a single `onFileDownload` emission.
+   *     emits HTTP(S) download metadata. Blob requests emit success or onError.
    *
    * The WebView itself never persists a normal (http/https) download to
    * disk: JS is solely responsible for handling the download metadata.
@@ -496,8 +497,12 @@ export interface NitroWebViewProps extends HybridViewProps {
    * to a local reference in `nativeEvent.url` (iOS: a `file://` URL written
    * natively via `WKDownloadDelegate`; Android: a `data:` URL read in-page
    * and bridged back). See {@linkcode FileDownload.url} for the platform
-   * distinction. No extra prop is required — a consumer already listening to
-   * `onFileDownload` receives blob downloads for free.
+   * distinction. Android accepts one blob reader per view, up to 8 MiB,
+   * with a 30-second timeout. Navigation/source replacement cancels the reader.
+   * Both platforms cancel active blob downloads on disposal. Failures use
+   * onError with domain NitroWebViewDownload and do not fail the page load.
+   * Consumers own successful iOS temporary files and their UUID directories.
+   * Move the file to persistent storage, or delete the file and directory after use.
    */
   onFileDownload?: (event: FileDownloadEvent) => void
 
@@ -507,10 +512,9 @@ export interface NitroWebViewProps extends HybridViewProps {
    * iframes) never surface here — Android's `onReceivedHttpError` fires per
    * sub-resource and is filtered to main-frame only.
    *
-   * Disjoint from {@linkcode onError}: `onError` covers transport-level
-   * failures (DNS/TLS/reset/timeout) which carry no HTTP status, while
-   * `onHttpError` covers HTTP status codes from a response the server did
-   * send. The two are mutually exclusive by construction.
+   * Transport failures (DNS/TLS/reset/timeout) use {@linkcode onError}.
+   * HTTP status codes from server responses use onHttpError.
+   * Configuration and blob-download operations also use onError.
    *
    *   - iOS (WKWebView): read from `HTTPURLResponse.statusCode` inside
    *     `decidePolicyFor navigationResponse`. A server-rendered 404 body
@@ -796,9 +800,9 @@ export interface Cookie {
 
 /**
  * Metadata describing a file download intercepted by the WebView before the
- * native client commits to fetching/saving any bytes. Surfaced to JS via the
- * `onFileDownload` prop. The WebView itself never auto-saves on either
- * platform — JS decides what to do with the URL.
+ * native client handles the request. Surfaced to JS via `onFileDownload`.
+ * HTTP(S) downloads return metadata. Blob downloads return resolved bytes
+ * on Android or a temporary file owned by the consumer on iOS.
  *
  * Field semantics:
  *   - `url`           — Absolute download URL. Required. For a normal
@@ -810,8 +814,10 @@ export interface Cookie {
  *                       `WKDownloadDelegate`), while Android delivers a
  *                       `data:` URL (the blob is read in-page to a data URL
  *                       and bridged back). Either form can be `fetch()`-ed /
- *                       saved by the consumer; the original `blob:` URL is
- *                       not surfaced because it is dead once the page unloads.
+ *                       saved by the consumer. Android caps blobs at 8 MiB.
+ *                       iOS consumers must move the file or delete it and its
+ *                       parent UUID directory after use. The library retains
+ *                       successful files after disposal, but the OS can purge them.
  *   - `mimeType`      — MIME type reported by the platform. Optional;
  *                       absent when neither the navigation response nor the
  *                       Android `DownloadListener` provided one.
