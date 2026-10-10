@@ -68,7 +68,7 @@ Cookie URL methods require valid HTTP(S) URLs.
 
 Public navigation callbacks accept `boolean | Promise<boolean>`. Continue to wrap component callbacks in `callback(...)`.
 Rebuild the native app: the component now forwards settled results through an internal decision resolver.
-Set navigation callbacks through React props; assigning them directly through the hybrid ref bypasses this bridge.
+Set navigation callbacks through React props. Direct assignment through the hybrid ref bypasses this bridge and is rejected by the public types.
 Android waits against a nominal 250 ms budget. Timeout, rejection, and interruption retain the allow fallback.
 The budget does not preempt a slow callback or guarantee a strict maximum delay.
 Subframe interception remains opt-in and can add waiting time on iframe-heavy pages.
@@ -87,4 +87,6 @@ Android POST still rejects nonempty custom headers.
 
 `clearHistory()` remains a successful no-op on iOS. Remount with a new `key` when you need a fresh history stack.
 Imperative methods use `hybridRef`, not a React `ref`.
+`NitroWebViewType` and inferred hybrid refs now expose read-only methods and Nitro lifecycle APIs. They no longer expose view props.
+Move prop reads into app state and prop assignments into React props. Method calls and standard React refs remain unchanged.
 This component requires changes when migrating from `react-native-webview`; unsupported props do not gain equivalents in this release.
