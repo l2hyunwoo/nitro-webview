@@ -17,6 +17,7 @@
 #include "WebViewMessageNativeEvent.hpp"
 #include "JWebViewMessageNativeEvent.hpp"
 #include <string>
+#include <optional>
 
 namespace margelo::nitro::nitrowebview {
 

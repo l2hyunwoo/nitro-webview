@@ -15,9 +15,9 @@ A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin n
 
 ## Introduction
 
-`nitro-webview` is a drop-in WebView component for React Native that replaces the legacy bridge with [Nitro Modules][nitro]'s JSI-direct dispatch. It targets two audiences:
+`nitro-webview` is a WebView component for React Native using [Nitro Modules][nitro]'s JSI dispatch. Migration requires callback wrappers, hybrid refs, and a review of platform-specific props. It targets two audiences:
 
-- **Experienced RN + Nitro developers** who want a WebView that participates in the Nitro view contract — `getHostComponent`, hybrid refs, `callback(...)` event handlers, `Promise<T>` method results — without paying for JSON serialization or thread-hops on every prop update or event.
+- **Experienced RN + Nitro developers** who want a WebView that uses the Nitro view contract: `getHostComponent`, hybrid refs, `callback(...)` event handlers, and Promise method results.
 - **Teams evaluating WebView libraries** ("comparison shoppers") who already use `react-native-webview` and want to know what they keep, what changes, and what improves before they switch.
 
 ### What you keep coming from `react-native-webview`
@@ -25,20 +25,58 @@ A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin n
 - Same conceptual props (`source`, `userAgent`, `injectedJavaScript`, `onLoadStart` / `onLoadEnd`, `onMessage`, `onError`, `onShouldStartLoadWithRequest`, `onFileDownload`).
 - Same `window.ReactNativeWebView.postMessage(...)` page-side contract.
 - Same `originWhitelist`-style default (`['http://*', 'https://*']`) exposed as `DEFAULT_ORIGIN_WHITELIST`.
-- Same `WebViewNavigationType` string union (`'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other'`) so existing call-sites compile unchanged.
+- Same `WebViewNavigationType` string union (`'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other'`).
 
 ### What changes
 
 - Event props must be wrapped in `callback(...)` from `react-native-nitro-modules` so Nitro can dispatch them on the right thread.
-- `onShouldStartLoadWithRequest` accepts `boolean | Promise<boolean>` — no `lockIdentifier` round-trip. `async` callbacks are awaited transparently.
+- Public `onShouldStartLoadWithRequest` callbacks accept `boolean | Promise<boolean>`. Platform waiting and fallback rules differ; see the [migration guide](MIGRATION.md#navigation-timing-and-public-callbacks).
 - Imperative methods (`goBack`, `evaluateJavaScript`, `getCookies`, `setCookie`, `clearCookies`, …) live on the **hybrid ref** captured via the `hybridRef` prop, not on a React `ref`.
-- Native packages: `io.github.l2hyunwoo.nitrowebview` (Android) / `NitroWebView` Swift module (iOS). MIT-licensed, npm-published as `nitro-webview` (unscoped).
+- Native package: `io.github.l2hyunwoo.nitro.webview` (Android). MIT-licensed, npm-published as `nitro-webview` (unscoped).
 
 ### Why Nitro
 
 Nitro Modules pipes props, methods, and event callbacks through JSI so a load event or a cookie read does not round-trip through `NativeEventEmitter` or the bridge's serialization queue. For a WebView — which is event-heavy (navigation, messages, errors, downloads) — that is the main practical win.
 
 ## Quick Start
+
+This branch describes the unreleased `0.2.0` candidate. Its package version remains `0.1.0` until release validation completes.
+An npm installation uses the API in that published version, which can differ from this branch.
+See the [migration guide](MIGRATION.md) before adopting candidate behavior.
+
+### Support candidate
+
+Native views require React Native's New Architecture. This candidate narrows the previously unrestricted peer ranges to the development and validation baseline:
+
+| Dependency | Candidate peer range | Development pin |
+| --- | --- | --- |
+| React Native | `~0.85.3` | `0.85.3` |
+| React | `19.2.3` | `19.2.3` |
+| Nitro Modules | `^0.35.9` | `0.35.9` |
+| Nitrogen generator | Development only | `0.35.9` |
+
+This is a support policy, not evidence that other React Native versions fail. Existing consumers outside these ranges receive a peer dependency conflict and need compatibility validation before upgrading.
+React Native 0.85.3 requires its embedded React renderer version, `19.2.3`, exactly.
+Future versions allowed by these ranges remain unverified until their checks run.
+RN 0.85.3 requires Android API 24 or later and iOS 15.1 or later.
+Use Node.js 22.13 or later in the Node 22 line for development checks.
+Supported platforms are Android and iOS. visionOS, macOS, and Windows are not supported.
+
+### Package and release checks
+
+`yarn prepare` and `yarn prepack` compile TypeScript. They do not run Nitrogen.
+Run `yarn check:codegen` to generate bindings and reject changes under `nitrogen/generated`.
+Run `yarn test:package` to build declarations, inspect an actual npm tarball, and compile package-root imports in an isolated consumer.
+The package check installs the tarball with lifecycle scripts disabled. It does not perform native builds.
+CI checks Nitro Modules `0.35.9` and `0.35.10` with at most two package/typecheck jobs.
+The native release gate uses the example’s pinned `0.35.9` runtime; package/typecheck success does not verify native compatibility.
+
+The example's `link:..` dependency supports local development. Metro also resolves an installed tarball through its normal package entry.
+It does not replace `nitro-webview` with a fixed repository source path.
+Before release, install the packed tarball in a separate native app and run both platform builds and the normal-root smoke checks.
+Match that artifact and all required results to the release SHA. A missing, skipped, or failed required check blocks release.
+The manual release workflow requires ESLint, ktlint, TypeScript checks, and Android JVM and iOS Swift unit tests before preparing the release candidate.
+It repeats codegen and package checks on the version commit, then requires both packed native regression suites before tagging or publishing.
 
 ### 1. Install
 
@@ -128,9 +166,9 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onLoadEnd` | `(event: WebViewLoadEvent) => void` | Fired once when the main-document load ends, including errors. Terminal payloads have `loading: false`. |
 | `onNavigationStateChange` | `(state: WebViewNavigationState) => void` | URL / title / `canGoBack` / `canGoForward` / `loading`. |
 | `onMessage` | `(event: WebViewMessageEvent) => void` | Fires when the page calls `window.ReactNativeWebView.postMessage(...)`. |
-| `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation failure (network, SSL). |
+| `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation, configuration, or blob download failure. Check `nativeEvent.domain`. |
 | `onFileDownload` | `(event: FileDownloadEvent) => void` | Native intercepts a download and surfaces `{ url, mimeType?, fileName?, contentLength?, userAgent? }`. Storage is the JS layer's responsibility. Also fires for `blob:` downloads, with `url` resolved to a local `file://` (iOS) / `data:` (Android) URL — see [`FileDownload`](#filedownload--filedownloadevent). |
-| `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
+| `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Transport, configuration, and blob failures use `onError`. Sub-resource failures are dropped. |
 | `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Android: clear the old hybrid ref and remount with a new React `key`. iOS: call `reload()`. |
 | `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
 | `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow or cancel requests delivered by the platform navigation hook. Returning `false` (or a `Promise` resolving to `false`) cancels silently. See platform timing and coverage below. |
@@ -187,7 +225,10 @@ Object key order and JSON whitespace are not part of the contract.
 ### Types
 
 The package root exports HTTP error, renderer exit, scroll, and open-window events, including their nested payload types and `WebViewPoint`.
-Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions. The React component forwards its standard `ref` and passes `hybridRef` through to the native view. Set `onShouldStartLoadWithRequest` through React props; assigning it directly through `hybridRef` bypasses the component's result bridge and is unsupported.
+Public `NitroWebViewProps` and `OnShouldStartLoadWithRequest` accept synchronous or async decisions.
+The React component forwards its standard `ref` and passes `hybridRef` through to the native view.
+`NitroWebViewType` and inferred hybrid refs expose read-only imperative methods and Nitro lifecycle APIs, including `name`, `equals`, `toString`, and `dispose`.
+Set view props, including `onShouldStartLoadWithRequest`, through React. Hybrid refs do not expose props because direct callback assignment bypasses the component's result bridge.
 
 Rebuild the native app when upgrading to the 0.2 candidate; its navigation callback bindings are incompatible with older native binaries. Public callback signatures remain unchanged.
 
@@ -322,21 +363,32 @@ interface FileDownloadEvent {
 }
 ```
 
-**Blob downloads (`blob:`) — deliberately platform-asymmetric.** A `blob:`
-URL is not fetchable natively (its bytes live only in the web context), so the
-two platforms resolve it differently and `onFileDownload.nativeEvent.url`
-carries a **local** reference instead of the `blob:` URL:
+**Blob downloads (`blob:`).** Native resolves the page-scoped blob before
+calling `onFileDownload`. The event carries a local reference:
 
-- **iOS** streams the blob to a temp file natively via `WKDownloadDelegate`
-  (iOS 14.5+) — `url` is a local `file://` URL. No bytes cross the JS bridge.
-- **Android** has no `WKDownloadDelegate` equivalent, so it injects a reader
-  that resolves the blob in-page (`fetch → FileReader.readAsDataURL`) and
-  bridges it back — `url` is a `data:` URL (base64). This is O(fileSize) in
-  memory; fine for the common blob (generated CSV/PDF/image, a few MB), but a
-  very large blob will strain the bridge.
+- **iOS** streams the blob through `WKDownloadDelegate` and returns a
+  `file://` URL in a unique temporary directory. The library cancels active
+  downloads on view disposal and removes partial files after cancellation or failure.
+  A successful callback transfers ownership of the file and its UUID directory
+  to the consumer. Move the file to persistent storage promptly, or delete the
+  file and its parent UUID directory after use. Successful files survive view
+  disposal, but the operating system can purge temporary storage.
+  If no `onFileDownload` handler exists, the library removes the completed file.
+- **Android** reads one blob per WebView through `fetch` and `FileReader`, then
+  returns a base64 `data:` URL. The limit is **8 MiB** of decoded bytes.
+  The reader checks `Blob.size` before creating a `FileReader`; native also
+  bounds the envelope and validates base64 length against the reported byte count.
+  A second concurrent request fails instead of creating another reader.
+  Reading times out after **30 seconds**. Source replacement, navigation, and
+  view disposal cancel the pending request. Native accepts a reply only for
+  its pending request ID and original blob URL. Unmatched envelopes remain
+  ordinary `onMessage` data.
 
-Either way a consumer already listening to `onFileDownload` receives blob
-downloads for free (no extra prop) and can `fetch()`/save `url` uniformly.
+Blob fetch, read, timeout, size, cancellation, and destination failures emit
+`onError` with domain **`NitroWebViewDownload`** and code **`-1`**. These
+operational errors do not mark a page load as failed or emit load lifecycle
+callbacks. Disposal removes callbacks, so it does not emit a cancellation event.
+Normal HTTP(S) downloads still return metadata for the consumer to handle.
 
 ### Origin whitelist helpers
 
@@ -516,8 +568,8 @@ directory, leaving that process running. It refuses an unrelated Metro process.
 Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
 runner's own processes and session, leaving the device booted.
 
-The runner polls for up to 240 seconds. Success requires all 21 named Android cases
-or all 24 named iOS cases, with `complete: true` and every `ok: true`. Missing,
+The runner polls for up to 240 seconds. Success requires all 37 named Android cases
+or all 33 named iOS cases, with `complete: true` and every `ok: true`. Missing,
 incomplete, duplicate, or failed cases make the command fail. Android includes an
 actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
 The history case uses a real native tap because
@@ -591,9 +643,12 @@ Declare the permissions your app uses in its **app** AndroidManifest.xml:
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 ```
+
+Microphone capture also requires the normal `MODIFY_AUDIO_SETTINGS` permission; `RECORD_AUDIO` alone can fail with `NotReadableError`.
 
 The host must implement React Native's `PermissionAwareActivity` (as ReactActivity
 does). Missing runtime permissions prompt the user. Approximate location is
@@ -641,3 +696,9 @@ Cache clearing removes resource cache only, leaving cookies and DOM storage.
 <NitroWebView key={`session-${sessionId}`} incognito={privateSession}
   source={{ uri: 'https://example.com' }} />
 ```
+
+### Message sender policy
+
+`onMessage.nativeEvent.url` is the top-level page URL. Authenticate a message with the native `sourceOrigin` and `isMainFrame` fields, never with a URL supplied in its JSON payload. Set `allowedMessageOrigins` to exact HTTP(S) origins to filter delivery natively. Omit it for unrestricted delivery; an empty array denies all. Origins may end in `/`; paths, credentials, wildcards, query strings, fragments and port zero are invalid. An invalid entry denies the entire list and emits `onError` with domain `NitroWebViewConfiguration`.
+
+On Android, sender metadata requires AndroidX `WEB_MESSAGE_LISTENER` support from the installed System WebView. Without it, unrestricted delivery retains the legacy bridge and omits sender fields; a configured policy denies delivery and emits a configuration error. iOS uses `WKScriptMessage.frameInfo.securityOrigin`. Opaque origins are represented as `"null"` and cannot match the HTTP(S) allowlist. Allowed origins can send from child frames: check `isMainFrame` when your application requires top-level messages. This policy controls messages only.

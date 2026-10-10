@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  AppState,
   Button,
   Platform,
   ScrollView,
@@ -7,8 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import { callback, NitroWebView, wrapWithOriginWhitelist } from 'nitro-webview';
 import type {
+  FileDownloadEvent,
+  OpenWindowEvent,
   NitroWebViewErrorEvent,
   NitroWebViewMethods,
   NitroWebViewProps,
@@ -23,6 +27,7 @@ import type {
 import { color, fontSize, spacing } from './components/theme';
 
 const origin = 'http://127.0.0.1:8098';
+const fixtureText = 'Nitro native regression bytes: 한글 😀\n';
 const delay = (ms: number) =>
   new Promise<void>(resolve => setTimeout(resolve, ms));
 
@@ -51,7 +56,12 @@ type Settings = Pick<
   | 'defaultHeaders'
   | 'injectedJavaScript'
   | 'injectedJavaScriptBeforeContentLoaded'
+  | 'mediaCapturePermissionOrigins'
+  | 'geolocationPermissionOrigins'
+  | 'allowsInlineMediaPlayback'
+  | 'allowedMessageOrigins'
 >;
+type MessageRecord = WebViewMessageEvent['nativeEvent'];
 type Decision = (request: ShouldStartLoadRequest) => boolean | Promise<boolean>;
 type DecisionTiming = {
   url: string;
@@ -74,6 +84,9 @@ type Observation = {
   ref: NitroWebViewMethods | null;
   events: string[];
   messages: string[];
+  messageEvents: MessageRecord[];
+  downloads: FileDownloadEvent['nativeEvent'][];
+  windows: string[];
   errors: NitroWebViewErrorEvent['nativeEvent'][];
   httpStatuses: number[];
   states: WebViewNavigationState[];
@@ -154,10 +167,15 @@ export function RegressionVerificationScreen() {
   const inFlight = useRef(false);
   const sequence = useRef(0);
   const liveViews = useRef<Observation[]>([]);
+  const appStates = useRef<string[]>([]);
   useEffect(() => {
     mounted.current = true;
+    const subscription = AppState.addEventListener('change', state => {
+      appStates.current.push(state);
+    });
     return () => {
       mounted.current = false;
+      subscription.remove();
     };
   }, []);
 
@@ -209,6 +227,9 @@ export function RegressionVerificationScreen() {
         ref: null,
         events: [],
         messages: [],
+        messageEvents: [],
+        downloads: [],
+        windows: [],
         errors: [],
         httpStatuses: [],
         states: [],
@@ -300,7 +321,7 @@ export function RegressionVerificationScreen() {
       try {
         const value = await bounded(
           ref(view).evaluateJavaScript(
-            '({url:location.href,historyLength:history.length,readyState:document.readyState})',
+            '({url:location.href,historyLength:history.length,readyState:document.readyState,hasFocus:document.hasFocus(),visibility:document.visibilityState,secureContext:window.isSecureContext})',
           ),
           'page diagnostic',
           2000,
@@ -328,6 +349,34 @@ export function RegressionVerificationScreen() {
       );
     }
 
+    async function interact(action: string, label?: string) {
+      const id = `${runID}-${caseIndex}-${++sequence.current}`;
+      await fixture('/interaction', {
+        id,
+        action,
+        ...(label ? { label } : {}),
+      });
+      try {
+        const deadline = Date.now() + 90000;
+        while (Date.now() < deadline) {
+          const result = await fixture<{
+            id: string;
+            ok: boolean;
+            detail: string;
+          } | null>('/interaction-result');
+          if (result?.id === id) {
+            check(result.ok, result.detail);
+            return;
+          }
+          check(active(), 'Regression screen was removed');
+          await delay(250);
+        }
+        throw new Error(`Native interaction ${action} timed out`);
+      } finally {
+        await fixture('/interaction', null);
+      }
+    }
+
     async function report(complete: boolean) {
       try {
         await fixture('/results', {
@@ -348,7 +397,8 @@ export function RegressionVerificationScreen() {
         'load-200',
         async () => {
           const view = await mount('/200');
-          await ready(view);
+          // The first WebKit process launch is slower on hosted simulators.
+          await ready(view, undefined, 30000);
           await delay(200);
           check(
             view.events.join(',') === 'start,load,end',
@@ -863,7 +913,7 @@ export function RegressionVerificationScreen() {
             label: 'Navigate',
           });
           try {
-            await ready(view, '/target', 20000);
+            await ready(view, '/target', 90000);
           } finally {
             await fixture('/interaction', null);
           }
@@ -909,7 +959,708 @@ export function RegressionVerificationScreen() {
       ],
     );
 
+    tests.push(
+      [
+        'download-http-metadata',
+        async () => {
+          const view = await mount('/download-fixture');
+          await ready(view);
+          await interact('tap', 'Download HTTP');
+          await until(
+            () => view.downloads.length > 0,
+            'HTTP download callback',
+          );
+          await delay(250);
+          const download = view.downloads[0];
+          // WebKit sniffs this text attachment; Android reports its HTTP MIME type.
+          const mimeType =
+            Platform.OS === 'ios' ? 'text/plain' : 'application/octet-stream';
+          check(
+            view.downloads.length === 1 && download?.url === url('/attachment'),
+            'HTTP download URL/count changed',
+          );
+          check(
+            download.mimeType === mimeType &&
+              download.fileName === 'nitro-regression.txt' &&
+              download.contentLength === 43,
+            `HTTP metadata: ${JSON.stringify(download)}`,
+          );
+          check(
+            (await evaluate(view, 'location.pathname')) === '/download-fixture',
+            'HTTP download replaced its parent',
+          );
+          if (Platform.OS === 'ios') {
+            check(
+              view.errors.length === 0 &&
+                view.events.filter(event => event === 'load').length === 1 &&
+                view.events.filter(event => event === 'end').length ===
+                  view.events.filter(event => event === 'start').length,
+              'download policy interruption emitted a page error or unbalanced load events',
+            );
+          }
+          check(
+            (await records()).filter(item => item.path === '/attachment')
+              .length === 1,
+            'attachment requested more than once',
+          );
+          return 'one real attachment callback with URL, MIME type, filename and 43-byte length; parent preserved';
+        },
+      ],
+      [
+        'download-blob-bytes',
+        async () => {
+          const view = await mount('/download-fixture');
+          await ready(view);
+          await interact('tap', 'Download blob');
+          await until(
+            () => view.downloads.length > 0,
+            'blob download callback',
+            20000,
+          );
+          await delay(250);
+          check(view.downloads.length === 1, 'blob callback duplicated');
+          const download = view.downloads[0]!;
+          if (Platform.OS === 'ios') {
+            check(
+              download.url.startsWith('file://'),
+              'iOS blob is not a local file',
+            );
+            const path = decodeURI(download.url.slice(7));
+            try {
+              check(
+                (await bounded(
+                  RNFS.readFile(path, 'utf8'),
+                  'read native blob file',
+                )) === fixtureText,
+                'native blob file bytes changed',
+              );
+            } finally {
+              check(
+                path.includes('/nitro-webview-blob/'),
+                'unexpected blob destination',
+              );
+              await RNFS.unlink(path.slice(0, path.lastIndexOf('/')));
+            }
+          } else {
+            const encoded = await evaluate(
+              view,
+              'btoa(unescape(encodeURIComponent(window.fixtureText)))',
+            );
+            check(
+              download.url ===
+                `data:application/octet-stream;base64,${String(encoded)}`,
+              'Android blob data URL bytes changed',
+            );
+            check(
+              download.contentLength === 43,
+              'Android blob byte count changed',
+            );
+          }
+          check(view.errors.length === 0, 'successful blob emitted an error');
+          check(
+            (await evaluate(view, 'location.pathname')) === '/download-fixture',
+            'blob changed the parent',
+          );
+          return 'native blob callback fired once; actual local bytes matched Unicode fixture and page remained usable';
+        },
+      ],
+      [
+        'message-native-frame-origins',
+        async () => {
+          const view = await mount('/frames');
+          await ready(view, '/frames');
+          if (Platform.OS === 'android') {
+            await evaluate(
+              view,
+              'try{window.ReactNativeWebView.postMessage(new ArrayBuffer(8))}catch(e){};window.ReactNativeWebView.postMessage("text-after-arraybuffer");true;',
+            );
+            await until(
+              () => view.messages.includes('text-after-arraybuffer'),
+              'text bridge after unsupported ArrayBuffer',
+            );
+            check(
+              !view.messages.includes('[object ArrayBuffer]'),
+              'non-string native message escaped the listener guard',
+            );
+          }
+          await until(
+            () =>
+              ['/frame-same', '/frame-cross', '/frame-opaque'].every(path =>
+                view.messages.some(
+                  message =>
+                    message.startsWith('ready:') &&
+                    JSON.parse(message.slice(6)).path === path,
+                ),
+              ),
+            'three real iframe messages',
+          );
+          for (const [path, sourceOrigin, isMainFrame] of [
+            ['/frames', origin, true],
+            ['/frame-same', origin, false],
+            ['/frame-cross', 'http://localhost:8098', false],
+            ['/frame-opaque', 'null', false],
+          ] as const) {
+            const events = view.messageEvents.filter(
+              event =>
+                event.data.startsWith('ready:') &&
+                JSON.parse(event.data.slice(6)).path === path,
+            );
+            check(
+              events.length === 1 &&
+                events[0]?.sourceOrigin === sourceOrigin &&
+                events[0]?.isMainFrame === isMainFrame,
+              `${path} native origin/frame mismatch: ${JSON.stringify(events)}`,
+            );
+          }
+          return 'main, same-origin, cross-origin and sandboxed opaque iframe messages carried native origin/frame identity';
+        },
+      ],
+      [
+        'message-origin-policy',
+        async () => {
+          const view = await mount('/frames', {
+            allowedMessageOrigins: [origin],
+          });
+          await ready(view, '/frames');
+          await until(
+            () =>
+              view.messages.some(
+                message =>
+                  message.startsWith('ready:') &&
+                  JSON.parse(message.slice(6)).path === '/frame-same',
+              ),
+            'allowed same-origin iframe',
+          );
+          await until(() => view.events.includes('end'), 'policy page loaded');
+          await delay(500);
+          check(
+            (await records()).some(item => item.path === '/frame-cross') &&
+              (await records()).some(item => item.path === '/frame-opaque'),
+            'denied frames were not loaded',
+          );
+          check(
+            !view.messages.some(
+              message =>
+                message.startsWith('ready:') &&
+                ['/frame-cross', '/frame-opaque'].includes(
+                  JSON.parse(message.slice(6)).path,
+                ),
+            ),
+            'cross-origin or opaque iframe bypassed message policy',
+          );
+          await unmount();
+          const deny = await mount('/message-deny', {
+            allowedMessageOrigins: [],
+          });
+          await until(() => deny.events.includes('end'), 'deny-all page load');
+          await evaluate(
+            deny,
+            "window.ReactNativeWebView.postMessage('deny-all-probe');true;",
+          );
+          await delay(300);
+          check(
+            deny.messages.length === 0 && deny.errors.length === 0,
+            'deny-all delivered a message or broke navigation',
+          );
+          if (Platform.OS === 'ios') {
+            for (const idnOrigin of [
+              'https://xn--bcher-kva.example',
+              'https://xn--bcher-kva.example:8443',
+            ]) {
+              await unmount();
+              const idn = await mount(
+                '',
+                { allowedMessageOrigins: [idnOrigin] },
+                undefined,
+                {
+                  html: '<!doctype html><title>IDN sender</title><script>window.ReactNativeWebView.postMessage("idn-probe")</script>',
+                  baseUrl: `${idnOrigin}/`,
+                },
+              );
+              await until(
+                () =>
+                  idn.messageEvents.some(event => event.data === 'idn-probe'),
+                'allowed IDNA sender',
+              );
+              const messages = idn.messageEvents.filter(
+                event => event.data === 'idn-probe',
+              );
+              check(
+                messages.length === 1 &&
+                  messages[0]?.sourceOrigin === idnOrigin &&
+                  messages[0]?.isMainFrame === true,
+                `IDNA native sender: ${JSON.stringify(messages)}`,
+              );
+            }
+          }
+          return 'allowlist delivered main/same-origin only and rejected cross/opaque frames; [] rejected all; iOS also verified native IDNA sender identity at default and nondefault ports';
+        },
+      ],
+      [
+        'window-open-parent-unchanged',
+        async () => {
+          const view = await mount('/window-fixture');
+          await ready(view);
+          for (const [label, path] of [
+            ['Open blank', '/popup-blank'],
+            ['Open script', '/popup-script'],
+          ] as const) {
+            await interact('tap', label);
+            await until(
+              () => view.windows.includes(url(path)),
+              `${label} native callback`,
+            );
+          }
+          await delay(250);
+          check(
+            view.windows.length === 2,
+            `new-window callbacks: ${JSON.stringify(view.windows)}`,
+          );
+          check(
+            (await evaluate(view, 'location.pathname')) === '/window-fixture',
+            'new window replaced parent',
+          );
+          check(
+            !(await records()).some(item => item.path.startsWith('/popup-')),
+            'intercepted popup made an HTTP request',
+          );
+          check(
+            view.events.filter(event => event === 'load').length === 1,
+            'new window reloaded its parent',
+          );
+          return 'target=_blank and gesture window.open each emitted once; no destination request or parent navigation';
+        },
+      ],
+      [
+        'background-resume',
+        async () => {
+          const view = await mount('/lifecycle');
+          await ready(view);
+          const start = appStates.current.length;
+          const oldRef = ref(view);
+          await evaluate(view, 'window.lifecycleMarker="preserved";true;');
+          await interact('background-resume');
+          await until(
+            () => appStates.current.slice(start).includes('active'),
+            'foreground AppState',
+          );
+          check(
+            appStates.current
+              .slice(start)
+              .some(state => state === 'background' || state === 'inactive'),
+            'OS did not background the app',
+          );
+          check(
+            ref(view) === oldRef &&
+              (await evaluate(view, 'window.lifecycleMarker')) === 'preserved',
+            'resume replaced native ref or page state',
+          );
+          oldRef.postMessage('resume-probe');
+          await until(
+            () => view.messages.includes('echo:resume-probe'),
+            'post-resume bridge',
+          );
+          check(
+            (await records()).filter(item => item.path === '/lifecycle')
+              .length === 1 && view.rendererEvents.length === 0,
+            'resume reloaded or lost renderer',
+          );
+          return 'OS background/active transitions observed; same native ref and JS state survived, without reload; bridge echoed after resume';
+        },
+      ],
+      [
+        'file-chooser-cancel',
+        async () => {
+          const view = await mount('/upload-fixture');
+          await ready(view);
+          if (Platform.OS === 'ios') {
+            // Keep the accessibility tap inside the native Choose File button.
+            await evaluate(
+              view,
+              'document.getElementById("upload").style.width="80px";true;',
+            );
+          }
+          await interact('chooser-cancel');
+          await delay(300);
+          check(
+            (await evaluate(
+              view,
+              'document.getElementById("upload").files.length',
+            )) === 0,
+            'cancel selected a file',
+          );
+          check(
+            !view.messages.some(message => message.startsWith('upload:{')),
+            'cancel emitted uploaded bytes',
+          );
+          ref(view).postMessage('chooser-cancel-probe');
+          await until(
+            () => view.messages.includes('echo:chooser-cancel-probe'),
+            'bridge after picker cancel',
+          );
+          return 'real OS chooser appeared and was cancelled; no file/bytes selected and WebView bridge remained responsive';
+        },
+      ],
+      [
+        'fullscreen-exit-unmount',
+        async () => {
+          const view = await mount('/fullscreen-fixture', {
+            allowsInlineMediaPlayback: true,
+          });
+          await ready(view);
+          if (Platform.OS === 'ios') await interact('tap', 'Prepare video');
+          await until(
+            () => view.messages.includes('video:ready'),
+            'native video metadata',
+          );
+          await interact('tap', 'Fullscreen');
+          await until(
+            () => view.messages.includes('fullscreen:entered'),
+            'fullscreen entry',
+          );
+          await interact('fullscreen-exit');
+          await until(
+            () => view.messages.includes('fullscreen:exited'),
+            'fullscreen exit',
+          );
+          view.messages.length = 0;
+          await interact('tap', 'Fullscreen');
+          await until(
+            () => view.messages.includes('fullscreen:entered'),
+            'second fullscreen entry',
+          );
+          await unmount();
+          const after = await mount('/fullscreen-after');
+          await ready(after);
+          await interact('tap', 'Navigate');
+          await ready(after, '/target');
+          check(
+            view.errors.length === 0 && after.errors.length === 0,
+            'fullscreen teardown broke the view',
+          );
+          return 'real media entered/exited fullscreen; unmount while fullscreen restored app UI and a fresh native link tap navigated';
+        },
+      ],
+    );
+
     if (Platform.OS === 'android') {
+      tests.push(
+        [
+          'android-blob-failures-replay',
+          async () => {
+            const view = await mount('/download-fixture');
+            await ready(view);
+            const spoof =
+              '{"__nitro_blob__":{"requestId":"spoof","url":"blob:spoof","dataUrl":"data:text/plain;base64,QQ==","mimeType":"text/plain","size":1}}';
+            await evaluate(
+              view,
+              `window.ReactNativeWebView.postMessage(${JSON.stringify(spoof)});true;`,
+            );
+            await until(
+              () => view.messages.includes(spoof),
+              'unsolicited blob envelope remains a message',
+            );
+            check(
+              view.downloads.length === 0,
+              'unsolicited envelope produced a download',
+            );
+            await evaluate(view, 'window.blobSize=8*1024*1024+1;true;');
+            await interact('tap', 'Download blob');
+            await until(
+              () =>
+                view.errors.some(
+                  error => error.domain === 'NitroWebViewDownload',
+                ),
+              'oversized native reader error',
+            );
+            check(
+              view.errors.length === 1 && view.downloads.length === 0,
+              'oversized reader emitted success/duplicate error',
+            );
+            check(
+              view.errors[0]?.description.includes('too-large'),
+              `oversize error: ${JSON.stringify(view.errors)}`,
+            );
+            await evaluate(
+              view,
+              'window.blobSize=0;window.originalFetch=window.fetch;window.fetch=function(){return Promise.reject(new Error("fixture fetch failure"))};true;',
+            );
+            await interact('tap', 'Download blob');
+            await until(
+              () => view.errors.length === 2,
+              'native blob fetch failure',
+            );
+            check(
+              view.errors[1]?.domain === 'NitroWebViewDownload' &&
+                view.errors[1]?.description.includes('fetch') &&
+                view.downloads.length === 0,
+              'reader fetch failure classification changed',
+            );
+            await evaluate(
+              view,
+              'window.fetch=window.originalFetch;var bridge=window.ReactNativeWebView;window.originalPost=bridge.postMessage.bind(bridge);bridge.postMessage=function(data){if(data.indexOf("{\\"__nitro_blob__\\":")===0)window.lastEnvelope=data;window.originalPost(data)};true;',
+            );
+            await interact('tap', 'Download blob');
+            await until(
+              () => view.downloads.length === 1,
+              'reader recovery after failures',
+            );
+            const envelope = await evaluate(view, 'window.lastEnvelope');
+            check(
+              typeof envelope === 'string' && envelope.includes('requestId'),
+              'actual native-correlated reader envelope was not observed',
+            );
+            await evaluate(
+              view,
+              `window.originalPost(${JSON.stringify(envelope)});true;`,
+            );
+            await until(
+              () => view.messages.includes(envelope),
+              'replayed envelope remains a message',
+            );
+            await delay(250);
+            const finalCounts = {
+              downloads: view.downloads.length,
+              errors: view.errors.length,
+            };
+            check(
+              finalCounts.downloads === 1 && finalCounts.errors === 2,
+              'replay generated another download/error',
+            );
+            return 'real native reader rejected 8 MiB + 1 and fetch failure once each, recovered; unsolicited/replayed envelopes never created downloads';
+          },
+        ],
+        [
+          'android-file-upload',
+          async () => {
+            const view = await mount('/upload-fixture');
+            await ready(view);
+            await interact('chooser-upload');
+            await until(
+              () =>
+                view.messages.some(message => message.startsWith('upload:{')),
+              'OS-selected file FileReader bytes',
+            );
+            const message = view.messages.find(item =>
+              item.startsWith('upload:{'),
+            )!;
+            const upload = JSON.parse(message.slice(7));
+            check(
+              upload.name === 'nitro-regression.txt' &&
+                upload.size === 43 &&
+                upload.text === fixtureText,
+              `file upload bytes: ${message}`,
+            );
+            check(
+              (await evaluate(
+                view,
+                'document.getElementById("upload").files.length',
+              )) === 1,
+              'OS URI did not reach file input',
+            );
+            return 'Android DocumentsUI selected the pushed text file; actual FileReader name, size and Unicode bytes matched';
+          },
+        ],
+        [
+          'android-capture-chooser-cancel',
+          async () => {
+            const view = await mount('/upload-fixture');
+            await ready(view);
+            await interact('capture-cancel');
+            await delay(300);
+            check(
+              (await evaluate(
+                view,
+                'document.getElementById("capture").files.length',
+              )) === 0,
+              'cancelled camera returned its temporary capture URI',
+            );
+            check(
+              !view.messages.some(message => message.startsWith('upload:{')),
+              'capture cancellation returned bytes',
+            );
+            await interact('chooser-upload');
+            await until(
+              () =>
+                view.messages.some(message => message.startsWith('upload:{')),
+              'file selection after capture cancellation',
+            );
+            check(
+              JSON.parse(
+                view.messages
+                  .find(message => message.startsWith('upload:{'))!
+                  .slice(7),
+              ).text === fixtureText,
+              'stale capture URI replaced subsequent file selection',
+            );
+            return 'capture input offered/launched system camera; cancellation returned no temp URI; next OS file selection delivered correct bytes (no photo-success claim)';
+          },
+        ],
+        [
+          'android-permission-origin-deny',
+          async () => {
+            const view = await mount('/permission-fixture', {
+              geolocationPermissionOrigins: [],
+            });
+            await ready(view);
+            await interact('tap', 'Location');
+            await until(
+              () => view.messages.includes('location:denied:1'),
+              'native origin policy denial',
+            );
+            check(
+              !view.messages.some(message =>
+                message.startsWith('location:allowed:'),
+              ),
+              'denied origin obtained location',
+            );
+            return 'actual navigator.geolocation request received PERMISSION_DENIED from native empty origin policy';
+          },
+        ],
+        [
+          'android-media-origin-deny',
+          async () => {
+            const allowed = await mount('/permission-fixture', {
+              mediaCapturePermissionOrigins: [origin],
+            });
+            await ready(allowed);
+            for (const kind of ['camera', 'microphone'] as const) {
+              await pageDiagnostic(allowed, `before ${kind} tap`);
+              await interact(
+                'tap',
+                kind === 'camera'
+                  ? 'Camera permission'
+                  : 'Microphone permission',
+              );
+              await pageDiagnostic(allowed, `after ${kind} tap`);
+              await until(
+                () =>
+                  allowed.messages.some(message =>
+                    message.startsWith(`media:${kind}:`),
+                  ),
+                `allowed media origin live ${kind} track`,
+              );
+              check(
+                allowed.messages.includes(
+                  `media:${kind}:allowed:${kind === 'camera' ? 'video' : 'audio'}:live`,
+                ),
+                `allowed media origin did not obtain a live ${kind} track: ${JSON.stringify(allowed.messages)}`,
+              );
+            }
+            const view = await mount('/permission-fixture', {
+              mediaCapturePermissionOrigins: [],
+            });
+            await ready(view);
+            for (const kind of ['camera', 'microphone'] as const) {
+              await interact(
+                'tap',
+                kind === 'camera'
+                  ? 'Camera permission'
+                  : 'Microphone permission',
+              );
+              await until(
+                () =>
+                  view.messages.includes(
+                    `media:${kind}:denied:NotAllowedError`,
+                  ),
+                `${kind} native origin policy denial`,
+              );
+            }
+            check(
+              !view.messages.some(message => message.includes(':allowed:')),
+              'denied media origin obtained a live track',
+            );
+            return `allowed origin obtained live camera and microphone tracks with the same OS grants as the denied origin; real camera and microphone getUserMedia calls from a denied origin both returned NotAllowedError; ${allowed.diagnostics.join('; ')}`;
+          },
+        ],
+        [
+          'android-permission-os-deny',
+          async () => {
+            const view = await mount('/permission-fixture', {
+              geolocationPermissionOrigins: [origin],
+            });
+            await ready(view);
+            await interact('permission-deny');
+            await until(
+              () => view.messages.includes('location:denied:1'),
+              'OS runtime consent denial',
+            );
+            return 'allowed origin reached Android runtime location dialog; Don’t allow produced PERMISSION_DENIED';
+          },
+        ],
+        [
+          'android-permission-os-allow',
+          async () => {
+            const view = await mount('/permission-fixture', {
+              geolocationPermissionOrigins: [origin],
+            });
+            await ready(view);
+            await interact('permission-allow');
+            await until(
+              () =>
+                view.messages.some(message =>
+                  message.startsWith('location:allowed:'),
+                ),
+              'OS location grant and actual position',
+              20000,
+            );
+            check(
+              !view.messages.includes('location:denied:1'),
+              'runtime grant was denied',
+            );
+            return 'allowed origin reached Android runtime dialog; While using the app delivered a real geolocation position';
+          },
+        ],
+        [
+          'android-renderer-shared-views',
+          async () => {
+            const first = create({ uri: url('/renderer-shared-a') });
+            const second = create({ uri: url('/renderer-shared-b') });
+            await show([first, second]);
+            await Promise.all([ready(first), ready(second)]);
+            const oldRefs = [ref(first), ref(second)];
+            first.source = { uri: 'chrome://crash' };
+            await show([first, second]);
+            await until(
+              () =>
+                first.rendererEvents.length === 1 &&
+                second.rendererEvents.length === 1,
+              'both shared renderer exit callbacks',
+              15000,
+            );
+            check(
+              first.rendererEvents[0]?.didCrash === true &&
+                second.rendererEvents[0]?.didCrash === true,
+              'shared renderer exit classification changed',
+            );
+            await unmount();
+            for (const oldRef of oldRefs)
+              await rejects(
+                oldRef.evaluateJavaScript('1'),
+                'destroyed shared renderer evaluation',
+              );
+            await delay(300);
+            check(
+              (await records()).filter(item =>
+                item.path.startsWith('/renderer-shared-'),
+              ).length === 2,
+              'shared renderer cleanup replayed a source',
+            );
+            check(
+              first.rendererEvents.length === 1 &&
+                second.rendererEvents.length === 1,
+              'shared renderer exit duplicated',
+            );
+            const fresh = await mount('/renderer-shared-fresh');
+            await ready(fresh);
+            check(
+              (await evaluate(fresh, '2+2')) === 4,
+              'fresh WebView after multi-view exit failed',
+            );
+            return 'one real process crash notified both live WebViews exactly once; both old refs rejected; explicit fresh view recovered';
+          },
+        ],
+      );
       tests.push([
         'android-incognito-rejection',
         async () => {
@@ -1085,6 +1836,46 @@ export function RegressionVerificationScreen() {
 
     if (Platform.OS === 'ios') {
       tests.push(
+        [
+          'ios-callback-cleanup',
+          async () => {
+            const view = await mount('/callback-cleanup', {}, () => true);
+            await ready(view);
+            // Inspect the native object only here to verify the drop contract.
+            const stale = ref(view);
+            const retained = stale as unknown as Record<string, unknown>;
+            const callbacks = [
+              'onLoadStart',
+              'onLoad',
+              'onLoadEnd',
+              'onLoadProgress',
+              'onNavigationStateChange',
+              'onMessage',
+              'onError',
+              'onFileDownload',
+              'onHttpError',
+              'onRenderProcessGone',
+              'onScroll',
+              'onShouldStartLoadWithRequest',
+              'onOpenWindow',
+            ];
+            for (const name of callbacks)
+              check(
+                typeof retained[name] === 'function',
+                `${name} was not installed`,
+              );
+            const events = view.events.length;
+            await unmount();
+            await until(
+              () => callbacks.every(name => retained[name] == null),
+              'native callback release while retaining hybridRef',
+            );
+            await rejects(stale.evaluateJavaScript('true'), 'dropped iOS ref');
+            await delay(100);
+            check(view.events.length === events, 'callback fired after drop');
+            return 'all 13 native callbacks cleared while hybridRef stayed alive; stale evaluation rejected and no late event';
+          },
+        ],
         [
           'ios-evaluation-error',
           async () => {
@@ -1454,6 +2245,8 @@ export function RegressionVerificationScreen() {
               hybridRef={callback((nativeRef: NitroWebViewMethods) => {
                 view.ref = nativeRef;
               })}
+              onLoadProgress={callback(() => {})}
+              onScroll={callback(() => {})}
               onLoadStart={callback((event: WebViewLoadEvent) => {
                 view.events.push('start');
                 view.timeline.push({
@@ -1488,6 +2281,13 @@ export function RegressionVerificationScreen() {
               )}
               onMessage={callback((event: WebViewMessageEvent) => {
                 view.messages.push(event.nativeEvent.data);
+                view.messageEvents.push(event.nativeEvent);
+              })}
+              onFileDownload={callback((event: FileDownloadEvent) => {
+                view.downloads.push(event.nativeEvent);
+              })}
+              onOpenWindow={callback((event: OpenWindowEvent) => {
+                view.windows.push(event.nativeEvent.url);
               })}
               onRenderProcessGone={callback(
                 (event: NitroWebViewRenderProcessGoneEvent) => {
@@ -1544,7 +2344,7 @@ export function RegressionVerificationScreen() {
         style={styles.results}
         contentContainerStyle={styles.resultContent}
       >
-        {results.map(result => (
+        {(running ? results.slice(-3) : results).map(result => (
           <View key={result.name} style={styles.result}>
             <Text
               testID={`regression-case-${result.name}`}

@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
-import { NitroWebView } from 'nitro-webview';
+import { color } from './components/theme'
+import React, { useEffect, useRef, useState } from 'react'
+import { Button, StyleSheet, Text, View } from 'react-native'
+import { NitroWebView } from 'nitro-webview'
 
 const source = {
   html: `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body{font:17px -apple-system,sans-serif;padding:16px;background:#f4f7fb;color:#12243a}
-button{display:block;width:100%;font:inherit;padding:14px;margin:12px 0;border-radius:10px;border:1px solid #8898aa;background:white}
-pre{white-space:pre-wrap;background:#e3ecf6;padding:14px;border-radius:10px;min-height:100px}
+body{font:17px -apple-system,sans-serif;padding:16px;background:#fafafa;color:#18181b}
+button{display:block;width:100%;font:inherit;padding:14px;margin:12px 0;border-radius:10px;border:1px solid #d4d4d8;background:white}
+pre{white-space:pre-wrap;background:#f4f4f5;padding:14px;border-radius:10px;min-height:100px}
 </style></head><body>
 <h2>JavaScript dialogs</h2><p>Results below come from actual JavaScript return values.</p>
 <button onclick="record('alert', alert('Alert verification'))">Alert → OK</button>
@@ -25,32 +26,34 @@ function record(kind,value){
   document.getElementById('results').textContent=entries.join('\\n');
 }
 </script></body></html>`,
-};
+}
 
 export function DialogsVerificationScreen() {
-  const [mounted, setMounted] = useState(true);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mounted, setMounted] = useState(true)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current);
+      if (timer.current) clearTimeout(timer.current)
     },
-    [],
-  );
+    []
+  )
   const scheduleUnmount = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMounted(false), 5000);
-  };
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setMounted(false), 5000)
+  }
   return (
     <View style={styles.screen}>
       <Text style={styles.hint}>
         Test OK, Cancel, edited text, and consecutive dialogs.
       </Text>
       <Button
+        color={color.textPrimary}
         title={mounted ? 'Unmount WebView' : 'Mount WebView'}
         onPress={() => setMounted(!mounted)}
       />
       {mounted && (
         <Button
+          color={color.textPrimary}
           title="Unmount in 5 seconds (open a dialog now)"
           onPress={scheduleUnmount}
         />
@@ -61,11 +64,11 @@ export function DialogsVerificationScreen() {
         <Text>WebView unmounted.</Text>
       )}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f4f7fb' },
-  hint: { padding: 12, color: '#12243a' },
+  screen: { flex: 1, backgroundColor: '#fafafa' },
+  hint: { padding: 12, color: '#18181b' },
   webview: { flex: 1 },
-});
+})

@@ -49,6 +49,7 @@ let package = Package(
         "NitroWebViewMainThread.swift",
         "NitroWebViewSourceHandler.swift",
         "NitroWebViewMessageHandler.swift",
+        "NitroWebViewMessagePolicy.swift",
         // Second WKScriptMessageHandler for the SPA history shim. Like the
         // message handler it is Nitro-free (Foundation/WebKit only), so it
         // compiles into this host harness and its stringify seam is tested
@@ -69,6 +70,7 @@ let package = Package(
         // escaping. Standalone for the same reason — re-exposed on the
         // hybrid via `HybridNitroWebView.postMessageScript(_:)`.
         "NitroWebViewPostMessage.swift",
+        "NitroWebViewDownloadFiles.swift",
       ]
     ),
     .testTarget(
@@ -242,6 +244,11 @@ let package = Package(
       name: "HybridNitroWebViewImperativeMethodsTests",
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewImperativeMethodsTests"
+    ),
+    .testTarget(
+      name: "NitroWebViewDownloadFilesTests",
+      dependencies: ["NitroWebViewSource"],
+      path: "iosTests/Tests/NitroWebViewDownloadFilesTests"
     ),
   ]
 )

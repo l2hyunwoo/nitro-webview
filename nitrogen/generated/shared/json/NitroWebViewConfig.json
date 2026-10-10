@@ -4,6 +4,7 @@
   "bubblingEventTypes": {},
   "directEventTypes": {},
   "validAttributes": {
+    "allowedMessageOrigins": true,
     "mediaCapturePermissionOrigins": true,
     "geolocationPermissionOrigins": true,
     "source": true,

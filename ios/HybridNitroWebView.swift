@@ -13,6 +13,10 @@ final class HybridNitroWebView:
   private var isDropped = false
   private var mountedSettings: NitroWebViewSessionSettings?
   private var lastConfigurationError: String?
+  private var lastMessagePolicyError: String?
+  var allowedMessageOrigins: [String]? {
+    didSet { messageHandler.allowedOrigins = allowedMessageOrigins }
+  }
   private var pendingEvaluations: [UUID: Promise<String>] = [:]
 
   private var sessionSettings: NitroWebViewSessionSettings {
@@ -78,6 +82,7 @@ final class HybridNitroWebView:
   // only after the first complete prop batch, before loading any source.
   func afterUpdate() {
     guard !isDropped else { return }
+    reportMessagePolicyError()
     if let message = sessionSettings.error(comparedTo: mountedSettings) {
       sourceHandler.cancelPendingLoad()
       if lastConfigurationError != message {
@@ -92,6 +97,15 @@ final class HybridNitroWebView:
     if sourceHandler.consumePendingLoad() {
       applySource(source)
     }
+  }
+
+  private func reportMessagePolicyError() {
+    let error = NitroWebViewMessagePolicy.configurationError(allowedMessageOrigins)
+    if let error, error != lastMessagePolicyError {
+      emitError(NSError(domain: "NitroWebViewConfiguration", code: -1,
+        userInfo: [NSLocalizedDescriptionKey: error]), fallbackUrl: nil)
+    }
+    lastMessagePolicyError = error
   }
 
   private func createWebView() {
@@ -252,12 +266,30 @@ final class HybridNitroWebView:
   """
 
   func onDropView() {
+    guard !isDropped else { return }
     isDropped = true
+    clearEventCallbacks()
+    navigationDelegate.cancelDownloads()
     cancelPendingCallbacks()
     rejectPendingEvaluations()
-    guard let webView else { return }
-    detachWebView(webView)
+    if let webView { detachWebView(webView) }
     clearDelegateOwnersAndDispatchers()
+  }
+
+  private func clearEventCallbacks() {
+    onLoadStart = nil
+    onLoad = nil
+    onLoadEnd = nil
+    onLoadProgress = nil
+    onNavigationStateChange = nil
+    onMessage = nil
+    onError = nil
+    onFileDownload = nil
+    onHttpError = nil
+    onRenderProcessGone = nil
+    onScroll = nil
+    onShouldStartLoadWithRequest = nil
+    onOpenWindow = nil
   }
 
   private func cancelPendingCallbacks() {
@@ -265,10 +297,6 @@ final class HybridNitroWebView:
     uiDelegate.dialogs.cancel()
     progressObservation?.invalidate()
     progressObservation = nil
-    onLoadStart = nil
-    onLoad = nil
-    onLoadEnd = nil
-    onLoadProgress = nil
   }
 
   private func rejectPendingEvaluations() {
@@ -680,7 +708,9 @@ final class HybridNitroWebView:
     let payload = WebViewMessageEvent(
       nativeEvent: WebViewMessageNativeEvent(
         data: event.data,
-        url: event.url
+        url: event.url,
+        sourceOrigin: event.sourceOrigin,
+        isMainFrame: event.isMainFrame
       )
     )
     onMessage?(payload)
@@ -713,7 +743,9 @@ final class HybridNitroWebView:
       loading = false
       if let error = error {
         failed = true
-        owner?.emitError(error, fallbackUrl: owner?.webView?.url?.absoluteString)
+        if !NitroWebViewErrorMapper.isPolicyInterruption(error) {
+          owner?.emitError(error, fallbackUrl: owner?.webView?.url?.absoluteString)
+        }
       }
       owner?.emitLoadEnd(success: !failed)
       owner?.emitNavigationState()
@@ -725,30 +757,52 @@ final class HybridNitroWebView:
       pendingDecisions.cancelAll()
     }
 
-    /// In-flight blob downloads keyed by `WKDownload` identity. Holds the
-    /// chosen temp-file destination + the download's response so
-    /// `downloadDidFinish` (which receives only the `WKDownload`) can emit
-    /// `onFileDownload` with the local file URL + distilled metadata.
-    fileprivate var pendingDownloads: [ObjectIdentifier: (url: URL, response: URLResponse?)] = [:]
+    fileprivate struct PendingDownload {
+      let download: WKDownload
+      var destination: URL?
+      var response: URLResponse?
+    }
 
-    /// Pick a unique, non-existent temp-file destination for a blob download.
-    /// `WKDownload` requires a path that does NOT already exist, so each
-    /// download gets its own UUID subdirectory — concurrent / repeated
-    /// downloads of the same filename never collide. Returns `nil` when the
-    /// destination directory cannot be created. Static, host-testable.
-    static func blobDownloadDestination(suggestedFilename: String) -> URL? {
-      let dir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("nitro-webview-blob", isDirectory: true)
-        .appendingPathComponent(UUID().uuidString, isDirectory: true)
-      do {
-        try FileManager.default.createDirectory(
-          at: dir, withIntermediateDirectories: true
-        )
-      } catch {
-        return nil
+    fileprivate var pendingDownloads: [ObjectIdentifier: PendingDownload] = [:]
+
+    func cancelDownloads() {
+      let downloads = Array(pendingDownloads.values)
+      pendingDownloads.removeAll()
+      for entry in downloads {
+        entry.download.delegate = nil
+        let destination = entry.destination
+        // WebKit can still write until this completion runs.
+        entry.download.cancel { _ in
+          guard let destination else { return }
+          do {
+            try NitroWebViewDownloadFiles.discard(destination)
+          } catch {
+            NSLog("NitroWebViewDownload: cannot remove cancelled download: %@", error.localizedDescription)
+          }
+        }
       }
-      let name = suggestedFilename.isEmpty ? "download" : suggestedFilename
-      return dir.appendingPathComponent(name)
+    }
+
+    fileprivate func discardDownload(_ destination: URL?) {
+      guard let destination else { return }
+      do {
+        try NitroWebViewDownloadFiles.discard(destination)
+      } catch {
+        if let owner, !owner.isDropped {
+          owner.emitDownloadError(error, url: destination.absoluteString)
+        } else {
+          NSLog("NitroWebViewDownload: cannot remove partial download: %@", error.localizedDescription)
+        }
+      }
+    }
+
+    private func retainDownload(_ download: WKDownload) {
+      guard let owner, !owner.isDropped else {
+        download.cancel(nil)
+        return
+      }
+      pendingDownloads[ObjectIdentifier(download)] = PendingDownload(download: download)
+      download.delegate = self
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -789,12 +843,15 @@ final class HybridNitroWebView:
         decisionHandler(.cancel)
         return
       }
+      let allowPolicy: WKNavigationActionPolicy =
+        navigationAction.request.url?.scheme?.lowercased() == "blob" && navigationAction.shouldPerformDownload
+          ? .download : .allow
       guard owner.onShouldStartLoadWithRequest != nil else {
-        decisionHandler(.allow)
+        decisionHandler(allowPolicy)
         return
       }
       let id = pendingDecisions.park { allow in
-        decisionHandler(allow ? .allow : .cancel)
+        decisionHandler(allow ? allowPolicy : .cancel)
       }
       let payload = HybridNitroWebView.shouldStartPayload(for: navigationAction)
       owner.dispatchShouldStart(payload) { [weak pendingDecisions] allow in
@@ -892,7 +949,15 @@ final class HybridNitroWebView:
       navigationResponse: WKNavigationResponse,
       didBecome download: WKDownload
     ) {
-      download.delegate = self
+      retainDownload(download)
+    }
+
+    func webView(
+      _ webView: WKWebView,
+      navigationAction: WKNavigationAction,
+      didBecome download: WKDownload
+    ) {
+      retainDownload(download)
     }
   }
 
@@ -1222,6 +1287,12 @@ final class HybridNitroWebView:
     return HTTPCookie(properties: props)
   }
 
+  fileprivate func emitDownloadError(_ error: Error, url: String?) {
+    guard !isDropped else { return }
+    emitError(NSError(domain: "NitroWebViewDownload", code: -1,
+      userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]), fallbackUrl: url)
+  }
+
   /// Emit `onFileDownload` for a blob written to a local temp file by
   /// `WKDownloadDelegate`. `url` is the local `file://` URL; the rest of the
   /// metadata is distilled from the download's response the same way an HTTP
@@ -1258,29 +1329,42 @@ extension HybridNitroWebView.NavigationDelegate: WKDownloadDelegate {
     suggestedFilename: String,
     completionHandler: @escaping (URL?) -> Void
   ) {
-    let dest = HybridNitroWebView.NavigationDelegate.blobDownloadDestination(
-      suggestedFilename: suggestedFilename
-    )
-    guard let dest else {
+    let id = ObjectIdentifier(download)
+    guard var entry = pendingDownloads[id], let owner, !owner.isDropped else {
       completionHandler(nil)
       return
     }
-    // Stash response + destination — `downloadDidFinish` receives only the
-    // WKDownload, so the finish handler needs both looked up by identity.
-    pendingDownloads[ObjectIdentifier(download)] = (dest, response)
-    completionHandler(dest)
+    do {
+      let destination = try NitroWebViewDownloadFiles.destination(suggestedFilename: suggestedFilename)
+      entry.destination = destination
+      entry.response = response
+      pendingDownloads[id] = entry
+      completionHandler(destination)
+    } catch {
+      pendingDownloads[id] = nil
+      download.delegate = nil
+      completionHandler(nil)
+      owner.emitDownloadError(error, url: response.url?.absoluteString)
+    }
   }
 
   func downloadDidFinish(_ download: WKDownload) {
-    guard let entry = pendingDownloads.removeValue(forKey: ObjectIdentifier(download))
-    else { return }
-    owner?.emitBlobFileDownload(localFileURL: entry.url, response: entry.response)
+    guard let entry = pendingDownloads.removeValue(forKey: ObjectIdentifier(download)),
+      let destination = entry.destination else { return }
+    download.delegate = nil
+    guard let owner, !owner.isDropped, owner.onFileDownload != nil else {
+      discardDownload(destination)
+      return
+    }
+    // The consumer owns the completed file and its UUID directory after this callback.
+    owner.emitBlobFileDownload(localFileURL: destination, response: entry.response)
   }
 
   func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
-    // Drop the stashed entry; a failed blob read surfaces no event (matches
-    // the injected-reader `catch` swallow on Android).
-    pendingDownloads[ObjectIdentifier(download)] = nil
+    guard let entry = pendingDownloads.removeValue(forKey: ObjectIdentifier(download)) else { return }
+    download.delegate = nil
+    discardDownload(entry.destination)
+    owner?.emitDownloadError(error, url: entry.response?.url?.absoluteString ?? download.originalRequest?.url?.absoluteString)
   }
 }
 

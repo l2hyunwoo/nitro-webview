@@ -17,21 +17,26 @@ on:
           - 'true'
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   validate:
-    name: Validate (lint, typecheck, build)
+    name: Validate (ESLint, ktlint, typecheck, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -45,18 +50,39 @@ jobs:
       - name: Lint (ESLint, --max-warnings 0)
         run: yarn lint-ci
 
+      - name: Setup JDK 17 for ktlint
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Check handwritten Kotlin with ktlint 1.8.0
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 180 \
+            https://github.com/ktlint/ktlint/releases/download/1.8.0/ktlint \
+            --output "$RUNNER_TEMP/ktlint"
+          printf '%s  %s\n' a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75 "$RUNNER_TEMP/ktlint" | sha256sum --check
+          java -Xmx256m -jar "$RUNNER_TEMP/ktlint" 'android/src/**/*.kt' 'example/android/app/src/**/*.kt'
+
       - name: Typecheck (tsc --noEmit)
         run: yarn typecheck
 
-      - name: Build library (yarn prepare)
-        run: yarn prepare
+      - name: Verify generated native bindings
+        run: yarn check:codegen
+
+      - name: Check tarball and isolated public types
+        run: yarn test:package
+
+      - name: Test release candidate verification
+        run: node --test scripts/__tests__/*.test.mjs
 
       - name: Verify build artifacts
         run: |
           set -euo pipefail
           # tsconfig.json compiles src/ -> lib/ as a flat layout, so the entry
           # JS and its declaration file must land directly at lib/index.{js,d.ts}.
-          if ! (test -f lib/index.js && test -f lib/index.d.ts); then
+          if ! { test -f lib/index.js && test -f lib/index.d.ts; }; then
             echo "Expected build artifacts lib/index.js and lib/index.d.ts were not both produced."
             echo "Contents of lib/ (if it exists):"
             ls -la lib/ || echo "lib/ directory is missing."
@@ -67,14 +93,16 @@ jobs:
   test:
     name: Test (yarn test)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -108,30 +136,106 @@ jobs:
             echo "yarn test executed and reported success."
           fi
 
+  swift-test:
+    name: Swift tests (XCTest)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Run Swift tests
+        working-directory: iosTests
+        run: swift test --jobs 2
+
+  robolectric:
+    name: Android unit tests (Robolectric)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies (root)
+        run: yarn install --immutable
+
+      - name: Build TypeScript library (yarn prepare)
+        run: yarn prepare
+
+      - name: Install dependencies (example)
+        working-directory: example
+        run: yarn install --immutable
+
+      - name: Gradle cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('example/android/**/*.gradle*', 'example/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Run Robolectric suite
+        working-directory: example/android
+        run: ./gradlew :nitro-webview:testDebugUnitTest --no-daemon --build-cache --max-workers=2 -PreactNativeArchitectures=x86_64
+
+      - name: Stop Gradle daemon
+        if: always()
+        working-directory: example/android
+        run: ./gradlew --stop
+
   create-version-commit:
     name: Create version commit
     needs:
       - validate
       - test
+      - swift-test
+      - robolectric
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     outputs:
       version: ${{ steps.bump.outputs.version }}
       commit_sha: ${{ steps.bump.outputs.commit_sha }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
 
       - name: Configure git identity
         run: |
@@ -178,38 +282,70 @@ jobs:
 
           echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: Push release commit
-        if: inputs.dry_run != 'true'
-        run: |
-          set -euo pipefail
-          BRANCH_REF="${GITHUB_REF#refs/heads/}"
-          echo "Pushing release commit to origin/${BRANCH_REF}"
-          git push origin "HEAD:${BRANCH_REF}"
+      - name: Verify generated bindings at the version commit
+        run: yarn check:codegen
 
-      - name: Skip push (dry run)
-        if: inputs.dry_run == 'true'
-        run: echo "dry_run=true — skipping push of release commit ${{ steps.bump.outputs.commit_sha }}"
+      - name: Check versioned tarball and isolated public types
+        run: yarn test:package
+
+      - name: Pack canonical candidate and bundle its source commit
+        run: node scripts/release-candidate.mjs create "$CANDIDATE_DIR"
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}/
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-release-candidate:
+    name: Verify packed candidate on Android and iOS
+    needs: create-version-commit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e.yml
+    with:
+      ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+      packed: true
+      candidate_artifact: release-candidate
 
   create-version-tag:
     name: Create version tag
-    needs: create-version-commit
+    permissions:
+      contents: write
+    needs:
+      - create-version-commit
+      - verify-release-candidate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.sha }}
 
-      - name: Fetch release commit (live run)
-        if: inputs.dry_run != 'true'
-        run: |
-          set -euo pipefail
-          echo "Fetching release commit ${{ needs.create-version-commit.outputs.commit_sha }}"
-          git fetch origin "${{ needs.create-version-commit.outputs.commit_sha }}"
-          git checkout "${{ needs.create-version-commit.outputs.commit_sha }}"
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Download verified release candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}
+
+      - name: Restore exact version commit
+        env:
+          SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Configure git identity
         run: |
@@ -232,8 +368,7 @@ jobs:
           if [ "${DRY_RUN}" = "true" ]; then
             # Create tag locally so the job is fully testable in dry-run mode,
             # but do not push it to origin.
-            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}" || \
-              git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}"
             echo "dry_run=true — created tag ${TAG_NAME} locally; skipping push."
             git tag --list "${TAG_NAME}"
           else
@@ -243,6 +378,11 @@ jobs:
               exit 1
             fi
 
+            case "$GITHUB_REF" in
+              refs/heads/*) BRANCH_REF="${GITHUB_REF#refs/heads/}" ;;
+              *) echo "Release must run from a branch."; exit 1 ;;
+            esac
+            git push origin "HEAD:${BRANCH_REF}"
             git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}" "${COMMIT_SHA}"
             echo "Pushing tag ${TAG_NAME} to origin"
             git push origin "refs/tags/${TAG_NAME}"
@@ -276,47 +416,41 @@ jobs:
     needs:
       - create-version-commit
       - create-version-tag
+      - verify-release-candidate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: npm-publish
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     permissions:
       contents: read
       id-token: write
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+          persist-credentials: false
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Download verified release candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}
 
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build library (yarn prepare)
-        run: yarn prepare
-
-      - name: Verify build artifacts
-        run: |
-          set -euo pipefail
-          # tsconfig.json compiles src/ -> lib/ as a flat layout, so the entry
-          # JS and its declaration file must land directly at lib/index.{js,d.ts}.
-          # Match the acceptance criterion command form exactly.
-          if ! (test -f lib/index.js && test -f lib/index.d.ts); then
-            echo "Expected build artifacts lib/index.js and lib/index.d.ts were not both produced."
-            echo "Contents of lib/ (if it exists):"
-            ls -la lib/ || echo "lib/ directory is missing."
-            exit 1
-          fi
-          echo "Build artifacts verified: lib/index.js and lib/index.d.ts both present."
+      - name: Restore version commit and verify publish archive
+        id: candidate
+        env:
+          SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Verify package version matches release input
         env:
@@ -334,19 +468,21 @@ jobs:
         if: inputs.dry_run == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.candidate.outputs.tarball }}
         run: |
           set -euo pipefail
           echo "dry_run=true — running npm publish in dry-run mode (no upload)."
-          npm publish --provenance --access public --dry-run
+          npm publish "$TARBALL" --provenance --access public --dry-run
 
       - name: Publish to npm
         if: inputs.dry_run != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.candidate.outputs.tarball }}
         run: |
           set -euo pipefail
           echo "Publishing nitro-webview@${{ needs.create-version-commit.outputs.version }} to npm."
-          npm publish --provenance --access public
+          npm publish "$TARBALL" --provenance --access public
 
       - name: Confirm npm registry publication
         if: inputs.dry_run != 'true'
@@ -374,14 +510,34 @@ jobs:
       - create-version-tag
       - publish-npm
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     permissions:
       contents: write
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.create-version-commit.outputs.commit_sha }}
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Download verified release candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: ${{ env.CANDIDATE_DIR }}
+
+      - name: Restore exact version commit
+        env:
+          SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Generate release notes
         id: notes

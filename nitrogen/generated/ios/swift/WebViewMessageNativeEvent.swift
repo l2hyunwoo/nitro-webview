@@ -18,8 +18,20 @@ public extension WebViewMessageNativeEvent {
   /**
    * Create a new instance of `WebViewMessageNativeEvent`.
    */
-  init(data: String, url: String) {
-    self.init(std.string(data), std.string(url))
+  init(data: String, url: String, sourceOrigin: String?, isMainFrame: Bool?) {
+    self.init(std.string(data), std.string(url), { () -> bridge.std__optional_std__string_ in
+      if let __unwrappedValue = sourceOrigin {
+        return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_bool_ in
+      if let __unwrappedValue = isMainFrame {
+        return bridge.create_std__optional_bool_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }())
   }
 
   @inline(__always)
@@ -30,5 +42,29 @@ public extension WebViewMessageNativeEvent {
   @inline(__always)
   var url: String {
     return String(self.__url)
+  }
+  
+  @inline(__always)
+  var sourceOrigin: String? {
+    return { () -> String? in
+      if bridge.has_value_std__optional_std__string_(self.__sourceOrigin) {
+        let __unwrapped = bridge.get_std__optional_std__string_(self.__sourceOrigin)
+        return String(__unwrapped)
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var isMainFrame: Bool? {
+    return { () -> Bool? in
+      if bridge.has_value_std__optional_bool_(self.__isMainFrame) {
+        let __unwrapped = bridge.get_std__optional_bool_(self.__isMainFrame)
+        return __unwrapped
+      } else {
+        return nil
+      }
+    }()
   }
 }

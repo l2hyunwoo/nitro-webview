@@ -50,6 +50,8 @@ namespace margelo::nitro::nitrowebview {
 
   public:
     // Properties
+    std::optional<std::vector<std::string>> getAllowedMessageOrigins() override;
+    void setAllowedMessageOrigins(const std::optional<std::vector<std::string>>& allowedMessageOrigins) override;
     std::optional<std::vector<std::string>> getMediaCapturePermissionOrigins() override;
     void setMediaCapturePermissionOrigins(const std::optional<std::vector<std::string>>& mediaCapturePermissionOrigins) override;
     std::optional<std::vector<std::string>> getGeolocationPermissionOrigins() override;

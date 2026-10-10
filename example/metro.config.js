@@ -1,6 +1,5 @@
 const path = require('path')
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config')
-const { withRnHarness } = require('react-native-harness/metro')
 
 const root = path.resolve(__dirname, '..')
 
@@ -9,6 +8,7 @@ const root = path.resolve(__dirname, '..')
  */
 const config = {
   projectRoot: __dirname,
+  maxWorkers: 2,
   watchFolders: [root],
 
   resolver: {
@@ -22,16 +22,6 @@ const config = {
       path.resolve(__dirname, 'node_modules'),
       path.resolve(root, 'node_modules'),
     ],
-
-    resolveRequest: (context, moduleName, platform) => {
-      if (moduleName === 'nitro-webview') {
-        return {
-          filePath: path.join(root, 'src/index.ts'),
-          type: 'sourceFile',
-        }
-      }
-      return context.resolveRequest(context, moduleName, platform)
-    },
   },
 
   transformer: {
@@ -44,5 +34,4 @@ const config = {
   },
 }
 
-// withRnHarness must wrap the final merged config.
-module.exports = withRnHarness(mergeConfig(getDefaultConfig(__dirname), config))
+module.exports = mergeConfig(getDefaultConfig(__dirname), config)

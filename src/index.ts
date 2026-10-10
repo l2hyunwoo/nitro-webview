@@ -88,6 +88,8 @@ export {
   evaluateBridgeScript,
 } from './bridgeScript'
 export type {
+  BlobDownloadRequest,
+  BlobDownloadResult,
   AndroidBridgeSandbox,
   AndroidNativeBridge,
   BridgePlatform,

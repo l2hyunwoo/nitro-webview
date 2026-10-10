@@ -1,5 +1,6 @@
 package io.github.l2hyunwoo.nitro.webview
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -7,97 +8,119 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.UUID
 
-/**
- * JVM/Robolectric tests for the Android blob-download demux on
- * [HybridNitroWebView.Companion]:
- *
- *   - `buildBlobReaderScript` — the JS injected into the page to read a
- *     `blob:` URL to a data URL and post a reserved envelope.
- *   - `parseBlobEnvelope` — the demux the message sink runs to route that
- *     envelope to `onFileDownload` instead of `onMessage`.
- *
- * These MUST stay behavior-identical to the canonical TS source in
- * `src/bridgeScript.ts` (whose own round-trip is covered by
- * `src/__tests__/blob-reader-envelope.test.ts`). Robolectric supplies the
- * real `org.json` used by both helpers (the plain JVM stub throws).
- */
+/** Exercises the production request manager and bounded parser, without a Nitro view. */
 @RunWith(RobolectricTestRunner::class)
 class HybridNitroWebViewBlobEnvelopeTest {
-  // region: parseBlobEnvelope — happy path
+  private fun envelope(
+    request: NitroWebViewBlobDownloads.Request,
+    fields: Map<String, Any> = emptyMap(),
+  ): String {
+    val payload =
+      JSONObject()
+        .put("requestId", request.requestId)
+        .put("url", request.url)
+        .put("dataUrl", "data:application/pdf;base64,JVBERg==")
+        .put("mimeType", "application/pdf")
+        .put("size", 4)
+    for ((key, value) in fields) payload.put(key, value)
+    return JSONObject().put("__nitro_blob__", payload).toString()
+  }
 
-  @Test
-  fun `parseBlobEnvelope_returnsPayload_forWellFormedEnvelope`() {
-    val raw =
-      """{"__nitro_blob__":{"url":"blob:https://x/abc","dataUrl":"data:application/pdf;base64,JVBERg==","mimeType":"application/pdf","fileName":"report.pdf","size":5}}"""
-    val parsed = HybridNitroWebView.parseBlobEnvelope(raw)
-    assertNotNull(parsed)
-    assertEquals("blob:https://x/abc", parsed!!.url)
-    assertEquals("data:application/pdf;base64,JVBERg==", parsed.dataUrl)
-    assertEquals("application/pdf", parsed.mimeType)
-    assertEquals("report.pdf", parsed.fileName)
-    assertEquals(5.0, parsed.size, 0.0)
+  // Android JSONObject does not preserve insertion order on every SDK. The wire protocol does.
+  private fun wire(
+    request: NitroWebViewBlobDownloads.Request,
+    fields: Map<String, Any> = emptyMap(),
+  ): String {
+    val payload = JSONObject(envelope(request, fields)).getJSONObject("__nitro_blob__")
+    val id = payload.remove("requestId")
+    val body = payload.toString().removePrefix("{")
+    return "{\"__nitro_blob__\":{\"requestId\":" + JSONObject.quote(id as String) + "," + body + "}"
   }
 
   @Test
-  fun `parseBlobEnvelope_defaultsOptionalFields_whenAbsent`() {
-    val raw = """{"__nitro_blob__":{"url":"blob:https://x/1","dataUrl":"data:;base64,"}}"""
-    val parsed = HybridNitroWebView.parseBlobEnvelope(raw)
-    assertNotNull(parsed)
-    assertEquals("", parsed!!.mimeType)
-    assertEquals("", parsed.fileName)
-    assertEquals(0.0, parsed.size, 0.0)
-  }
-
-  // region: parseBlobEnvelope — channel isolation (normal onMessage falls through)
-
-  @Test
-  fun `parseBlobEnvelope_returnsNull_forNormalOnMessagePayloads`() {
-    assertNull(HybridNitroWebView.parseBlobEnvelope("hello"))
-    assertNull(HybridNitroWebView.parseBlobEnvelope(""))
-    assertNull(HybridNitroWebView.parseBlobEnvelope("""{"k":"v"}"""))
-    assertNull(HybridNitroWebView.parseBlobEnvelope(null))
-  }
-
-  @Test
-  fun `parseBlobEnvelope_returnsNull_whenKeyAppearsAsAValueElsewhere`() {
-    // The reserved key appearing as a VALUE must not be mistaken for an envelope.
-    assertNull(HybridNitroWebView.parseBlobEnvelope("""{"user":"__nitro_blob__"}"""))
+  fun `one native UUID request is pending and completion cannot replay`() {
+    val downloads = NitroWebViewBlobDownloads()
+    val request = downloads.begin("blob:https://x/abc", "report.pdf")!!
+    assertNotNull(UUID.fromString(request.requestId))
+    assertNull(downloads.begin("blob:https://x/second", "second.pdf"))
+    val reply = wire(request)
+    val result = downloads.accept(reply)!!
+    assertNull(result.error)
+    assertEquals("data:application/pdf;base64,JVBERg==", result.dataUrl)
+    assertEquals("report.pdf", result.request.fileName)
+    assertEquals(4.0, result.size!!, 0.0)
+    assertNull(downloads.pending)
+    assertNull(downloads.accept(reply))
+    assertNotNull(downloads.begin("blob:https://x/new", "new.pdf"))
+    assertNull(downloads.accept(reply))
   }
 
   @Test
-  fun `parseBlobEnvelope_returnsNull_forMalformedEnvelope`() {
-    // Matching prefix but missing required url/dataUrl.
-    assertNull(HybridNitroWebView.parseBlobEnvelope("""{"__nitro_blob__":{}}"""))
-    // Matching prefix but invalid JSON — must return null, never throw.
-    assertNull(HybridNitroWebView.parseBlobEnvelope("""{"__nitro_blob__"broken"""))
+  fun `ordinary and forged reserved messages cannot consume pending download`() {
+    val downloads = NitroWebViewBlobDownloads()
+    val request = downloads.begin("blob:https://x/abc", "report.pdf")!!
+    for (raw in listOf("hello", "", "{\"k\":\"v\"}", "{\"__nitro_blob__\":{}}", wire(request, mapOf("requestId" to "forged")))) {
+      assertNull(downloads.accept(raw))
+      assertEquals(request, downloads.pending)
+    }
+    assertEquals(request, downloads.cancel())
+    assertNull(downloads.accept(wire(request)))
+    assertNull(downloads.pending)
   }
 
-  // region: buildBlobReaderScript
-
   @Test
-  fun `buildBlobReaderScript_embedsBridgeAndReservedKey`() {
-    val js = HybridNitroWebView.buildBlobReaderScript("blob:https://x/abc", "report.pdf")
-    // org.json.JSONObject.quote escapes '/' as '\/' per the JSON spec (both
-    // are valid inside a JS string literal and decode to the same character;
-    // only the SOURCE representation differs from the raw URL).
-    assertTrue("must fetch the blob url", js.contains("blob:https:\\/\\/x\\/abc"))
-    assertTrue("must read as data url", js.contains("readAsDataURL"))
-    assertTrue("must post the reserved key", js.contains("__nitro_blob__"))
-    assertTrue(
-      "must route through the existing bridge",
-      js.contains("window.ReactNativeWebView"),
+  fun `mismatched URL malformed sizes and invalid base64 are explicit errors`() {
+    val request = NitroWebViewBlobDownloads.Request("native-id", "blob:https://x/abc", "native.pdf")
+    for (fields in listOf(
+      mapOf("url" to "blob:https://other/abc"),
+      mapOf("size" to -1),
+      mapOf("size" to 1.5),
+      mapOf("size" to "4"),
+      mapOf("size" to 5),
+      mapOf("size" to NitroWebViewBlobDownloads.MAX_BYTES + 1),
+      mapOf("dataUrl" to "https://example.test/file"),
+      mapOf("dataUrl" to "data:application/pdf;base64,%%%="),
+      mapOf("dataUrl" to "data:application/pdf;base64,AAA\n", "size" to 3),
+      mapOf("dataUrl" to "data:application/pdf;base64,A==="),
+      mapOf("mimeType" to "x".repeat(257)),
+      mapOf("error" to "untrusted error text"),
+    )) {
+      assertEquals(fields.toString(), "invalid", NitroWebViewBlobDownloads.parse(wire(request, fields), request)?.error)
+    }
+    val malformed = "{\"__nitro_blob__\":{\"requestId\":\"native-id\",broken"
+    assertEquals("invalid", NitroWebViewBlobDownloads.parse(malformed, request)?.error)
+    val nested = "{\"__nitro_blob__\":{\"requestId\":\"native-id\",\"extra\":" + "[".repeat(10_000) + "0" + "]".repeat(10_000) + "}}"
+    assertEquals("invalid", NitroWebViewBlobDownloads.parse(nested, request)?.error)
+    assertEquals(
+      "invalid",
+      NitroWebViewBlobDownloads.parse(malformed + " ".repeat(NitroWebViewBlobDownloads.MAX_ENVELOPE_CHARS), request)?.error,
     )
   }
 
   @Test
-  fun `buildBlobReaderScript_jsonEncodesInputs_soQuotesCannotBreakOut`() {
-    // A URL/name with quotes+backslashes must be JSON-encoded so it cannot
-    // terminate the source-string literal. '/' is also escaped as '\/' by
-    // org.json.JSONObject.quote (see the sibling test above).
-    val js = HybridNitroWebView.buildBlobReaderScript("""blob:https://x/a"b\c""", """n"a\me""")
-    // The raw unescaped forms must NOT appear verbatim; the escaped forms must.
-    assertTrue(js.contains("""blob:https:\/\/x\/a\"b\\c"""))
-    assertTrue(js.contains("""n\"a\\me"""))
+  fun `zero byte payload and explicit reader errors terminate exactly once`() {
+    for (error in listOf("fetch", "read", "abort", "timeout", "too-large", "busy")) {
+      val downloads = NitroWebViewBlobDownloads()
+      val request = downloads.begin("blob:https://x/abc", "report.pdf")!!
+      assertEquals(error, downloads.accept(wire(request, mapOf("error" to error)))?.error)
+      assertNull(downloads.pending)
+    }
+    val downloads = NitroWebViewBlobDownloads()
+    val request = downloads.begin("blob:https://x/empty", "empty")!!
+    val result = downloads.accept(wire(request, mapOf("dataUrl" to "data:;base64,", "mimeType" to "", "size" to 0)))!!
+    assertNull(result.error)
+    assertEquals(0.0, result.size!!, 0.0)
+  }
+
+  @Test
+  fun `script encodes native ID and URL and checks Blob size before FileReader`() {
+    val request = NitroWebViewBlobDownloads.Request("native-id", "blob:https://x/a\"b\\c\u2028", "native.pdf")
+    val script = NitroWebViewBlobDownloads.readerScript(request)
+    assertTrue(script.contains("native-id"))
+    assertTrue(script.contains("\\\"b\\\\c\\u2028"))
+    assertTrue(script.indexOf("blob.size >") < script.indexOf("new FileReader"))
+    assertTrue(NitroWebViewBlobDownloads.cancelScript(request.requestId).contains("native-id"))
   }
 }

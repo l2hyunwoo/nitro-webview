@@ -1,10 +1,59 @@
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+
+export const fixtureText = 'Nitro native regression bytes: 한글 😀\n';
+const tapLabels = new Set([
+  'Navigate',
+  'Download HTTP',
+  'Download blob',
+  'Open blank',
+  'Open script',
+  'Upload fixture',
+  'Capture fixture',
+  'Prepare video',
+  'Fullscreen',
+  'Location',
+  'Camera permission',
+  'Microphone permission',
+]);
+const nativeActions = new Set([
+  'background-resume',
+  'chooser-cancel',
+  'chooser-upload',
+  'capture-cancel',
+  'fullscreen-exit',
+  'permission-allow',
+  'permission-deny',
+]);
+
+export function validateRegressionInteraction(value) {
+  if (value === null) return null;
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    typeof value.id !== 'string' ||
+    !value.id ||
+    value.id.length > 160 ||
+    Object.keys(value).some(key => !['id', 'action', 'label'].includes(key))
+  )
+    throw new Error('Unsupported regression interaction');
+  const action = value.action ?? 'tap';
+  if (
+    action === 'tap'
+      ? !tapLabels.has(value.label)
+      : !nativeActions.has(action) || value.label !== undefined
+  )
+    throw new Error('Unsupported regression interaction');
+  return value;
+}
 
 export function createRegressionServer() {
   const requests = [];
   let results = null;
   let interaction = null;
+  let interactionResult = null;
   const server = http.createServer(async (req, res) => {
     const receivedAt = performance.now();
     const url = new URL(req.url, 'http://localhost');
@@ -23,22 +72,34 @@ export function createRegressionServer() {
     if (url.pathname === '/interaction') {
       if (req.method === 'POST') {
         try {
-          const value = JSON.parse(body);
-          if (
-            value !== null &&
-            (typeof value !== 'object' ||
-              typeof value.id !== 'string' ||
-              !value.id ||
-              value.label !== 'Navigate')
-          )
-            throw new Error('Unsupported interaction');
-          interaction = value;
+          interaction = validateRegressionInteraction(JSON.parse(body));
         } catch {
           res.writeHead(400);
           return res.end('Invalid interaction');
         }
       }
       return json(interaction);
+    }
+    if (url.pathname === '/interaction-result') {
+      if (req.method === 'POST') {
+        try {
+          const value = JSON.parse(body);
+          if (
+            !value ||
+            typeof value.id !== 'string' ||
+            !value.id ||
+            typeof value.ok !== 'boolean' ||
+            typeof value.detail !== 'string' ||
+            value.detail.length > 2000
+          )
+            throw new Error('Invalid result');
+          interactionResult = value;
+        } catch {
+          res.writeHead(400);
+          return res.end('Invalid interaction result');
+        }
+      }
+      return json(interactionResult);
     }
     if (url.pathname === '/results') {
       if (req.method === 'POST') {
@@ -55,6 +116,7 @@ export function createRegressionServer() {
       requests.length = 0;
       results = null;
       interaction = null;
+      interactionResult = null;
       return json({ ok: true });
     }
     const cookieNames = (req.headers.cookie ?? '')
@@ -76,6 +138,52 @@ export function createRegressionServer() {
       authorizationMatches: req.headers.authorization === 'fixture-request',
       authorizationCount,
     });
+    if (url.pathname === '/attachment') {
+      res.writeHead(200, {
+        'content-type': 'application/octet-stream',
+        'content-disposition': 'attachment; filename="nitro-regression.txt"',
+        'content-length': Buffer.byteLength(fixtureText),
+        'cache-control': 'no-store',
+      });
+      return res.end(fixtureText);
+    }
+    if (url.pathname === '/fixture.mp4') {
+      const bytes = readFileSync(
+        new URL('./fixtures/regression.mp4', import.meta.url),
+      );
+      const headers = {
+        'content-type': 'video/mp4',
+        'accept-ranges': 'bytes',
+        'cache-control': 'no-store',
+      };
+      if (req.headers.range) {
+        const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range);
+        const start = range ? Number(range[1]) : NaN;
+        const end = range?.[2]
+          ? Math.min(Number(range[2]), bytes.length - 1)
+          : bytes.length - 1;
+        if (
+          !Number.isSafeInteger(start) ||
+          start < 0 ||
+          start > end ||
+          start >= bytes.length
+        ) {
+          res.writeHead(416, {
+            ...headers,
+            'content-range': `bytes */${bytes.length}`,
+          });
+          return res.end();
+        }
+        res.writeHead(206, {
+          ...headers,
+          'content-range': `bytes ${start}-${end}/${bytes.length}`,
+          'content-length': end - start + 1,
+        });
+        return res.end(bytes.subarray(start, end + 1));
+      }
+      res.writeHead(200, { ...headers, 'content-length': bytes.length });
+      return res.end(bytes);
+    }
     if (url.pathname === '/seed') {
       res.setHeader(
         'set-cookie',
@@ -111,10 +219,69 @@ export function createRegressionServer() {
       authorizationMatches: req.headers.authorization === 'fixture-request',
       authorizationCount,
     };
-    const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>regression fixture</title></head>
-<body><p id="marker">JavaScript did not run</p><a id="nav" href="/target${url.search}">Navigate</a>
+    const featureMarkup =
+      {
+        '/download-fixture': `<a href="/attachment${url.search}">Download HTTP</a><button onclick="downloadBlob()">Download blob</button>`,
+        '/window-fixture': `<a href="/popup-blank${url.search}" target="_blank">Open blank</a><button onclick="window.open('/popup-script${url.search}','_blank')">Open script</button>`,
+        '/upload-fixture': `<label>Upload fixture<input id="upload" type="file" accept="text/plain"></label><label>Capture fixture<input id="capture" type="file" accept="image/*" capture="environment"></label>`,
+        '/fullscreen-fixture': `<video id="video" playsinline preload="auto" src="/fixture.mp4${url.search}"></video><button onclick="prepareVideo()">Prepare video</button><button onclick="fullscreen()">Fullscreen</button>`,
+        '/permission-fixture': `<button onclick="navigator.geolocation.getCurrentPosition(function(p){post('location:allowed:'+p.coords.latitude)},function(e){post('location:denied:'+e.code)},{enableHighAccuracy:true,timeout:15000,maximumAge:0})">Location</button><button onclick="media('camera')">Camera permission</button><button onclick="media('microphone')">Microphone permission</button>`,
+        '/frames': `<iframe src="/frame-same${url.search}"></iframe><iframe src="http://localhost:8098/frame-cross${url.search}"></iframe><iframe src="/frame-opaque${url.search}" sandbox="allow-scripts"></iframe>`,
+      }[url.pathname] ?? '';
+    const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>regression fixture</title><style>body{font:16px system-ui;margin:4px}button,a,label{display:inline-block;margin:5px}video{width:120px;height:65px}iframe{width:60px;height:30px}input{max-width:160px}</style></head>
+<body>${featureMarkup}<p id="marker">JavaScript did not run</p><a id="nav" href="/target${url.search}">Navigate</a>
 <script>
 function post(value) { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(value); }
+window.fixtureText = ${JSON.stringify(fixtureText)};
+window.blobSize = 0;
+function media(kind) {
+  navigator.mediaDevices.getUserMedia({video:kind==='camera',audio:kind==='microphone'}).then(function(stream){
+    try {
+      post('media:'+kind+':allowed:'+stream.getTracks().map(function(track){return track.kind+':'+track.readyState}).join(','));
+    } finally { stream.getTracks().forEach(function(track){track.stop()}); }
+  }).catch(function(error){post('media:'+kind+':denied:'+error.name)});
+}
+function downloadBlob() {
+  var bytes = window.blobSize ? new Uint8Array(window.blobSize) : window.fixtureText;
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
+  link.download = 'nitro-blob.txt';
+  document.body.appendChild(link);link.click();link.remove();
+}
+function prepareVideo() {
+  var video=document.getElementById('video');
+  try {
+    video.load();
+    video.play().catch(function(e){post('video:error:'+e.name)});
+  } catch(e) { post('video:error:'+e.name); }
+}
+function fullscreen() {
+  var video=document.getElementById('video');
+  try {
+    if(document.fullscreenEnabled && typeof video.requestFullscreen === 'function') {
+      video.requestFullscreen().catch(function(e){post('fullscreen:error:'+e.name)});
+    } else if(typeof video.webkitEnterFullscreen === 'function') {
+      video.webkitEnterFullscreen();
+    } else { post('fullscreen:error:unsupported'); }
+  } catch(e) { post('fullscreen:error:'+e.name); }
+}
+var video=document.getElementById('video');
+if(video){
+  video.addEventListener('loadedmetadata',function(){post('video:ready')});
+  video.addEventListener('webkitbeginfullscreen',function(){post('fullscreen:entered')});
+  video.addEventListener('webkitendfullscreen',function(){post('fullscreen:exited')});
+  document.addEventListener('fullscreenchange',function(){post(document.fullscreenElement?'fullscreen:entered':'fullscreen:exited')});
+}
+['upload','capture'].forEach(function(id){
+  var input=document.getElementById(id);if(!input)return;
+  input.addEventListener('cancel',function(){post(id+':cancel')});
+  input.addEventListener('change',function(){
+    if(!input.files.length){post(id+':empty');return;}
+    var file=input.files[0],reader=new FileReader();
+    reader.onload=function(){post('upload:'+JSON.stringify({name:file.name,size:file.size,text:reader.result}))};
+    reader.onerror=function(){post('upload:error')};reader.readAsText(file);
+  });
+});
 document.getElementById('marker').textContent = 'JavaScript ran';
 if (${url.pathname === '/js-disabled'}) fetch('/inline-marker${url.search}');
 window.addEventListener('message', function(event) { post('echo:' + event.data); });

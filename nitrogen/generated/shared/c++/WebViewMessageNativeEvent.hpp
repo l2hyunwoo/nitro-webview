@@ -31,6 +31,7 @@
 
 
 #include <string>
+#include <optional>
 
 namespace margelo::nitro::nitrowebview {
 
@@ -41,10 +42,12 @@ namespace margelo::nitro::nitrowebview {
   public:
     std::string data     SWIFT_PRIVATE;
     std::string url     SWIFT_PRIVATE;
+    std::optional<std::string> sourceOrigin     SWIFT_PRIVATE;
+    std::optional<bool> isMainFrame     SWIFT_PRIVATE;
 
   public:
     WebViewMessageNativeEvent() = default;
-    explicit WebViewMessageNativeEvent(std::string data, std::string url): data(data), url(url) {}
+    explicit WebViewMessageNativeEvent(std::string data, std::string url, std::optional<std::string> sourceOrigin, std::optional<bool> isMainFrame): data(data), url(url), sourceOrigin(sourceOrigin), isMainFrame(isMainFrame) {}
 
   public:
     friend bool operator==(const WebViewMessageNativeEvent& lhs, const WebViewMessageNativeEvent& rhs) = default;
@@ -61,13 +64,17 @@ namespace margelo::nitro {
       jsi::Object obj = arg.asObject(runtime);
       return margelo::nitro::nitrowebview::WebViewMessageNativeEvent(
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "data"))),
-        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "url")))
+        JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "url"))),
+        JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "sourceOrigin"))),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isMainFrame")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::nitrowebview::WebViewMessageNativeEvent& arg) {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "data"), JSIConverter<std::string>::toJSI(runtime, arg.data));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "url"), JSIConverter<std::string>::toJSI(runtime, arg.url));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "sourceOrigin"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.sourceOrigin));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "isMainFrame"), JSIConverter<std::optional<bool>>::toJSI(runtime, arg.isMainFrame));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -80,6 +87,8 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "data")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "url")))) return false;
+      if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "sourceOrigin")))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "isMainFrame")))) return false;
       return true;
     }
   };

@@ -108,58 +108,164 @@ export function buildPostMessageScript(
   return `${target}.dispatchEvent(new MessageEvent('message',{data:${data}}));`
 }
 
-/**
- * Reserved discriminator key for blob-download payloads posted back through
- * the existing `ReactNativeWebView.postMessage` bridge. A native message sink
- * peeks for this key before treating a payload as a normal `onMessage` string
- * — see {@linkcode parseBlobEnvelope}. Chosen to be collision-proof with a
- * real string payload (the `{"__nitro_blob__"` prefix).
- */
+/** Internal Android blob-download protocol. Only a pending native request can claim an envelope. */
 export const BLOB_ENVELOPE_KEY: '__nitro_blob__' = '__nitro_blob__'
+export const MAX_BLOB_DOWNLOAD_BYTES = 8 * 1024 * 1024
+export const MAX_BLOB_DATA_URL_CHARS =
+  4 * Math.ceil(MAX_BLOB_DOWNLOAD_BYTES / 3) + 512
+export const MAX_BLOB_ENVELOPE_CHARS = MAX_BLOB_DATA_URL_CHARS + 8192
+export const BLOB_DOWNLOAD_TIMEOUT_MS = 30_000
 
-/** Blob-download payload demuxed out of a reserved envelope. */
-export interface BlobDownloadPayload {
-  /** The original `blob:` URL the download was requested for. */
+export interface BlobDownloadRequest {
+  requestId: string
   url: string
-  /** `"data:<mime>;base64,<...>"`: the blob read to a data URL. */
-  dataUrl: string
-  /** MIME type from `Blob.type` (may be empty). */
-  mimeType: string
-  /** Best-effort suggested file name (native-derived; usually junk). */
   fileName: string
-  /** Byte length from `Blob.size` (0 when unknown). */
+}
+
+export interface BlobDownloadPayload extends BlobDownloadRequest {
+  dataUrl: string
+  mimeType: string
   size: number
 }
 
-/**
- * Spec-of-record demux for the blob-download bridge, kept as the reference the
- * native Kotlin port (`HybridNitroWebView.parseBlobEnvelope`) must match. Parses
- * a raw `postMessage` string to a blob payload, or `null` for a normal
- * `onMessage` payload; a cheap prefix peek runs before the `JSON.parse` cost.
- */
-export function parseBlobEnvelope(raw: string): BlobDownloadPayload | null {
-  if (typeof raw !== 'string') return null
-  // Prefix peek: only a payload literally starting with the reserved key can
-  // be ours. A user string that merely contains the key elsewhere is not.
-  if (raw.indexOf(`{"${BLOB_ENVELOPE_KEY}"`) !== 0) return null
+export type BlobDownloadResult =
+  | BlobDownloadPayload
+  | (BlobDownloadRequest & { error: string })
+
+/** Unmatched envelopes, including replayed IDs, remain ordinary onMessage data. */
+export function parseBlobEnvelope(
+  raw: string,
+  pending: BlobDownloadRequest | undefined
+): BlobDownloadResult | null {
+  if (!pending || typeof raw !== 'string') return null
+  const prefix = `{"${BLOB_ENVELOPE_KEY}":{"requestId":${JSON.stringify(pending.requestId)},`
+  if (!raw.startsWith(prefix)) return null
+  const invalid = (): BlobDownloadResult => ({ ...pending, error: 'invalid' })
+  if (raw.length > MAX_BLOB_ENVELOPE_CHARS) return invalid()
   try {
-    const obj = JSON.parse(raw) as {
-      [BLOB_ENVELOPE_KEY]?: Partial<BlobDownloadPayload>
+    const b = JSON.parse(raw)?.[BLOB_ENVELOPE_KEY]
+    if (!b || b.requestId !== pending.requestId || b.url !== pending.url)
+      return invalid()
+    if (
+      Object.values(b).some(
+        (value) => value !== null && typeof value === 'object'
+      )
+    )
+      return invalid()
+    if (Object.prototype.hasOwnProperty.call(b, 'error')) {
+      return typeof b.error === 'string' &&
+        [
+          'fetch',
+          'read',
+          'abort',
+          'timeout',
+          'too-large',
+          'invalid',
+          'busy',
+        ].includes(b.error)
+        ? { ...pending, error: b.error }
+        : invalid()
     }
-    const b = obj?.[BLOB_ENVELOPE_KEY]
-    if (!b || typeof b.url !== 'string' || typeof b.dataUrl !== 'string') {
-      return null
-    }
+    if (
+      typeof b.dataUrl !== 'string' ||
+      b.dataUrl.length > MAX_BLOB_DATA_URL_CHARS ||
+      typeof b.mimeType !== 'string' ||
+      b.mimeType.length > 256 ||
+      !Number.isSafeInteger(b.size) ||
+      b.size < 0 ||
+      b.size > MAX_BLOB_DOWNLOAD_BYTES
+    )
+      return invalid()
+    const comma = b.dataUrl.indexOf(',')
+    const header = b.dataUrl.slice(0, comma)
+    if (
+      comma < 0 ||
+      comma > 512 ||
+      !header.startsWith('data:') ||
+      !header.endsWith(';base64') ||
+      /[\r\n]/.test(header)
+    )
+      return invalid()
+    const base64 = b.dataUrl.slice(comma + 1)
+    const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
+    if (
+      base64.length !== 4 * Math.ceil(b.size / 3) ||
+      /[^A-Za-z0-9+/]/.test(base64.slice(0, base64.length - padding))
+    )
+      return invalid()
+    if ((base64.length / 4) * 3 - padding !== b.size) return invalid()
     return {
-      url: b.url,
+      ...pending,
       dataUrl: b.dataUrl,
-      mimeType: typeof b.mimeType === 'string' ? b.mimeType : '',
-      fileName: typeof b.fileName === 'string' ? b.fileName : '',
-      size: typeof b.size === 'number' ? b.size : 0,
+      mimeType: b.mimeType,
+      size: b.size,
     }
   } catch {
-    return null
+    return invalid()
   }
+}
+
+/** Read at most 8 MiB, with one reader per view and exactly one terminal response. */
+export function buildBlobReaderScript(request: BlobDownloadRequest): string {
+  return `;(function () {
+  var id = ${encodeJsStringLiteral(request.requestId)}, url = ${encodeJsStringLiteral(request.url)}, done = false, reader = null, timer = null;
+  var controller = null;
+  function finish(error, silent) {
+    if (done) { return; }
+    done = true;
+    if (timer !== null) { window.clearTimeout(timer); }
+    if (window.__nitroBlobReader && window.__nitroBlobReader.requestId === id) {
+      delete window.__nitroBlobReader;
+    }
+    if (error) {
+      if (controller) { controller.abort(); }
+      if (reader && reader.readyState === 1) { reader.abort(); }
+    }
+    if (!silent) {
+      var payload = { requestId: id, url: url };
+      if (error) { payload.error = error; }
+      else {
+        payload.dataUrl = reader.result;
+        payload.mimeType = reader.__nitroMimeType;
+        payload.size = reader.__nitroSize;
+      }
+      var envelope = { __nitro_blob__: payload };
+      var bridge = window.ReactNativeWebView;
+      if (bridge && typeof bridge.postMessage === 'function') {
+        bridge.postMessage(JSON.stringify(envelope));
+      }
+    }
+  }
+  if (window.__nitroBlobReader) { finish('busy'); return; }
+  window.__nitroBlobReader = { requestId: id, cancel: function () { finish('abort', true); } };
+  timer = window.setTimeout(function () { finish('timeout'); }, ${BLOB_DOWNLOAD_TIMEOUT_MS});
+  try {
+    if (typeof AbortController === 'function') { controller = new AbortController(); }
+    fetch(url, controller ? { signal: controller.signal } : {}).then(function (response) {
+      if (done) { return; }
+      if (!response.ok) { throw new Error('fetch'); }
+      return response.blob();
+    }).then(function (blob) {
+      if (done) { return; }
+      if (!blob || !Number.isSafeInteger(blob.size) || blob.size < 0) { finish('invalid'); return; }
+      if (blob.size > ${MAX_BLOB_DOWNLOAD_BYTES}) { finish('too-large'); return; }
+      try {
+        reader = new FileReader();
+        reader.__nitroSize = blob.size;
+        reader.__nitroMimeType = blob.type || '';
+        reader.onload = function () {
+          if (typeof reader.result !== 'string' || reader.result.length > ${MAX_BLOB_DATA_URL_CHARS}) {
+            finish('invalid'); return;
+          }
+          finish(null);
+        };
+        reader.onerror = function () { finish('read'); };
+        reader.onabort = function () { finish('abort'); };
+        reader.readAsDataURL(blob);
+      } catch (error) { finish('read'); }
+    })['catch'](function () { finish('fetch'); });
+  } catch (error) { finish('fetch'); }
+})();`
 }
 
 /**

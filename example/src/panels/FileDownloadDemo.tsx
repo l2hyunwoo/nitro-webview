@@ -1,261 +1,172 @@
-/**
- * FileDownloadDemo panel — modularized "File download demo" screen.
- *
- * Migrated from the inline section in the original `example/App.tsx`:
- *   - the `DOWNLOAD_URL` constant pointing at a W3C-hosted PDF that
- *     reliably returns `Content-Disposition: attachment`
- *   - the `DOWNLOAD_SOURCE` WebViewSource constant wrapping that URL
- *   - the `lastDownload` useState slot tracking the most recent
- *     `FileDownload` payload reported by `onFileDownload`
- *   - the `handleFileDownload` callback that:
- *       * stores the event on `lastDownload`
- *       * downloads the bytes via `@dr.pogodin/react-native-fs` to the
- *         OS Downloads folder (Android) or Documents folder (iOS) so
- *         the saved file is observable to the user
- *       * appends the resolved on-disk path (or an error string) back
- *         into `lastDownload.fileName`
- *   - the SectionLabel + last-download status row + single-button
- *     "Load PDF (triggers download)" toolbar + hint text
- *
- * Per the Seed contract this panel owns its own NitroWebView mount
- * (initially pointed at the demo PDF so opening the panel immediately
- * triggers the platform's download flow) and uses shared chrome
- * primitives (NavToolbar, SectionLabel, StatusBanner, ToolbarButton)
- * plus tokens from `theme.ts`. Existing demo behavior, HTML literals,
- * and callback wiring are migrated intact rather than rewritten.
- */
-
 import React, { useRef, useState } from 'react'
-import { Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
-import * as RNFS from '@dr.pogodin/react-native-fs'
+import { Platform, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 import type {
-  FileDownload,
   FileDownloadEvent,
-  NitroWebViewErrorEvent,
   NitroWebViewMethods,
   WebViewNavigationState,
   WebViewSource,
 } from 'nitro-webview'
-
+import { DemoTabs } from '../components/DemoTabs'
 import { NavToolbar } from '../components/NavToolbar'
-import { SectionLabel } from '../components/SectionLabel'
 import { StatusBanner } from '../components/StatusBanner'
 import { ToolbarButton } from '../components/ToolbarButton'
-import { color, fontFamily, fontSize, radii, spacing } from '../components/theme'
+import { color, fontSize, spacing } from '../components/theme'
+import { DOWNLOAD_SOURCE } from './demoFixtures'
+import { inspectDownload } from './downloadResult'
 
-// ---------------------------------------------------------------------------
-// Static sources — migrated verbatim from example/App.tsx
-// ---------------------------------------------------------------------------
-
-// A public PDF that reliably returns Content-Disposition: attachment
 const DOWNLOAD_URL =
-  'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
-const DOWNLOAD_SOURCE: WebViewSource = { uri: DOWNLOAD_URL }
-
-// ---------------------------------------------------------------------------
-// Panel
-// ---------------------------------------------------------------------------
+  Platform.OS === 'android'
+    ? 'http://10.0.2.2:8099/download'
+    : 'http://localhost:8099/download'
 
 export function FileDownloadDemo() {
   const ref = useRef<NitroWebViewMethods | null>(null)
-  const [source, setSource] = useState<WebViewSource>({ uri: 'about:blank' })
-  const [navState, setNavState] = useState<WebViewNavigationState>({
+  const [source, setSource] = useState<WebViewSource>(DOWNLOAD_SOURCE)
+  const [nav, setNav] = useState<WebViewNavigationState>({
     url: '',
     title: '',
     loading: false,
     canGoBack: false,
     canGoForward: false,
   })
-  const [lastError, setLastError] = useState<
-    NitroWebViewErrorEvent['nativeEvent'] | null
-  >(null)
-
-  // Download demo state — migrated verbatim from App.tsx.
-  const [lastDownload, setLastDownload] = useState<FileDownload | null>(null)
-
-  // Migrated verbatim from App.tsx's `handleFileDownload`. Records the
-  // event, then downloads the bytes via RNFS so the saved file is
-  // observable to the user. Android short-circuits navigation before
-  // bytes flow and iOS WKWebView delivers this event before any save,
-  // so the same fetch+write is correct for both platforms.
+  const [result, setResult] = useState({
+    ok: true,
+    title: 'No download yet',
+    body: 'Tap Download text Blob inside the page.',
+  })
   const handleFileDownload = callback(async (event: FileDownloadEvent) => {
-    const ev = event.nativeEvent
-    setLastDownload(ev)
+    const download = event.nativeEvent
+    setResult({
+      ok: true,
+      title: 'onFileDownload received',
+      body: `${download.fileName || 'download'} · ${
+        download.mimeType || 'unknown MIME'
+      }\nInspecting returned bytes…`,
+    })
     try {
-      const fileName = ev.fileName ?? `download-${Date.now()}`
-      const dest =
-        Platform.OS === 'android'
-          ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-          : `${RNFS.DocumentDirectoryPath}/${fileName}`
-      await RNFS.downloadFile({ fromUrl: ev.url, toFile: dest }).promise
-      setLastDownload({ ...ev, fileName: `${fileName} (saved to ${dest})` })
-    } catch (e) {
-      setLastDownload({
-        ...ev,
-        fileName: `${ev.fileName ?? 'download'} (save error: ${String(e)})`,
+      setResult({
+        ok: true,
+        title: 'Downloaded bytes inspected',
+        body: await inspectDownload(download),
+      })
+    } catch (error) {
+      setResult({
+        ok: false,
+        title: 'Download inspection failed',
+        body: String(error),
       })
     }
   })
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={color.headerBackground} />
-
-      {/* Header */}
+    <View style={styles.root}>
       <View style={styles.header}>
-        <Text style={styles.title}>File download demo</Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {navState.url || 'loading…'}
+        <Text style={styles.title}>File downloads</Text>
+        <Text style={styles.hint}>
+          Offline Blob and optional HTTP attachment
         </Text>
-        {navState.title ? (
-          <Text style={styles.pageTitle} numberOfLines={1}>
-            {navState.title}
-          </Text>
-        ) : null}
       </View>
-
       <NavToolbar
-        canGoBack={navState.canGoBack}
-        canGoForward={navState.canGoForward}
-        loading={navState.loading}
+        canGoBack={nav.canGoBack}
+        canGoForward={nav.canGoForward}
+        loading={nav.loading}
         onBack={() => ref.current?.goBack()}
         onForward={() => ref.current?.goForward()}
         onReload={() => ref.current?.reload()}
       />
-
-      {lastError ? (
-        <StatusBanner
-          status="error"
-          title={`onError fired (${lastError.domain} ${lastError.code})`}
-          body={lastError.description}
-          footer={lastError.url || '(no url)'}
-        />
-      ) : null}
-
       <NitroWebView
         style={styles.webview}
         source={source}
-        hybridRef={callback((r: NitroWebViewMethods) => {
-          ref.current = r
+        hybridRef={callback((value: NitroWebViewMethods) => {
+          ref.current = value
         })}
-        onNavigationStateChange={callback((state: WebViewNavigationState) => {
-          setNavState(state)
-        })}
-        onError={callback((event: NitroWebViewErrorEvent) => {
-          setLastError(event.nativeEvent)
-        })}
+        onNavigationStateChange={callback(setNav)}
         onFileDownload={handleFileDownload}
-      />
-
-      <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent}>
-        <SectionLabel text="File download demo" />
-        {lastDownload ? (
-          <View style={styles.downloadRow}>
-            <Text style={styles.downloadLabel}>last download:</Text>
-            <Text style={styles.downloadValue} numberOfLines={2}>
-              {lastDownload.fileName ?? '(no filename)'}{' '}
-              ({lastDownload.mimeType ?? 'unknown mime'},{' '}
-              {lastDownload.contentLength != null
-                ? lastDownload.contentLength + ' bytes'
-                : 'size unknown'})
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.downloadRow}>
-            <Text style={styles.downloadLabel}>last download:</Text>
-            <Text style={styles.downloadValue}>none yet</Text>
-          </View>
+        onError={callback(event =>
+          setResult({
+            ok: false,
+            title: `Error: ${event.nativeEvent.domain}`,
+            body: event.nativeEvent.description,
+          })
         )}
-        <View style={styles.toolbar}>
-          <ToolbarButton
-            label="Load PDF (triggers download)"
-            onPress={() => {
-              setLastError(null)
-              setLastDownload(null)
-              setSource(DOWNLOAD_SOURCE)
-            }}
+        onHttpError={callback(event =>
+          setResult({
+            ok: false,
+            title: `HTTP ${event.nativeEvent.statusCode}`,
+            body: 'Start the local fixture server before loading the attachment.',
+          })
+        )}
+      />
+      <DemoTabs
+        controls={
+          <>
+            <View style={styles.row}>
+              <ToolbarButton
+                label="Local Blob page"
+                onPress={() => {
+                  if (source === DOWNLOAD_SOURCE) ref.current?.reload()
+                  else setSource(DOWNLOAD_SOURCE)
+                }}
+              />
+              <ToolbarButton
+                label="HTTP attachment"
+                onPress={() => {
+                  setSource({ uri: DOWNLOAD_URL })
+                  setResult({
+                    ok: true,
+                    title: 'Waiting for HTTP download',
+                    body: DOWNLOAD_URL,
+                  })
+                }}
+              />
+            </View>
+            <Text style={styles.hint}>
+              For HTTP, run node example/e2e-server.mjs from the repository
+              root. The URL above targets the iOS simulator or Android emulator.
+              Physical devices need host routing (Android: adb reverse tcp:8099
+              tcp:8099 and a localhost URL).
+            </Text>
+            <Text style={styles.hint}>
+              iOS Blob files and Android Blob data are inspected directly. HTTP
+              events contain metadata, so this demo fetches once into
+              app-private cache. Files are read (up to 256 bytes), measured and
+              removed; no public Downloads permission is needed. Use these text
+              fixtures, not authenticated downloads requiring cookies.
+            </Text>
+          </>
+        }
+        results={
+          <StatusBanner
+            status={result.ok ? 'eval' : 'error'}
+            title={result.title}
+            body={result.body}
+            bodyNumberOfLines={0}
+            monospaceBody
           />
-        </View>
-        <Text style={styles.hint}>
-          onFileDownload fires; row above updates with fileName + contentLength
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+        }
+      />
+    </View>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Styles — panel-local, tokens sourced from theme.ts
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.appBackground },
-  header: {
-    paddingHorizontal: spacing.xl3,
-    paddingTop: spacing.xl2,
-    paddingBottom: spacing.base,
-    backgroundColor: color.headerBackground,
-  },
-  title: {
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    color: color.textOnDark,
-    letterSpacing: 0.3,
-  },
-  subtitle: {
-    fontSize: fontSize.xs,
-    color: color.textMutedOnDark,
-    marginTop: spacing.xxs,
-  },
-  pageTitle: {
-    fontSize: fontSize.sm,
-    color: color.textSecondaryOnDark,
-    marginTop: spacing.xs,
-    fontWeight: '500',
-  },
-  webview: { flex: 1 },
-  controls: {
-    backgroundColor: color.appBackground,
-    borderTopWidth: 2,
-    borderTopColor: color.divider,
-  },
-  controlsContent: { paddingBottom: spacing.xl5 },
-  toolbar: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.md,
-    paddingTop: spacing.xxs,
-    gap: spacing.md,
-  },
-  downloadRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  downloadLabel: {
+  header: { padding: spacing.xl3, backgroundColor: color.headerBackground },
+  title: { fontSize: fontSize.lg, fontWeight: '700', color: color.headerText },
+  hint: {
     fontSize: fontSize.xs,
     color: color.textSecondary,
-    fontWeight: '600',
-  },
-  downloadValue: {
-    flex: 1,
-    fontSize: fontSize.xs,
-    color: color.textPrimary,
-    fontFamily: fontFamily.mono,
-    backgroundColor: color.downloadHighlightBackground,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xxs,
-    borderRadius: radii.xs,
-  },
-  hint: {
-    fontSize: fontSize.xxs,
-    color: color.textTertiary,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.sm,
-    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  webview: { flex: 1, minHeight: 120 },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.base,
   },
 })
 

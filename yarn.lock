@@ -3395,20 +3395,20 @@ __metadata:
     eslint: "npm:^9.39.4"
     eslint-config-prettier: "npm:^10.1.8"
     eslint-plugin-prettier: "npm:^5.5.5"
-    nitrogen: "npm:*"
+    nitrogen: "npm:0.35.9"
     prettier: "npm:^3.8.3"
     react: "npm:19.2.3"
     react-native: "npm:0.85.3"
-    react-native-nitro-modules: "npm:*"
+    react-native-nitro-modules: "npm:0.35.9"
     typescript: "npm:^6.0.3"
   peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: "*"
+    react: 19.2.3
+    react-native: ~0.85.3
+    react-native-nitro-modules: ^0.35.9
   languageName: unknown
   linkType: soft
 
-"nitrogen@npm:*":
+"nitrogen@npm:0.35.9":
   version: 0.35.9
   resolution: "nitrogen@npm:0.35.9"
   dependencies:
@@ -3782,7 +3782,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-nitro-modules@npm:*, react-native-nitro-modules@npm:^0.35.9":
+"react-native-nitro-modules@npm:0.35.9, react-native-nitro-modules@npm:^0.35.9":
   version: 0.35.9
   resolution: "react-native-nitro-modules@npm:0.35.9"
   peerDependencies:
