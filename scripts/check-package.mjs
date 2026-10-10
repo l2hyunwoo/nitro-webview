@@ -34,6 +34,10 @@ const requiredFiles = [
   'nitrogen/generated/ios/NitroWebview+autolinking.rb',
   'nitrogen/generated/ios/swift/HybridNitroWebViewSpec.swift',
   'MIGRATION.md',
+  'website/content/public/screenshots/playground-ios.png',
+  'website/content/public/screenshots/playground-android.png',
+  'website/content/public/screenshots/bridge-ios.png',
+  'website/content/public/screenshots/bridge-android.png',
 ]
 
 function checkFiles(files) {
