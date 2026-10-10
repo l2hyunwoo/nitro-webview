@@ -568,8 +568,8 @@ directory, leaving that process running. It refuses an unrelated Metro process.
 Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
 runner's own processes and session, leaving the device booted.
 
-The runner polls for up to 240 seconds. Success requires all 21 named Android cases
-or all 24 named iOS cases, with `complete: true` and every `ok: true`. Missing,
+The runner polls for up to 240 seconds. Success requires all 37 named Android cases
+or all 33 named iOS cases, with `complete: true` and every `ok: true`. Missing,
 incomplete, duplicate, or failed cases make the command fail. Android includes an
 actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
 The history case uses a real native tap because
@@ -643,9 +643,12 @@ Declare the permissions your app uses in its **app** AndroidManifest.xml:
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 ```
+
+Microphone capture also requires the normal `MODIFY_AUDIO_SETTINGS` permission; `RECORD_AUDIO` alone can fail with `NotReadableError`.
 
 The host must implement React Native's `PermissionAwareActivity` (as ReactActivity
 does). Missing runtime permissions prompt the user. Approximate location is
