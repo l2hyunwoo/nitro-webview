@@ -221,11 +221,16 @@ export async function performNativeInteraction(value, context) {
       ]);
     }
     await tap('Upload fixture');
-    const picker = await agent(['snapshot', '-i'], 30000);
-    if (
-      !/Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(picker)
-    )
-      throw new Error('The OS file chooser did not appear');
+    const pickerDeadline = Date.now() + 15000;
+    let picker;
+    while (true) {
+      picker = await agent(['snapshot', '-i'], 30000);
+      if (/Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(picker))
+        break;
+      if (Date.now() >= pickerDeadline)
+        throw new Error('The OS file chooser did not appear');
+      await sleep(Math.min(250, pickerDeadline - Date.now()));
+    }
     if (action === 'chooser-cancel') {
       if (platform === 'android')
         await adb(['shell', 'input', 'keyevent', '4']);

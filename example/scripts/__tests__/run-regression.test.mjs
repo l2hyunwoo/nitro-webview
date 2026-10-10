@@ -469,6 +469,28 @@ test('picker cancellation requires observed OS UI and never selects a file', asy
   );
 });
 
+test('file chooser waits for the native presentation before cancelling', async () => {
+  const context = nativeContext();
+  const original = context.agent;
+  let tapped = false;
+  let pending = true;
+  context.agent = async args => {
+    if (args[0] === 'click' && args[1] === '@e5') tapped = true;
+    if (args[0] === 'snapshot' && tapped && pending) {
+      pending = false;
+      context.calls.push(['agent', ...args]);
+      return 'Page: com.example\n@e1 [button] "Run regression"';
+    }
+    return original(args);
+  };
+  await performNativeInteraction(
+    { id: 'picker-presentation', action: 'chooser-cancel' },
+    context,
+  );
+  assert.equal(pending, false);
+  assert.ok(context.calls.some(call => call.includes('keyevent')));
+});
+
 test('upload selects one fixed file through DocumentsUI after preparing its real bytes', async () => {
   const context = nativeContext();
   await performNativeInteraction(

@@ -972,12 +972,15 @@ export function RegressionVerificationScreen() {
           );
           await delay(250);
           const download = view.downloads[0];
+          // WebKit sniffs this text attachment; Android reports its HTTP MIME type.
+          const mimeType =
+            Platform.OS === 'ios' ? 'text/plain' : 'application/octet-stream';
           check(
             view.downloads.length === 1 && download?.url === url('/attachment'),
             'HTTP download URL/count changed',
           );
           check(
-            download.mimeType === 'application/octet-stream' &&
+            download.mimeType === mimeType &&
               download.fileName === 'nitro-regression.txt' &&
               download.contentLength === 43,
             `HTTP metadata: ${JSON.stringify(download)}`,
@@ -986,6 +989,15 @@ export function RegressionVerificationScreen() {
             (await evaluate(view, 'location.pathname')) === '/download-fixture',
             'HTTP download replaced its parent',
           );
+          if (Platform.OS === 'ios') {
+            check(
+              view.errors.length === 0 &&
+                view.events.filter(event => event === 'load').length === 1 &&
+                view.events.filter(event => event === 'end').length ===
+                  view.events.filter(event => event === 'start').length,
+              'download policy interruption emitted a page error or unbalanced load events',
+            );
+          }
           check(
             (await records()).filter(item => item.path === '/attachment')
               .length === 1,
@@ -1230,6 +1242,13 @@ export function RegressionVerificationScreen() {
         async () => {
           const view = await mount('/upload-fixture');
           await ready(view);
+          if (Platform.OS === 'ios') {
+            // Keep the accessibility tap inside the native Choose File button.
+            await evaluate(
+              view,
+              'document.getElementById("upload").style.width="80px";true;',
+            );
+          }
           await interact('chooser-cancel');
           await delay(300);
           check(
