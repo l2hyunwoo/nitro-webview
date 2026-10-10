@@ -100,6 +100,18 @@ jobs:
       - name: Test release candidate verification
         run: node --test scripts/__tests__/*.test.mjs
 
+      - name: Install playground dependencies
+        working-directory: example
+        run: yarn install --immutable
+
+      - name: Typecheck and test playground behavior
+        working-directory: example
+        env:
+          NODE_OPTIONS: --max-old-space-size=768
+        run: |
+          yarn tsc --noEmit
+          yarn test --runInBand
+
   package-smoke:
     name: Packed consumer (${{ matrix.label }})
     needs: validate
