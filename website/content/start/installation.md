@@ -41,6 +41,9 @@ Autolinking registers the library. Rebuild and install your Android app after ad
 
 For camera, microphone, location, and file inputs, configure only the permissions your app uses. See [media and permissions](../guides/permissions.md) and [downloads and uploads](../guides/downloads.md).
 
+The library declares Mozilla's Maven repository for `org.mozilla.components:support-utils`.
+If your app manages dependency repositories centrally, include `maven { url "https://maven.mozilla.org/maven2" }` in that repository list.
+
 ## Expo
 
 Use an Expo development build with native autolinking. **Expo Go does not contain this native module.** This package does not provide a config plugin. Configure app permissions in your native project or your Expo app configuration, then regenerate and rebuild the native app as needed.

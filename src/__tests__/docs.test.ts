@@ -4,28 +4,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
-/**
- * Docs-lint test for the iOS File Upload setup section.
- *
- * Asserts that README.md contains a dedicated section whose header matches
- * /file upload/i, and that the three required Info.plist usage-description
- * keys appear within that section:
- *
- *   - NSCameraUsageDescription
- *   - NSPhotoLibraryUsageDescription
- *   - NSMicrophoneUsageDescription
- *
- * This is a documentation contract test, not a runtime test — but it runs
- * under the same `node --test "src/**\/*.test.ts"` pipeline as the rest of
- * the suite to guarantee CI catches accidental removal of the iOS-specific
- * setup guidance.
- */
-
 const here = dirname(fileURLToPath(import.meta.url))
 // __tests__ lives at src/__tests__/, so the repo root is two levels up.
 const repoRoot = resolve(here, '..', '..')
-const readmePath = resolve(repoRoot, 'README.md')
-const readmeSource = readFileSync(readmePath, 'utf8')
 
 const REQUIRED_INFO_PLIST_KEYS = [
   'NSCameraUsageDescription',
@@ -78,44 +59,32 @@ function findSectionBody(
   return lines.slice(startIdx, endIdx).join('\n')
 }
 
-test('README.md exposes a dedicated section header matching /file upload/i', () => {
-  const body = findSectionBody(readmeSource, /file upload/i)
+test('README links to the official upload setup guide', () => {
+  const readme = readFileSync(resolve(repoRoot, 'README.md'), 'utf8')
   assert.ok(
-    body !== null,
-    'README.md must contain a Markdown header (#, ##, etc.) whose text ' +
-      'matches /file upload/i so that consumers can find iOS setup instructions.'
-  )
-})
-
-test('README.md "file upload" section lists all three required Info.plist keys', () => {
-  const body = findSectionBody(readmeSource, /file upload/i)
-  assert.ok(
-    body !== null,
-    'precondition: a section matching /file upload/i must exist'
-  )
-  const section = body as string
-
-  for (const key of REQUIRED_INFO_PLIST_KEYS) {
-    assert.ok(
-      section.includes(key),
-      `Required Info.plist key "${key}" must appear inside the README ` +
-        `section whose header matches /file upload/i. Without this key the ` +
-        `iOS file picker will crash the consuming app the first time the ` +
-        `underlying subsystem (camera / photo library / microphone) is ` +
-        `accessed.`
+    readme.includes(
+      '](https://l2hyunwoo.github.io/nitro-webview/guides/downloads.html)'
     )
-  }
-})
-
-test('README.md "file upload" section is iOS-scoped (mentions iOS explicitly)', () => {
-  // Soft check — the section should make clear these keys are iOS-only so
-  // consumers don't try to add them to Android.
-  const body = findSectionBody(readmeSource, /file upload/i)
-  assert.ok(body !== null)
-  const section = body as string
-  assert.ok(
-    /ios/i.test(section),
-    'The file-upload README section must mention iOS so consumers know ' +
-      'the Info.plist keys are platform-specific.'
   )
 })
+
+for (const [locale, heading] of [
+  ['', /file inputs/i],
+  ['ko/', /파일 입력/],
+] as const) {
+  test(`${locale}upload guide documents iOS usage descriptions`, () => {
+    const markdown = readFileSync(
+      resolve(repoRoot, `website/content/${locale}guides/downloads.md`),
+      'utf8'
+    )
+    const section = findSectionBody(markdown, heading)
+    assert.ok(section, 'The upload guide must contain a file-input section.')
+    assert.match(section, /ios/i, 'Usage descriptions must be scoped to iOS.')
+    for (const key of REQUIRED_INFO_PLIST_KEYS) {
+      assert.ok(
+        section.includes(key),
+        `The iOS file-input setup must document ${key}.`
+      )
+    }
+  })
+}
