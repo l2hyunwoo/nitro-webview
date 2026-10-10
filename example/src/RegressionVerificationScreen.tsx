@@ -2293,7 +2293,7 @@ export function RegressionVerificationScreen() {
         style={styles.results}
         contentContainerStyle={styles.resultContent}
       >
-        {results.map(result => (
+        {(running ? results.slice(-3) : results).map(result => (
           <View key={result.name} style={styles.result}>
             <Text
               testID={`regression-case-${result.name}`}
