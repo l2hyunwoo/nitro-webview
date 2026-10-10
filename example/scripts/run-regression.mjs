@@ -127,20 +127,29 @@ export async function performNativeInteraction(value, context) {
     const deadline = Date.now() + 15000;
     while (true) {
       const snapshot = await agent(['snapshot', '-i'], 30000);
-      const nodes = snapshot
+      const observed = snapshot
         .split('\n')
         .map(line => line.match(/^\s*(@e\d+) \[([^\]]+)\] "([^"]+)"/))
-        .filter(
-          match =>
-            match &&
-            (match[3] === label ||
-              match[3].startsWith(`${label}:`) ||
-              (label === 'nitro-regression.txt' &&
-                match[3].startsWith(`${label}, `))),
-        );
+        .filter(Boolean);
+      const nodes = observed.filter(
+        match =>
+          match[3] === label ||
+          match[3].startsWith(`${label}:`) ||
+          (label === 'nitro-regression.txt' &&
+            match[3].startsWith(`${label}, `)),
+      );
       const target =
         nodes.find(match => match[2] === 'button') ?? (!fileInput && nodes[0]);
       if (target) return agent(['click', target[1]], 30000);
+      if (
+        label === 'Downloads' &&
+        observed.some(
+          match =>
+            match[2] === 'list' &&
+            match[3].split(',').some(item => item.trim() === 'Downloads'),
+        )
+      )
+        return agent(['find', 'Downloads', 'click', '--first'], 30000);
       if (Date.now() >= deadline) {
         const kind = fileInput ? 'file input button' : 'control';
         throw new Error(`${label} ${kind} was not observed`);
@@ -662,6 +671,7 @@ async function run(platform, device) {
           };
         }
         await fetchJSON('/interaction-result', outcome);
+        if (!outcome.ok) throw new Error(outcome.detail);
       }
       if (result !== null) {
         lastResult = result;

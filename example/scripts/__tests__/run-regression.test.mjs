@@ -510,6 +510,44 @@ test('upload opens roots from remembered Downloads without waiting for Recent', 
   );
 });
 
+test('upload selects Downloads from the observed collapsed DocumentsUI roots list', async () => {
+  const context = nativeContext(
+    'Page: com.example\n@e1 [text] "Files in Downloads"\n@e4 [button] "Show roots"\n@e8 [gridview] "nitro-regression.txt, 43 B, 10:28 AM"',
+  );
+  const roots =
+    'Page: com.example\n@e20 [list] "Drive, sdk_gphone64_arm64, Downloads, Documents, Recent"';
+  const agent = context.agent;
+  let rootsOpen = false;
+  context.agent = async args => {
+    if (args[0] === 'snapshot' && rootsOpen) {
+      context.calls.push(['agent', ...args]);
+      return roots;
+    }
+    const result = await agent(args);
+    if (args[0] === 'click' && args[1] === '@e4') rootsOpen = true;
+    if (args[0] === 'find' && args[1] === 'Downloads') rootsOpen = false;
+    return result;
+  };
+  await performNativeInteraction(
+    { id: 'upload-roots', action: 'chooser-upload' },
+    context,
+  );
+  const fallback = context.calls.findIndex(call => call[1] === 'find');
+  assert.ok(fallback > 0);
+  assert.deepEqual(context.calls[fallback - 1], ['agent', 'snapshot', '-i']);
+  assert.deepEqual(context.calls[fallback], [
+    'agent',
+    'find',
+    'Downloads',
+    'click',
+    '--first',
+  ]);
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'click').map(call => call[2]),
+    ['@e5', '@e4', '@e8'],
+  );
+});
+
 test('capture cancellation requires camera offering and camera UI; never fabricates a photo', async () => {
   const absent = nativeContext();
   await assert.rejects(
