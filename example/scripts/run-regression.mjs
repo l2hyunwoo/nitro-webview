@@ -154,8 +154,15 @@ export async function performNativeInteraction(value, context) {
   const tap = async label => {
     const fileInput = label === 'Upload fixture' || label === 'Capture fixture';
     const deadline = Date.now() + 15000;
+    let snapshotHelperReset = false;
     while (true) {
       const snapshot = await agent(['snapshot', '-i'], 30000);
+      if (snapshot.includes('Open debugger to view warnings.')) {
+        await agent(['react-native', 'dismiss-overlay'], 30000);
+        if (Date.now() >= deadline)
+          throw new Error(`${label} remained obscured by a development warning`);
+        continue;
+      }
       const observed = snapshot
         .split('\n')
         .map(line => line.match(/^\s*(@e\d+) \[([^\]]+)\] "([^"]+)"/))
@@ -180,6 +187,22 @@ export async function performNativeInteraction(value, context) {
         )
       )
         return agent(['find', label, 'click', '--first'], 30000);
+      if (
+        platform === 'android' &&
+        !snapshotHelperReset &&
+        snapshot.includes('[webview]') &&
+        Date.now() >= deadline - 10000
+      ) {
+        // Recover stale UiAutomation trees without relaunching the tested app.
+        await adb([
+          'shell',
+          'am',
+          'force-stop',
+          'com.callstack.agentdevice.snapshothelper',
+        ]);
+        snapshotHelperReset = true;
+        continue;
+      }
       if (Date.now() >= deadline) {
         const kind = fileInput ? 'file input button' : 'control';
         throw new Error(`${label} ${kind} was not observed`);
@@ -208,8 +231,16 @@ export async function performNativeInteraction(value, context) {
     return agent(['open', bundleID], 30000);
   }
   if (action === 'fullscreen-exit') {
-    if (platform === 'android') await adb(['shell', 'input', 'keyevent', '4']);
-    else {
+    if (platform === 'android') {
+      await adb(['shell', 'input', 'keyevent', '4']);
+      const controls = await agent(['snapshot', '-i'], 30000);
+      const coachmark = controls.match(/^\s*(@e\d+) \[button\] "Got it"/m);
+      // A fresh emulator's immersive-mode hint can consume the first Back.
+      if (coachmark && /\[button\] "exit full screen"/.test(controls)) {
+        await agent(['click', coachmark[1]], 30000);
+        await adb(['shell', 'input', 'keyevent', '4']);
+      }
+    } else {
       let controls = await agent(['snapshot', '-i'], 30000);
       if (
         !/\[button\] "(?:Done|Close)"/.test(controls) &&

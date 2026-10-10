@@ -5,4 +5,6 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.harness.(ts|tsx)'],
   // Device runs one test suite at a time.
   maxWorkers: 1,
+  // A case awaits several independent native operations, each bounded to 10s.
+  testTimeout: 60000,
 }

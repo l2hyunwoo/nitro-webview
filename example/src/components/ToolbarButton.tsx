@@ -1,18 +1,3 @@
-/**
- * ToolbarButton — shared primitive for the modularized example app.
- *
- * Migrated verbatim from the inline `ToolbarButton` defined at the
- * bottom of the original `example/App.tsx`. The visual identity
- * (background, border, label color, padding, font size/weight) is
- * preserved by sourcing every literal from `theme.ts` rather than
- * inlining the original hex/number values.
- *
- * Per the Seed contract, this primitive lives under
- * `example/src/components/` and owns its own `StyleSheet.create()`
- * call so panels can compose it without importing a panel-specific
- * style sheet.
- */
-
 import React from 'react'
 import { StyleSheet, Text, TouchableOpacity } from 'react-native'
 
@@ -31,14 +16,23 @@ export interface ToolbarButtonProps {
  * A pill-style toolbar button. Stretches to fill its row (`flex: 1`)
  * and toggles to a muted style when `disabled` is set.
  */
-export function ToolbarButton({ label, disabled, onPress }: ToolbarButtonProps) {
+export function ToolbarButton({
+  label,
+  disabled,
+  onPress,
+}: ToolbarButtonProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       style={[styles.button, disabled && styles.buttonDisabled]}
     >
-      <Text style={[styles.buttonLabel, disabled && styles.buttonLabelDisabled]}>
+      <Text
+        style={[styles.buttonLabel, disabled && styles.buttonLabelDisabled]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -48,6 +42,8 @@ export function ToolbarButton({ label, disabled, onPress }: ToolbarButtonProps) 
 const styles = StyleSheet.create({
   button: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: spacing.smPlus,
     backgroundColor: color.buttonBackground,
     borderRadius: radii.md,
@@ -65,7 +61,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buttonLabelDisabled: {
-    color: color.textMutedOnDark,
+    color: color.textTertiary,
   },
 })
 

@@ -17,7 +17,8 @@
     "nitro-webview": "link:..",
     "react": "19.2.3",
     "react-native": "0.85.3",
-    "react-native-nitro-modules": "0.35.9"
+    "react-native-nitro-modules": "0.35.9",
+    "react-native-safe-area-context": "5.10.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

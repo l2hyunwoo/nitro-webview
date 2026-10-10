@@ -5366,6 +5366,7 @@ __metadata:
     react-native: "npm:0.85.3"
     react-native-harness: "npm:^1.3.0"
     react-native-nitro-modules: "npm:0.35.9"
+    react-native-safe-area-context: "npm:5.10.1"
     react-test-renderer: "npm:19.2.3"
     typescript: "npm:^5.8.3"
   languageName: unknown
@@ -8372,6 +8373,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10c0/2e5c1b3eed1d187e7c2bbbf661e6405cb69c6a20b01427ea4c8a3bfe07a4baf2efbeb170a21f8c17fb0e18f022244f4b1fe1ce69a7ec824a7a4cf72441893cf1
+  languageName: node
+  linkType: hard
+
+"react-native-safe-area-context@npm:5.10.1":
+  version: 5.10.1
+  resolution: "react-native-safe-area-context@npm:5.10.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/8aebfa832d483e385f9848b5ea92ce3e525a44cad5b3b363b5b190c1f559f3f01176f745ff7a2ad0e2191cb3fb2d0be26c8650956640f086562440c869713ec5
   languageName: node
   linkType: hard
 

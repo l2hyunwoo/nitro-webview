@@ -1,70 +1,39 @@
-/**
- * Cross-cutting design tokens for the nitro-webview example app.
- *
- * Every value here is lifted directly from the original
- * `example/App.tsx` StyleSheet so the modularized panels can
- * keep pixel-for-pixel parity with the pre-refactor demo while
- * still owning their own local StyleSheet.create() calls.
- *
- * Per the Seed contract, theme.ts only stores tokens — it does
- * not export any pre-composed style objects or components.
- */
+import { Platform } from 'react-native'
 
-/**
- * Color palette derived from every hex literal that appears in
- * the original App.tsx StyleSheet, grouped by role.
- */
 export const color = {
-  // Surfaces
-  appBackground: '#f8fafc', // root, demoPanel
-  headerBackground: '#0f172a', // header, status bar tint, demoPanel border, sectionLabelText
-  buttonBackground: '#e0e7ff', // button bg, statusValue bg
-  buttonBackgroundDisabled: '#f1f5f9', // buttonDisabled bg, cookieList bg
-  buttonBorder: '#c7d2fe', // button border
-  buttonBorderDisabled: '#e2e8f0', // buttonDisabled border
-  divider: '#0f172a', // demoPanel top border (same hex as header)
-
-  // Text
-  textOnDark: '#f8fafc', // title (header)
-  textMutedOnDark: '#94a3b8', // subtitle, buttonLabelDisabled
-  textSecondaryOnDark: '#cbd5e1', // pageTitle
-  textPrimary: '#0f172a', // sectionLabelText, statusValue, downloadValue
-  textSecondary: '#475569', // statusLabel, downloadLabel
-  textTertiary: '#64748b', // hint
-  textCookie: '#1e293b', // cookieItem
-  textAccent: '#2563eb', // buttonLabel, sectionLabelAccent
-
-  // Error banner
-  errorBackground: '#fff1f0',
-  errorBorder: '#f5c2c0',
-  errorTitle: '#b1241a',
-  errorBody: '#7c1d12',
-
-  // Message banner
-  messageBackground: '#ecfdf5',
-  messageBorder: '#a7f3d0',
-  messageTitle: '#047857',
-  messageBody: '#065f46',
-
-  // Evaluate-JS banner
-  evalBackground: '#eff6ff',
-  evalBorder: '#bfdbfe',
-  evalTitle: '#1d4ed8',
-  evalBody: '#1e3a8a',
-
-  // Upload pill
-  uploadPillBackground: '#d1fae5',
-  uploadPillBorder: '#6ee7b7',
-  uploadPillText: '#065f46',
-
-  // Download row highlight
-  downloadHighlightBackground: '#fef3c7',
+  appBackground: '#fafafa',
+  headerBackground: '#ffffff',
+  buttonBackground: '#ffffff',
+  buttonBackgroundDisabled: '#f4f4f5',
+  buttonBorder: '#d4d4d8',
+  buttonBorderDisabled: '#e4e4e7',
+  divider: '#e4e4e7',
+  headerText: '#09090b',
+  headerMuted: '#71717a',
+  headerSecondary: '#52525b',
+  textPrimary: '#18181b',
+  textSecondary: '#52525b',
+  textTertiary: '#71717a',
+  textCookie: '#27272a',
+  textAccent: '#18181b',
+  errorBackground: '#fef2f2',
+  errorBorder: '#fecaca',
+  errorTitle: '#b91c1c',
+  errorBody: '#7f1d1d',
+  messageBackground: '#f0fdf4',
+  messageBorder: '#bbf7d0',
+  messageTitle: '#15803d',
+  messageBody: '#14532d',
+  evalBackground: '#f4f4f5',
+  evalBorder: '#e4e4e7',
+  evalTitle: '#18181b',
+  evalBody: '#3f3f46',
+  uploadPillBackground: '#f0fdf4',
+  uploadPillBorder: '#bbf7d0',
+  uploadPillText: '#166534',
+  downloadHighlightBackground: '#f4f4f5',
 } as const
 
-/**
- * Spacing scale collected from every padding/margin/gap literal
- * in the original App.tsx StyleSheet.
- */
 export const spacing = {
   xxs: 2,
   xs: 3,
@@ -73,45 +42,16 @@ export const spacing = {
   smPlus: 7,
   base: 8,
   lg: 9,
-  xl: 10,
+  xl: 12,
   xl2: 12,
   xl3: 16,
   xl4: 20,
   xl5: 24,
 } as const
-
-/**
- * Font size scale collected from every fontSize literal in the
- * original App.tsx StyleSheet.
- */
-export const fontSize = {
-  xxs: 10,
-  xs: 11,
-  sm: 12,
-  md: 13,
-  lg: 18,
-} as const
-
-/**
- * Border-radius scale collected from every borderRadius literal
- * in the original App.tsx StyleSheet.
- */
-export const radii = {
-  xxs: 2,
-  xs: 4,
-  sm: 6,
-  md: 7,
-  lg: 8,
-  pill: 20,
-} as const
-
-/**
- * Font family tokens. The original App.tsx only references
- * `'Menlo'` for monospaced status values and the platform default
- * (undefined) everywhere else.
- */
+export const fontSize = { xxs: 12, xs: 12, sm: 14, md: 14, lg: 20 } as const
+export const radii = { xxs: 2, xs: 4, sm: 6, md: 8, lg: 12, pill: 20 } as const
 export const fontFamily = {
-  mono: 'Menlo',
+  mono: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
 } as const
 
 export type Color = keyof typeof color

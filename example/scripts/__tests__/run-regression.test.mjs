@@ -1061,3 +1061,86 @@ test('the native fixture declares both audio permissions required by WebView rec
     );
   }
 });
+
+test('Android fullscreen exit dismisses the observed first-run immersive hint before retrying Back', async () => {
+  const context = nativeContext();
+  let backs = 0;
+  let dismissed = false;
+  context.command = async (...args) => {
+    context.calls.push(args);
+    if (args[1].includes('keyevent')) backs++;
+    return 'topResumedActivity=ActivityRecord{current u0 com.example/.MainActivity t7}';
+  };
+  context.agent = async args => {
+    context.calls.push(['agent', ...args]);
+    if (args[0] === 'click' && args[1] === '@e4') dismissed = true;
+    if (args[0] !== 'snapshot') return '';
+    return dismissed && backs === 2
+      ? '@e1 [button] "Run regression"'
+      : '@e4 [button] "Got it"\n@e7 [button] "exit full screen"';
+  };
+  await performNativeInteraction({ id: 'exit', action: 'fullscreen-exit' }, context);
+  assert.equal(dismissed, true);
+  assert.equal(backs, 2);
+});
+
+test('a development warning is dismissed before taking a fresh control snapshot', async () => {
+  const calls = [];
+  let dismissed = false;
+  await performNativeInteraction({ id: 'visible', label: 'Location' }, {
+    ...nativeContext(),
+    agent: async args => {
+      calls.push(args);
+      if (args[0] === 'react-native') dismissed = true;
+      return dismissed ? '@e7 [button] "Location"' : '@e1 [group] "!, Open debugger to view warnings."';
+    },
+  });
+  assert.deepEqual(calls, [
+    ['snapshot', '-i'],
+    ['react-native', 'dismiss-overlay'],
+    ['snapshot', '-i'],
+    ['click', '@e7'],
+  ]);
+});
+
+test('a stale Android WebView accessibility tree resets only the selected device helper before a fresh tap', async t => {
+  let clockReads = 0;
+  t.mock.method(Date, 'now', () => (clockReads++ ? 5000 : 0));
+  const context = nativeContext();
+  let reset = false;
+  context.command = async (...args) => {
+    context.calls.push(args);
+    reset = true;
+    return '';
+  };
+  context.agent = async args => {
+    context.calls.push(['agent', ...args]);
+    return reset ? '@e9 [button] "Location"' : '@e4 [webview] "fixture"';
+  };
+  await performNativeInteraction({ id: 'stale', label: 'Location' }, context);
+  assert.deepEqual(context.calls, [
+    ['agent', 'snapshot', '-i'],
+    ['adb', [
+      '-s', context.device, 'shell', 'am', 'force-stop',
+      'com.callstack.agentdevice.snapshothelper',
+    ]],
+    ['agent', 'snapshot', '-i'],
+    ['agent', 'click', '@e9'],
+  ]);
+});
+
+test('helper recovery happens at most once and a missing control still fails', async t => {
+  const clock = [0, 5000, 15000];
+  t.mock.method(Date, 'now', () => clock.shift() ?? 15000);
+  const context = nativeContext();
+  context.agent = async () => '@e4 [webview] "fixture"';
+  await assert.rejects(
+    performNativeInteraction({ id: 'missing', label: 'Location' }, context),
+    /Location control was not observed/,
+  );
+  assert.equal(context.calls.length, 1);
+  assert.deepEqual(context.calls[0], [
+    'adb', '-s', context.device, 'shell', 'am', 'force-stop',
+    'com.callstack.agentdevice.snapshothelper',
+  ]);
+});

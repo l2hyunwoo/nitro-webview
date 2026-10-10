@@ -1,26 +1,34 @@
-import React, { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { callback, NitroWebView } from 'nitro-webview';
+import React, { useMemo, useState } from 'react'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { callback, NitroWebView } from 'nitro-webview'
 
 // Original synthetic test signal, not a recording of a successful test.
 const videoUri = Image.resolveAssetSource(
-  require('./fixtures/media-test.mp4'),
-).uri;
+  require('./fixtures/media-test.mp4')
+).uri
 
 export function MediaVerificationScreen() {
   const [mode, setMode] = useState<'inline' | 'gesture' | 'fullscreen'>(
-    'inline',
-  );
-  const [generation, setGeneration] = useState(0);
-  const [lastEvent, setLastEvent] = useState('Waiting for page');
-  const [mounted, setMounted] = useState(true);
+    'inline'
+  )
+  const [generation, setGeneration] = useState(0)
+  const [lastEvent, setLastEvent] = useState('Waiting for page')
+  const [mounted, setMounted] = useState(true)
   const source = useMemo(
     () => ({
       html: `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>body{font:17px system-ui;background:#f1f5f9;color:#14213d;margin:16px}video{width:100%;background:black}button{font:inherit;padding:12px;margin:8px 6px 8px 0}#state{white-space:pre-wrap;background:white;padding:12px;border-radius:8px}</style>
-<h2>Real HTML video</h2><p>${mode === 'gesture' ? 'Unmuted autoplay should be blocked. Tap Play.' : mode === 'fullscreen' ? 'iOS: Play should open the native player.' : 'Unmuted autoplay should advance inline.'}</p>
-<video id="video" controls playsinline webkit-playsinline loop preload="auto" src=${JSON.stringify(videoUri)}></video>
+<style>body{font:17px system-ui;background:#fafafa;color:#18181b;margin:16px}video{width:100%;background:black}button{font:inherit;padding:12px;margin:8px 6px 8px 0}#state{white-space:pre-wrap;background:white;padding:12px;border-radius:8px}</style>
+<h2>Real HTML video</h2><p>${
+        mode === 'gesture'
+          ? 'Unmuted autoplay should be blocked. Tap Play.'
+          : mode === 'fullscreen'
+            ? 'iOS: Play should open the native player.'
+            : 'Unmuted autoplay should advance inline.'
+      }</p>
+<video id="video" controls playsinline webkit-playsinline loop preload="auto" src=${JSON.stringify(
+        videoUri
+      )}></video>
 <div><button id="play">Play</button><button id="pause">Pause</button><button id="fullscreen">Fullscreen</button><button id="exit">Exit fullscreen</button></div><pre id="state">Loading…</pre>
 <script>
 const video = document.getElementById('video');
@@ -47,14 +55,14 @@ report('page ready');
 ${mode === 'fullscreen' ? '' : 'play();'}
 </script>`,
     }),
-    [mode],
-  );
+    [mode]
+  )
 
   function select(next: typeof mode) {
-    setMode(next);
-    setGeneration(value => value + 1);
-    setLastEvent('Remounting with initial media props');
-    setMounted(true);
+    setMode(next)
+    setGeneration(value => value + 1)
+    setLastEvent('Remounting with initial media props')
+    setMounted(true)
   }
 
   return (
@@ -97,15 +105,21 @@ ${mode === 'fullscreen' ? '' : 'play();'}
         />
       )}
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 12, gap: 8, backgroundColor: '#f1f5f9' },
-  title: { fontSize: 22, fontWeight: '700', color: '#14213d' },
+  root: { flex: 1, padding: 12, gap: 8, backgroundColor: '#fafafa' },
+  title: { fontSize: 22, fontWeight: '700', color: '#18181b' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  button: { backgroundColor: '#2446a6', padding: 10, borderRadius: 6 },
+  button: {
+    minHeight: 44,
+    justifyContent: 'center',
+    backgroundColor: '#18181b',
+    padding: 10,
+    borderRadius: 6,
+  },
   buttonText: { color: 'white' },
-  state: { minHeight: 50, color: '#14213d', fontSize: 13 },
+  state: { minHeight: 50, color: '#18181b', fontSize: 13 },
   webview: { flex: 1 },
-});
+})
