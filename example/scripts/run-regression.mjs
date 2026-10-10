@@ -38,6 +38,7 @@ export const expectedRegressionCases = {
   ],
   ios: [
     ...commonCases,
+    'ios-callback-cleanup',
     'ios-evaluation-error',
     'ios-navigation-stop-loading',
     'ios-storage-isolation',
