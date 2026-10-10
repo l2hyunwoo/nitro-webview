@@ -23,7 +23,7 @@ const result = (platform = 'ios') => ({
 });
 
 test('accepts completed production result schema', () => {
-  assert.equal(validateRegressionResults(result(), 'ios'), 24);
+  assert.equal(validateRegressionResults(result(), 'ios'), 25);
   assert.equal(validateRegressionResults(result('android'), 'android'), 21);
 });
 
