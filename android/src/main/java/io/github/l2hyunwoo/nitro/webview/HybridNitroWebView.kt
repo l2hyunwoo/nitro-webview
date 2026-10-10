@@ -418,11 +418,23 @@ class HybridNitroWebView(
   override var onOpenWindow: ((event: OpenWindowEvent) -> Unit)? = null
 
   init {
-    // Required for WebChromeClient.onCreateWindow to fire at all — without it
-    // `window.open` / `target=_blank` are silently swallowed by the WebView
-    // and onOpenWindow can never surface (see NitroWebChromeClient).
+    installWebViewClients()
+    installJavaScriptInterfaces()
+    bindOpenWindowEvents()
+    view.setDownloadListener(DownloadListenerImpl())
+    reactContext.addActivityEventListener(activityEventListener)
+    bindScrollEvents()
+  }
+
+  private fun installWebViewClients() {
+    // WebView only reports window.open when multiple-window support is enabled.
     view.settings.setSupportMultipleWindows(true)
     view.webViewClient = ClientImpl()
+    bindLoadProgressEvents()
+    view.webChromeClient = webChromeClient
+  }
+
+  private fun bindLoadProgressEvents() {
     webChromeClient.onLoadProgress = { progress ->
       if (loadActive) {
         val state = snapshotNavigationState()
@@ -440,32 +452,24 @@ class HybridNitroWebView(
         )
       }
     }
-    view.webChromeClient = webChromeClient
+  }
+
+  private fun installJavaScriptInterfaces() {
     view.addJavascriptInterface(BridgeInterface(), BRIDGE_NAME)
-    // Second, DISTINCT @JavascriptInterface for the SPA history shim. A route
-    // change (pushState/replaceState/popstate) posts here — never the
-    // ReactNativeWebView bridge — so it can never be mistaken for onMessage.
+    // History changes use a separate interface so they cannot become onMessage events.
     view.addJavascriptInterface(HistoryShimInterface(), HISTORY_SHIM_NAME)
-    // New-window requests route through the chrome client; forward the URL to
-    // onOpenWindow on the UI thread when a handler is set.
+  }
+
+  private fun bindOpenWindowEvents() {
     webChromeClient.onOpenWindow = { url ->
       postIfAvailable {
         onOpenWindow?.invoke(OpenWindowEvent(OpenWindowNativeEvent(url)))
       }
     }
-    // File-download bridge. Every Android-side download notification is
-    // translated 1:1 into an `onFileDownload` emission. The WebView itself
-    // does NOT save anything — JS decides.
-    view.setDownloadListener(DownloadListenerImpl())
-    // Wire up the file chooser result path. The ReactContext dispatches
-    // onActivityResult to every registered listener, so the consumer app's
-    // MainActivity does not need any manual wiring.
-    reactContext.addActivityEventListener(activityEventListener)
-    // Scroll stream. `View.setOnScrollChangeListener` (API 23+) delivers the
-    // scroll offset directly; `contentSize` stays a zero point because
-    // `computeVerticalScrollRange()` / `computeHorizontalScrollRange()` are
-    // protected on View and only reachable by subclassing WebView, which this
-    // library avoids everywhere. NOT throttled and NOT deduped (RNW parity).
+  }
+
+  private fun bindScrollEvents() {
+    // WebView's protected content-range APIs are unavailable without subclassing it.
     view.setOnScrollChangeListener { _, scrollX, scrollY, _, _ ->
       onScroll?.invoke(
         NitroWebViewScrollEvent(
@@ -643,6 +647,13 @@ class HybridNitroWebView(
     if (destroyed) return
     destroyed = true
     loadActive = false
+    clearEventCallbacks()
+    disposePendingWork()
+    detachNativeListeners()
+    detachAndDestroyWebView()
+  }
+
+  private fun clearEventCallbacks() {
     onLoadStart = null
     onLoad = null
     onLoadEnd = null
@@ -656,10 +667,16 @@ class HybridNitroWebView(
     onScroll = null
     onOpenWindow = null
     onShouldStartLoadWithRequest = null
+  }
+
+  private fun disposePendingWork() {
     evaluator.dispose(destroyedViewException())
     webChromeClient.dispose()
     documentStartScriptHandler?.remove()
     documentStartScriptHandler = null
+  }
+
+  private fun detachNativeListeners() {
     reactContext.removeActivityEventListener(activityEventListener)
     view.webViewClient = WebViewClient()
     view.webChromeClient = null
@@ -667,6 +684,9 @@ class HybridNitroWebView(
     view.removeJavascriptInterface(BRIDGE_NAME)
     view.removeJavascriptInterface(HISTORY_SHIM_NAME)
     view.setOnScrollChangeListener(null)
+  }
+
+  private fun detachAndDestroyWebView() {
     (view.parent as? ViewGroup)?.removeView(view)
     view.destroy()
   }

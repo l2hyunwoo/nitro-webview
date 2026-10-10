@@ -39,20 +39,7 @@ internal class NitroFullscreenVideo {
     val navigationVisible = insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) ?: true
     val controller = WindowCompat.getInsetsController(window, root)
     val behavior = controller.systemBarsBehavior
-    val overlay =
-      FrameLayout(activity).apply {
-        setBackgroundColor(Color.BLACK)
-        isFocusableInTouchMode = true
-        addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        setOnKeyListener { _, keyCode, event ->
-          if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (event.action == KeyEvent.ACTION_UP) hide()
-            true
-          } else {
-            false
-          }
-        }
-      }
+    val overlay = createOverlay(activity, video)
     val back =
       object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() = hide()
@@ -66,17 +53,7 @@ internal class NitroFullscreenVideo {
       overlay.removeAllViews()
       if (visibility != null) webView?.visibility = visibility
       activity.requestedOrientation = orientation
-      controller.systemBarsBehavior = behavior
-      if (statusVisible) {
-        controller.show(WindowInsetsCompat.Type.statusBars())
-      } else {
-        controller.hide(WindowInsetsCompat.Type.statusBars())
-      }
-      if (navigationVisible) {
-        controller.show(WindowInsetsCompat.Type.navigationBars())
-      } else {
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
-      }
+      restoreSystemBars(controller, behavior, statusVisible, navigationVisible)
       focus?.requestFocus()
       callback.onCustomViewHidden()
     }
@@ -94,11 +71,56 @@ internal class NitroFullscreenVideo {
     )
     (activity as? OnBackPressedDispatcherOwner)?.onBackPressedDispatcher?.addCallback(back)
     root.addView(overlay, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    enterFullscreen(activity, webView, controller)
+    overlay.requestFocus()
+  }
+
+  private fun createOverlay(
+    activity: Activity,
+    video: View,
+  ): FrameLayout =
+    FrameLayout(activity).apply {
+      setBackgroundColor(Color.BLACK)
+      isFocusableInTouchMode = true
+      addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+      setOnKeyListener { _, keyCode, event ->
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+          if (event.action == KeyEvent.ACTION_UP) hide()
+          true
+        } else {
+          false
+        }
+      }
+    }
+
+  private fun enterFullscreen(
+    activity: Activity,
+    webView: View?,
+    controller: WindowInsetsControllerCompat,
+  ) {
     webView?.visibility = View.INVISIBLE
     activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     controller.hide(WindowInsetsCompat.Type.systemBars())
-    overlay.requestFocus()
+  }
+
+  private fun restoreSystemBars(
+    controller: WindowInsetsControllerCompat,
+    behavior: Int,
+    statusVisible: Boolean,
+    navigationVisible: Boolean,
+  ) {
+    controller.systemBarsBehavior = behavior
+    if (statusVisible) {
+      controller.show(WindowInsetsCompat.Type.statusBars())
+    } else {
+      controller.hide(WindowInsetsCompat.Type.statusBars())
+    }
+    if (navigationVisible) {
+      controller.show(WindowInsetsCompat.Type.navigationBars())
+    } else {
+      controller.hide(WindowInsetsCompat.Type.navigationBars())
+    }
   }
 
   fun hide() {

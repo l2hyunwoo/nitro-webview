@@ -164,11 +164,13 @@ internal class NitroWebViewPermissions(
         ) {
           null
         } else {
-          "$scheme://$host:${if (uri.port == -1) {
-            if (scheme == "https") 443 else 80
-          } else {
-            uri.port
-          }}"
+          val port =
+            when {
+              uri.port != -1 -> uri.port
+              scheme == "https" -> 443
+              else -> 80
+            }
+          "$scheme://$host:$port"
         }
       } catch (_: Exception) {
         null

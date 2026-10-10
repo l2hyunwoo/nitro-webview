@@ -184,8 +184,17 @@ open class NitroWebChromeClient(
     resultMsg: Message,
   ): Boolean {
     if (disposed) return false
-    val handler = onOpenWindow
-    val child = WebView(view.context)
+    val child = createPopupWindow(view, onOpenWindow)
+    (resultMsg.obj as WebView.WebViewTransport).webView = child
+    resultMsg.sendToTarget()
+    return true
+  }
+
+  private fun createPopupWindow(
+    parent: WebView,
+    handler: ((String) -> Unit)?,
+  ): WebView {
+    val child = WebView(parent.context)
     childWindows.add(child)
     child.webViewClient =
       object : WebViewClient() {
@@ -196,8 +205,7 @@ open class NitroWebChromeClient(
           if (!childWindows.remove(subView)) return true
           // Finish after this callback unwinds, even when the child was never attached.
           mainHandler.post {
-            subView.webViewClient = WebViewClient()
-            subView.destroy()
+            destroyChildWindow(subView)
           }
           if (disposed) return true
           val url = request.url?.toString()
@@ -205,15 +213,18 @@ open class NitroWebChromeClient(
             if (handler != null) {
               handler(url) // fire onOpenWindow
             } else {
-              view.loadUrl(url) // default: load in the parent WebView in-place
+              parent.loadUrl(url) // default: load in the parent WebView in-place
             }
           }
           return true // the child never loads the URL itself
         }
       }
-    (resultMsg.obj as WebView.WebViewTransport).webView = child
-    resultMsg.sendToTarget()
-    return true
+    return child
+  }
+
+  private fun destroyChildWindow(child: WebView) {
+    child.webViewClient = WebViewClient()
+    child.destroy()
   }
 
   /** Resolve the effective host Activity for the next chooser invocation. */
@@ -232,18 +243,23 @@ open class NitroWebChromeClient(
   internal fun dispose() {
     if (disposed) return
     disposed = true
-    onLoadProgress = null
-    onOpenWindow = null
-    hostActivity = null
+    clearCallbacksAndHost()
     cancelFileChooser()
     permissions.dispose()
     fullscreenVideo.hide()
+    destroyChildWindows()
+  }
+
+  private fun clearCallbacksAndHost() {
+    onLoadProgress = null
+    onOpenWindow = null
+    hostActivity = null
+  }
+
+  private fun destroyChildWindows() {
     val children = childWindows.toList()
     childWindows.clear()
-    children.forEach {
-      it.webViewClient = WebViewClient()
-      it.destroy()
-    }
+    children.forEach(::destroyChildWindow)
   }
 
   override fun onShowFileChooser(
@@ -263,6 +279,10 @@ open class NitroWebChromeClient(
     pendingCallback = filePathCallback
     pendingCaptureUri = null
 
+    return launchFileChooser(buildFileChooserIntent(fileChooserParams))
+  }
+
+  private fun buildFileChooserIntent(fileChooserParams: FileChooserParams?): Intent {
     val acceptTypes = fileChooserParams?.acceptTypes?.filter { it.isNotBlank() }.orEmpty()
     val allowMultiple =
       fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE
@@ -271,19 +291,20 @@ open class NitroWebChromeClient(
     val contentIntent = buildContentIntent(acceptTypes, allowMultiple)
     val captureIntents = if (isCapture) buildCaptureIntents(acceptTypes) else emptyList()
 
-    val chooser =
-      Intent(Intent.ACTION_CHOOSER).apply {
-        putExtra(Intent.EXTRA_INTENT, contentIntent)
-        putExtra(Intent.EXTRA_TITLE, fileChooserParams?.title ?: "Choose file")
-        if (captureIntents.isNotEmpty()) {
-          putExtra(
-            Intent.EXTRA_INITIAL_INTENTS,
-            captureIntents.toTypedArray(),
-          )
-        }
+    return Intent(Intent.ACTION_CHOOSER).apply {
+      putExtra(Intent.EXTRA_INTENT, contentIntent)
+      putExtra(Intent.EXTRA_TITLE, fileChooserParams?.title ?: "Choose file")
+      if (captureIntents.isNotEmpty()) {
+        putExtra(
+          Intent.EXTRA_INITIAL_INTENTS,
+          captureIntents.toTypedArray(),
+        )
       }
+    }
+  }
 
-    return try {
+  private fun launchFileChooser(chooser: Intent): Boolean =
+    try {
       val launched = launchChooser(chooser)
       if (!launched) {
         cancelFileChooser()
@@ -293,7 +314,6 @@ open class NitroWebChromeClient(
       cancelFileChooser()
       false
     }
-  }
 
   /**
    * Launches the chooser through the resolved host Activity. Extracted as an
