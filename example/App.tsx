@@ -15,12 +15,17 @@ import {
   SafeAreaView,
   initialWindowMetrics,
 } from 'react-native-safe-area-context'
+import { RegressionVerificationScreen } from './src/RegressionVerificationScreen'
 import { HomeList } from './src/components/HomeList'
 import { color, spacing } from './src/components/theme'
 import { PANELS, findPanelById } from './src/panels/index'
 import type { PanelId } from './src/panels/index'
 
-export default function App() {
+export default function App({
+  nitroRegressionProfile,
+}: {
+  nitroRegressionProfile?: string
+}) {
   const [activePanelId, setActivePanelId] = useState<PanelId | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const selectPanel = (id: PanelId) => {
@@ -39,6 +44,15 @@ export default function App() {
     return () => sub.remove()
   }, [activePanel, menuOpen])
   const PanelComponent = activePanel?.component
+  if (Platform.OS === 'ios' && nitroRegressionProfile === 'ios-core') {
+    return (
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <SafeAreaView style={styles.safeArea}>
+          <RegressionVerificationScreen autoRun />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    )
+  }
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics} style={styles.root}>
       <StatusBar barStyle="dark-content" />

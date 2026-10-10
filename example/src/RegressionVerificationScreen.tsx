@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import iosUICases from './ios-ui-cases.json';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
   Button,
@@ -160,7 +161,11 @@ async function fixture<T>(path: string, body?: unknown): Promise<T> {
 }
 
 /** Runs through the normal AppRegistry root, with production callbacks and refs. */
-export function RegressionVerificationScreen() {
+export function RegressionVerificationScreen({
+  autoRun = false,
+}: {
+  autoRun?: boolean;
+}) {
   const [views, setViews] = useState<Observation[]>([]);
   const [results, setResults] = useState<CaseResult[]>([]);
   const [running, setRunning] = useState(false);
@@ -169,6 +174,7 @@ export function RegressionVerificationScreen() {
   const [reportError, setReportError] = useState('');
   const mounted = useRef(true);
   const inFlight = useRef(false);
+  const autoStarted = useRef(false);
   const sequence = useRef(0);
   const liveViews = useRef<Observation[]>([]);
   const appStates = useRef<string[]>([]);
@@ -183,7 +189,7 @@ export function RegressionVerificationScreen() {
     };
   }, []);
 
-  async function run() {
+  const run = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
     setRunning(true);
@@ -201,7 +207,7 @@ export function RegressionVerificationScreen() {
     async function until(
       predicate: () => boolean,
       label: string,
-      timeoutMs = 10000,
+      timeoutMs = autoRun ? 60000 : 10000,
     ) {
       const deadline = Date.now() + timeoutMs;
       while (!predicate()) {
@@ -283,7 +289,7 @@ export function RegressionVerificationScreen() {
     async function ready(
       view: Observation,
       path?: string,
-      timeoutMs = Platform.OS === 'ios' ? 30000 : 10000,
+      timeoutMs = autoRun ? 60000 : Platform.OS === 'ios' ? 30000 : 10000,
     ) {
       await until(
         () =>
@@ -358,6 +364,26 @@ export function RegressionVerificationScreen() {
     }
 
     async function interact(action: string, label?: string) {
+      if (autoRun) {
+        check(
+          action === 'tap' && label,
+          `UI interaction ${action} is not in the iOS core profile`,
+        );
+        const view = liveViews.current.at(-1);
+        check(view, 'No WebView for DOM interaction');
+        await evaluate(
+          view,
+          `(() => {
+          const label = ${JSON.stringify(label)};
+          const element = [...document.querySelectorAll('a,button')]
+            .find(node => node.textContent.trim() === label);
+          if (!element) throw new Error('Fixture control missing: ' + label);
+          element.click();
+          return true;
+        })()`,
+        );
+        return;
+      }
       const id = `${runID}-${caseIndex}-${++sequence.current}`;
       await fixture('/interaction', {
         id,
@@ -381,6 +407,7 @@ export function RegressionVerificationScreen() {
         await fixture('/results', {
           complete,
           platform: Platform.OS,
+          profile: autoRun ? 'ios-core' : 'full',
           cases: completed,
         });
         if (active()) setReportError('');
@@ -907,14 +934,19 @@ export function RegressionVerificationScreen() {
           });
           await ready(view);
           await pageDiagnostic(view, 'before history navigation');
-          await fixture('/interaction', {
-            id: `${runID}-${caseIndex}-history`,
-            label: 'Navigate',
-          });
-          try {
-            await ready(view, '/target', 90000);
-          } finally {
-            await fixture('/interaction', null);
+          if (autoRun) {
+            await interact('tap', 'Navigate');
+            await ready(view, '/target');
+          } else {
+            await fixture('/interaction', {
+              id: `${runID}-${caseIndex}-history`,
+              label: 'Navigate',
+            });
+            try {
+              await ready(view, '/target', 90000);
+            } finally {
+              await fixture('/interaction', null);
+            }
           }
           await pageDiagnostic(view, 'before goBack');
           view.diagnostics.push(
@@ -1579,6 +1611,7 @@ export function RegressionVerificationScreen() {
               geolocationPermissionOrigins: [origin],
             });
             await ready(view);
+            ref(view).injectJavaScript('requestLocation();true;');
             await interact('permission-deny');
             await until(
               () => view.messages.includes('location:denied:1'),
@@ -1594,6 +1627,7 @@ export function RegressionVerificationScreen() {
               geolocationPermissionOrigins: [origin],
             });
             await ready(view);
+            ref(view).injectJavaScript('requestLocation();true;');
             await interact('permission-allow');
             await until(
               () =>
@@ -2165,10 +2199,15 @@ export function RegressionVerificationScreen() {
 
     async function executeCases() {
       for (const [name, test] of tests) {
+        if (autoRun && iosUICases.includes(name)) continue;
         if (!active()) return;
         const result = await executeCase(name, test);
         if (!active()) return;
         completed.push(result);
+        if (autoRun && !result.ok) {
+          await report(true);
+          return;
+        }
         setResults([...completed]);
         await report(false);
       }
@@ -2199,7 +2238,14 @@ export function RegressionVerificationScreen() {
       }
       inFlight.current = false;
     }
-  }
+  }, [autoRun]);
+
+  useEffect(() => {
+    if (autoRun && !autoStarted.current) {
+      autoStarted.current = true;
+      void run();
+    }
+  }, [autoRun, run]);
 
   return (
     <View style={styles.screen}>

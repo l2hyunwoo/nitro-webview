@@ -26,6 +26,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     factory.startReactNative(
       withModuleName: "example",
       in: window,
+      initialProperties: ProcessInfo.processInfo.environment["NITRO_REGRESSION_PROFILE"] == "ios-core"
+        ? ["nitroRegressionProfile": "ios-core"] : nil,
       launchOptions: launchOptions
     )
 

@@ -3,6 +3,7 @@ import TestRenderer, { act } from 'react-test-renderer'
 import {
   BackHandler,
   KeyboardAvoidingView,
+  Platform,
   TouchableOpacity,
 } from 'react-native'
 import App from '../App'
@@ -11,6 +12,14 @@ jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default
 )
+jest.mock('../src/RegressionVerificationScreen', () => {
+  const ReactMock = require('react')
+  const { Text } = require('react-native')
+  return {
+    RegressionVerificationScreen: ({ autoRun }: { autoRun?: boolean }) =>
+      ReactMock.createElement(Text, { testID: 'regression-autostart', autoRun }),
+  }
+})
 jest.mock('../src/panels/index', () => {
   const ReactMock = require('react')
   const { Text } = require('react-native')
@@ -128,4 +137,24 @@ test('feature menu switches screens directly and closes without discarding the a
   ).toBe('auto')
   await act(() => renderer.unmount())
   listener.mockRestore()
+})
+
+
+test('iOS core launch properties select the auto-running regression screen', async () => {
+  const platform = jest.replaceProperty(Platform, 'OS', 'ios')
+  let renderer!: TestRenderer.ReactTestRenderer
+  try {
+    await act(() => {
+      renderer = TestRenderer.create(<App nitroRegressionProfile="ios-core" />)
+    })
+    expect(
+      renderer.root.findByProps({ testID: 'regression-autostart' }).props.autoRun
+    ).toBe(true)
+    expect(
+      renderer.root.findAllByProps({ testID: 'open-features-menu' })
+    ).toHaveLength(0)
+  } finally {
+    if (renderer) await act(() => renderer.unmount())
+    platform.restore()
+  }
 })

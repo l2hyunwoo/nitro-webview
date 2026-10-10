@@ -11,10 +11,21 @@ on:
         description: Verify the release archive on both platforms
         type: boolean
         default: false
+      ios_profile:
+        description: iOS regression profile
+        type: string
+        default: ios-core
       candidate_artifact:
         description: Artifact containing the archive, metadata, and source bundle
         type: string
         default: ''
+  workflow_dispatch:
+    inputs:
+      ios_profile:
+        description: iOS regression profile
+        type: choice
+        options: [ios-core, full]
+        default: ios-core
   push:
     branches: [main]
   pull_request:
@@ -174,14 +185,15 @@ jobs:
     if: >-
       inputs.packed ||
       github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'e2e-ios')
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: ${{ inputs.ios_profile == 'full' && 45 || 25 }}
     env:
       # Keep Xcode and runtime compatible; macos-15 defaults to Xcode 16.4.
       DEVELOPER_DIR: /Applications/Xcode_26.1.1.app/Contents/Developer
-      SIM_DEVICE: iPhone 17 Pro
-      SIM_OS: '26.1'
+      IOS_PROFILE: ${{ inputs.ios_profile || 'ios-core' }}
+      CONFIGURATION: ${{ inputs.ios_profile == 'full' && 'Debug' || 'Release' }}
       # Must match E2E_PORT default in example/e2e-server.mjs and the port
       # baked into example/src/__tests__/e2eServer.ts.
       E2E_PORT: '8099'
@@ -248,56 +260,48 @@ jobs:
           restore-keys: |
             pods-e2e-${{ runner.os }}-
 
-      - name: Show selected Xcode and runtimes
-        run: |
-          xcodebuild -version
-          xcrun simctl list runtimes
+      - name: Show selected Xcode
+        run: xcodebuild -version
 
       - name: Install CocoaPods
+        timeout-minutes: 5
         working-directory: example/ios
         run: bundle exec pod install
 
-      # Resolve a real device before passing its UDID to xcodebuild.
-      - name: Boot simulator
-        id: sim
-        uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
-        with:
-          model: ${{ env.SIM_DEVICE }}
-          os_version: ${{ env.SIM_OS }}
-          wait_for_boot: true
-
-      - name: Resolve booted simulator for harness
-        run: node example/scripts/resolve-booted-simulator.mjs
-        env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
-
       - name: Build app for simulator
+        timeout-minutes: 15
         working-directory: example/ios
-        env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
         run: |
           set -euo pipefail
           xcodebuild \
             -workspace example.xcworkspace \
             -scheme example \
-            -configuration Debug \
+            -configuration "$CONFIGURATION" \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,id=$SIM_UDID" \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build \
             -jobs 2 \
             CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
             build
 
+      - name: Create and boot dedicated simulator
+        timeout-minutes: 4
+        run: node example/scripts/prepare-ios-simulator.mjs
+
       - name: Install app on simulator
-        working-directory: example/ios
+        timeout-minutes: 3
         run: |
-          set -euo pipefail
-          APP_PATH=$(find build/Build/Products -name 'example.app' -type d | head -1)
-          echo "Installing $APP_PATH"
-          xcrun simctl install "$SIM_UDID" "$APP_PATH"
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process'
+          execFileSync('xcrun', ['simctl', 'install', process.env.SIM_UDID,
+            `example/ios/build/Build/Products/${process.env.CONFIGURATION}-iphonesimulator/example.app`],
+            { stdio: 'inherit', timeout: 120000, killSignal: 'SIGKILL' })
+          NODE
 
       - name: Run AppRegistry regressions (iOS)
-        run: node example/scripts/run-regression.mjs ios "$SIM_UDID"
+        timeout-minutes: ${{ inputs.ios_profile == 'full' && 20 || 6 }}
+        run: node example/scripts/run-regression.mjs ios "$SIM_UDID" "$IOS_PROFILE"
 
       - name: Upload iOS regression evidence
         if: always()
@@ -308,20 +312,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Capture simulator screenshot on failure
-        if: failure()
+      - name: Delete dedicated simulator
+        if: always() && env.SIM_UDID != ''
+        timeout-minutes: 1
         run: |
-          mkdir -p artifacts
-          xcrun simctl io "$SIM_UDID" screenshot artifacts/ios-failure.png || true
-
-      - name: Upload iOS failure screenshot
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-failure-screenshot
-          path: artifacts/ios-failure.png
-          if-no-files-found: ignore
-          retention-days: 7
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process'
+          try {
+            execFileSync('xcrun', ['simctl', 'delete', process.env.SIM_UDID],
+              { stdio: 'inherit', timeout: 20000, killSignal: 'SIGKILL' })
+          } catch (error) { console.error(error.message) }
+          NODE
 
   packed-release-gate:
     name: Require complete packed regressions
@@ -362,6 +363,7 @@ jobs:
 
       - name: Require exact source, archive, and scenario coverage
         env:
+          IOS_PROFILE: ${{ inputs.ios_profile || 'ios-core' }}
           SOURCE_SHA: ${{ inputs.ref }}
         run: |
           node --input-type=module <<'NODE'
@@ -374,7 +376,7 @@ jobs:
           for (const [platform, candidate] of [['android', android], ['ios', ios]]) {
             assert.equal(candidate.source_sha, process.env.SOURCE_SHA)
             assert.equal(candidate.platform, platform)
-            validateRegressionResults(read(`evidence/${platform}/${platform}-regression-results.json`), platform)
+            validateRegressionResults(read(`evidence/${platform}/${platform}-regression-results.json`), platform, platform === 'ios' ? process.env.IOS_PROFILE : 'full')
           }
           assert.equal(android.integrity, ios.integrity)
           assert.equal(android.version, ios.version)

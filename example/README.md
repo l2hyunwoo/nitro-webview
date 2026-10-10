@@ -88,11 +88,11 @@ directory, leaving that process running. It refuses an unrelated Metro process.
 Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
 runner's own processes and session, leaving the device booted.
 
-The runner polls for up to 240 seconds. Success requires all 37 named Android cases
+The full runner polls for up to 600 seconds after launch. Success requires all 37 named Android cases
 or all 33 named iOS cases, with `complete: true` and every `ok: true`. Missing,
 incomplete, duplicate, or failed cases make the command fail. Android includes an
 actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
-The history case uses a real native tap because
+The full history case uses a real native tap because
 [Chromium can skip history entries created without user activation](https://chromium.googlesource.com/chromium/src/+/refs/heads/lkgr/docs/history_manipulation_intervention.md).
 
 Each run first removes only prior evidence with its own `<platform>-regression-`
@@ -102,6 +102,27 @@ fixture, and Metro logs. A successful run fails if it cannot save its device scr
 Failures also save a screenshot and native logs when available. Fixture request records include
 cookie names and authorization match/count fields, without cookie or authorization
 values.
+
+CI uses the `ios-core` profile for iOS. It builds a Release app with an embedded
+JavaScript bundle, then creates a dedicated simulator. The runner launches the app
+with `SIMCTL_CHILD_NITRO_REGRESSION_PROFILE=ios-core`; the AppRegistry root starts
+the checks without Metro or an XCTest UI driver. The runner requires all 29 core
+cases within 180 seconds after launch and stops on the first failure. History and
+download controls use DOM clicks through the production `evaluateJavaScript` API.
+This profile does not verify trusted user gestures.
+
+Four OS UI cases remain in the full profile: popup user activation, background and
+resume, file chooser cancellation, and fullscreen exit and unmount. Run the E2E
+workflow manually with `ios_profile=full` to include them. Core results explicitly
+record `profile: ios-core`; the release gate rejects missing, failed, or mismatched
+coverage. Successful core runs save results, fixture requests, and logs; screenshots
+are diagnostic only on failure.
+
+To run the core profile locally, install a Release simulator build, then run:
+
+```sh
+node example/scripts/run-regression.mjs ios "$SIM_UDID" ios-core
+```
 
 CI invokes this runner on every PR for Android. iOS runs on pushes to main and PRs
 with the `e2e-ios` label. `.github/workflows/e2e.yml` builds, installs, runs, and

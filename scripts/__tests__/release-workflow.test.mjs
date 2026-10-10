@@ -110,3 +110,33 @@ test('CocoaPods uses the release v tag and advertises only implemented platforms
     /s\.platforms\s*=\s*\{\s*:ios\s*=>\s*min_ios_version_supported\s*\}/
   )
 })
+
+test('packed iOS gate requires explicit core coverage and a bounded Release run', () => {
+  const e2e = workflow('e2e')
+  assert.equal(e2e.on.workflow_call.inputs.ios_profile.default, 'ios-core')
+  const ios = e2e.jobs['e2e-ios']
+  assert.match(ios.env.CONFIGURATION, /'Debug' \|\| 'Release'/)
+  const build = ios.steps.find(
+    (step) => step.name === 'Build app for simulator'
+  )
+  const boot = ios.steps.find(
+    (step) => step.name === 'Create and boot dedicated simulator'
+  )
+  assert(ios.steps.indexOf(build) < ios.steps.indexOf(boot))
+  assert.match(build.run, /generic\/platform=iOS Simulator/)
+  assert.equal(boot['timeout-minutes'], 4)
+  const install = ios.steps.find(step => step.name === 'Install app on simulator')
+  assert.equal(install['timeout-minutes'], 3)
+  assert.match(install.run, /timeout: 120000/)
+  assert(!ios.steps.some((step) => step.run?.includes('list devices')))
+  assert(ios.steps.some((step) => step.run?.includes('"$IOS_PROFILE"')))
+  const gate = e2e.jobs['packed-release-gate'].steps.find(
+    (step) =>
+      step.name === 'Require exact source, archive, and scenario coverage'
+  )
+  assert.match(gate.env.IOS_PROFILE, /ios-core/)
+  assert.match(
+    gate.run,
+    /platform === 'ios' \? process.env.IOS_PROFILE : 'full'/
+  )
+})
