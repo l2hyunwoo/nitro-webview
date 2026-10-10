@@ -4,6 +4,27 @@ import XCTest
 
 final class NitroWebViewErrorMapperTests: XCTestCase {
 
+  func test_isPolicyInterruption_matchesOnlyWebKitPolicyCancellation() {
+    let cases: [(domain: String, code: Int, expected: Bool)] = [
+      ("WebKitErrorDomain", 102, true),
+      (NSURLErrorDomain, 102, false),
+      (NSPOSIXErrorDomain, 102, false),
+      ("WKErrorDomain", 102, false),
+      ("WebKitErrorDomain", 101, false),
+      ("WebKitErrorDomain", 103, false),
+      ("WebKitErrorDomain", -999, false),
+      (NSURLErrorDomain, -999, false),
+      (NSURLErrorDomain, -1003, false),
+    ]
+    for testCase in cases {
+      let error = NSError(domain: testCase.domain, code: testCase.code, userInfo: nil)
+      XCTAssertEqual(
+        NitroWebViewErrorMapper.isPolicyInterruption(error), testCase.expected,
+        "\(testCase.domain) code \(testCase.code)"
+      )
+    }
+  }
+
   func test_event_fromNsUrlErrorDomain_mapsAllFieldsFaithfully() {
     let mockError = NSError(
       domain: NSURLErrorDomain,
