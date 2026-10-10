@@ -100,21 +100,43 @@ final class HybridNitroWebView:
   private func createWebView() {
     let settings = sessionSettings
     mountedSettings = settings
+    let configuration = makeWebViewConfiguration(settings: settings)
+    let webView = mountWebView(configuration: configuration)
+    applyLiveViewProperties(to: webView)
+    observeLoadProgress(on: webView)
+    installWebViewDelegates(on: webView)
+    if settings.javaScript {
+      installJavaScriptBridge(in: configuration)
+    }
+    prepareCookies(in: configuration, sharedCookies: settings.sharedCookies)
+  }
+
+  private func makeWebViewConfiguration(settings: NitroWebViewSessionSettings) -> WKWebViewConfiguration {
     let configuration = WKWebViewConfiguration()
     configuration.websiteDataStore = settings.incognito ? .nonPersistent() : .default()
     configuration.defaultWebpagePreferences.allowsContentJavaScript = settings.javaScript
     configuration.allowsInlineMediaPlayback = allowsInlineMediaPlayback ?? false
     configuration.mediaTypesRequiringUserActionForPlayback =
       (mediaPlaybackRequiresUserAction ?? true) ? .all : []
+    return configuration
+  }
+
+  private func mountWebView(configuration: WKWebViewConfiguration) -> NitroDialogWebView {
     let webView = NitroDialogWebView(frame: view.bounds, configuration: configuration)
     self.webView = webView
     webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     view.addSubview(webView)
+    return webView
+  }
+
+  private func applyLiveViewProperties(to webView: WKWebView) {
     webView.customUserAgent = (userAgent?.isEmpty ?? true) ? nil : userAgent
     webView.scrollView.isScrollEnabled = scrollEnabled ?? true
     webView.scrollView.bounces = bounces ?? true
     webView.allowsBackForwardNavigationGestures = allowsBackForwardNavigationGestures ?? false
+  }
 
+  private func observeLoadProgress(on webView: WKWebView) {
     progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] observedWebView, _ in
       guard let self = self, self.navigationDelegate.loading else { return }
       let state = self.snapshotNavigationState()
@@ -124,6 +146,9 @@ final class HybridNitroWebView:
         canGoBack: state.canGoBack, canGoForward: state.canGoForward
       )))
     }
+  }
+
+  private func installWebViewDelegates(on webView: NitroDialogWebView) {
     navigationDelegate.owner = self
     webView.navigationDelegate = navigationDelegate
     // Claim the scrollView delegate to surface `onScroll`. WKWebView does
@@ -145,29 +170,33 @@ final class HybridNitroWebView:
     webView.onDetach = { [weak uiDelegate] in
       uiDelegate?.dialogs.cancel()
     }
-    if settings.javaScript {
-      messageHandler.dispatcher = self
-      historyHandler.dispatcher = self
-      let controller = configuration.userContentController
-      controller.add(messageHandler, name: NitroWebViewMessageHandler.scriptMessageHandlerName)
-      controller.add(historyHandler, name: NitroWebViewHistoryHandler.scriptMessageHandlerName)
-      reinstallUserScripts()
-    }
-    if settings.sharedCookies {
-      let group = DispatchGroup()
-      let store = configuration.websiteDataStore.httpCookieStore
-      for cookie in HTTPCookieStorage.shared.cookies ?? [] {
-        if let expires = cookie.expiresDate, expires <= Date() { continue }
-        group.enter()
-        store.setCookie(cookie) { group.leave() }
-      }
-      group.notify(queue: .main) { [weak self] in
-        guard let self, !self.isDropped else { return }
-        self.cookiesReady = true
-        self.afterUpdate()
-      }
-    } else {
+  }
+
+  private func installJavaScriptBridge(in configuration: WKWebViewConfiguration) {
+    messageHandler.dispatcher = self
+    historyHandler.dispatcher = self
+    let controller = configuration.userContentController
+    controller.add(messageHandler, name: NitroWebViewMessageHandler.scriptMessageHandlerName)
+    controller.add(historyHandler, name: NitroWebViewHistoryHandler.scriptMessageHandlerName)
+    reinstallUserScripts()
+  }
+
+  private func prepareCookies(in configuration: WKWebViewConfiguration, sharedCookies: Bool) {
+    guard sharedCookies else {
       cookiesReady = true
+      return
+    }
+    let group = DispatchGroup()
+    let store = configuration.websiteDataStore.httpCookieStore
+    for cookie in HTTPCookieStorage.shared.cookies ?? [] {
+      if let expires = cookie.expiresDate, expires <= Date() { continue }
+      group.enter()
+      store.setCookie(cookie) { group.leave() }
+    }
+    group.notify(queue: .main) { [weak self] in
+      guard let self, !self.isDropped else { return }
+      self.cookiesReady = true
+      self.afterUpdate()
     }
   }
 
@@ -227,6 +256,14 @@ final class HybridNitroWebView:
 
   func onDropView() {
     isDropped = true
+    cancelPendingCallbacks()
+    rejectPendingEvaluations()
+    guard let webView else { return }
+    detachWebView(webView)
+    clearDelegateOwnersAndDispatchers()
+  }
+
+  private func cancelPendingCallbacks() {
     navigationDelegate.cancelPendingDecisions()
     uiDelegate.dialogs.cancel()
     progressObservation?.invalidate()
@@ -235,10 +272,15 @@ final class HybridNitroWebView:
     onLoad = nil
     onLoadEnd = nil
     onLoadProgress = nil
+  }
+
+  private func rejectPendingEvaluations() {
     let evaluations = Array(pendingEvaluations.values)
     pendingEvaluations.removeAll()
     for promise in evaluations { promise.reject(withError: Self.stateError()) }
-    guard let webView else { return }
+  }
+
+  private func detachWebView(_ webView: WKWebView) {
     webView.stopLoading()
     webView.removeFromSuperview()
     self.webView = nil
@@ -253,6 +295,9 @@ final class HybridNitroWebView:
     webView.navigationDelegate = nil
     webView.uiDelegate = nil
     webView.scrollView.delegate = nil
+  }
+
+  private func clearDelegateOwnersAndDispatchers() {
     navigationDelegate.owner = nil
     scrollDelegate.owner = nil
     uiDelegate.owner = nil
@@ -804,16 +849,7 @@ final class HybridNitroWebView:
         return
       }
       let httpResponse = navigationResponse.response as? HTTPURLResponse
-      // HTTP-error (4xx/5xx) detection for the MAIN frame only. Disjoint from
-      // `onError` (transport failures). Emitted BEFORE the download branch and
-      // WITHOUT returning early: a server-rendered 404 body must still display,
-      // so the navigation continues to the download/allow decision below.
-      if navigationResponse.isForMainFrame,
-         let http = httpResponse,
-         let mapped = HybridNitroWebView.httpError(from: http) {
-        failed = true
-        owner?.emitHttpError(mapped)
-      }
+      emitHttpErrorIfNeeded(for: navigationResponse)
       let isDownload = HybridNitroWebView.shouldTreatAsDownload(
         response: httpResponse,
         canShowMIMEType: navigationResponse.canShowMIMEType
@@ -824,6 +860,16 @@ final class HybridNitroWebView:
       }
       owner?.emitFileDownload(for: navigationResponse.response)
       decisionHandler(.cancel)
+    }
+
+    private func emitHttpErrorIfNeeded(for response: WKNavigationResponse) {
+      // Main-frame HTTP failures must be emitted before the download/allow decision.
+      if response.isForMainFrame,
+         let http = response.response as? HTTPURLResponse,
+         let mapped = HybridNitroWebView.httpError(from: http) {
+        failed = true
+        owner?.emitHttpError(mapped)
+      }
     }
 
     /// The web content process terminated (crash or OS reclaim) leaving a
