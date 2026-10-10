@@ -5,8 +5,10 @@ Use the README from your installed package version when comparing published beha
 
 ## Dependencies and native architecture
 
-Native views require the New Architecture. Development uses React Native `0.85.3`, React `19.2.3`, and Nitro Modules / Nitrogen `0.35.9`.
-See the [development baseline](README.md#development-baseline) and release checks before upgrading.
+The candidate narrows previously unrestricted peers to React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`.
+Consumers outside these ranges receive a peer dependency conflict. This policy follows the validation baseline; it does not establish that other React Native versions are incompatible.
+Native views require the New Architecture. Nitro Modules / Nitrogen development pins remain `0.35.9`.
+See the [support policy and verification limits](README.md#support-candidate).
 
 ## JavaScript evaluation returns JSON
 

@@ -44,9 +44,20 @@ This branch describes the unreleased `0.2.0` candidate. Its package version rema
 An npm installation uses the API in that published version, which can differ from this branch.
 See the [migration guide](MIGRATION.md) before adopting candidate behavior.
 
-### Development baseline
+### Support candidate
 
-Native views require React Native's New Architecture. Development uses React Native `0.85.3`, React `19.2.3`, and Nitro Modules / Nitrogen `0.35.9`.
+Native views require React Native's New Architecture. This candidate narrows the previously unrestricted peer ranges to the development and validation baseline:
+
+| Dependency | Candidate peer range | Development pin |
+| --- | --- | --- |
+| React Native | `~0.85.3` | `0.85.3` |
+| React | `19.2.3` | `19.2.3` |
+| Nitro Modules | `^0.35.9` | `0.35.9` |
+| Nitrogen generator | Development only | `0.35.9` |
+
+This is a support policy, not evidence that other React Native versions fail. Existing consumers outside these ranges receive a peer dependency conflict and need compatibility validation before upgrading.
+React Native 0.85.3 requires its embedded React renderer version, `19.2.3`, exactly.
+Future versions allowed by these ranges remain unverified until their checks run.
 RN 0.85.3 requires Android API 24 or later and iOS 15.1 or later.
 Use Node.js 22.13 or later in the Node 22 line for development checks.
 macOS and Windows have no implementation; visionOS has no verified support result.
