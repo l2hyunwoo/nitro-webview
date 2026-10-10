@@ -41,10 +41,12 @@ jobs:
               - 'example/**'
               - 'package.json'
               - 'yarn.lock'
+              - 'scripts/check-package.mjs'
+              - 'type-tests/**'
               - '.github/workflows/ci.yml'
 
   validate:
-    name: Validate (lint, typecheck, prepare, TS tests)
+    name: Validate (lint, typecheck, codegen, TS tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -86,14 +88,63 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: yarn typecheck
 
-      - name: Build library (yarn prepare)
-        run: yarn prepare
+      - name: Verify generated native bindings
+        run: yarn check:codegen
 
       - name: Run host TS tests (node --test)
         run: yarn test
 
       - name: Test AppRegistry regression fixture and runner
         run: node --test example/scripts/__tests__/*.test.mjs
+
+      - name: Test release candidate verification
+        run: node --test scripts/__tests__/*.test.mjs
+
+  package-smoke:
+    name: Packed consumer (${{ matrix.label }})
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - label: lower
+            react: 19.2.3
+            rn: 0.85.3
+            nitro: 0.35.9
+          - label: upper
+            react: 19.2.3
+            rn: 0.85.3
+            nitro: 0.35.10
+    env:
+      PACKAGE_REACT_VERSION: ${{ matrix.react }}
+      PACKAGE_RN_VERSION: ${{ matrix.rn }}
+      PACKAGE_NITRO_VERSION: ${{ matrix.nitro }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Check package validator failure cases
+        run: node scripts/check-package.mjs --self-test
+
+      - name: Check tarball files and isolated public types
+        run: yarn test:package
 
   swift-test:
     name: Swift tests (XCTest)
@@ -119,11 +170,12 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Run Swift tests
-        run: yarn test:ios-native
+        working-directory: iosTests
+        run: swift test --jobs 2
 
   robolectric:
     name: Android unit tests (Robolectric)
@@ -155,7 +207,7 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
@@ -174,7 +226,7 @@ jobs:
 
       - name: Run Robolectric suite
         working-directory: example/android
-        run: ./gradlew :nitro-webview:testDebugUnitTest --no-daemon --build-cache
+        run: ./gradlew :nitro-webview:testDebugUnitTest --no-daemon --build-cache --max-workers=2 -PreactNativeArchitectures=x86_64
 
       - name: Stop Gradle daemon
         if: always()
@@ -211,7 +263,7 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
@@ -230,7 +282,7 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: example/android
-        run: ./gradlew :app:assembleDebug --no-daemon --build-cache
+        run: ./gradlew :app:assembleDebug --no-daemon --build-cache --max-workers=2 -PreactNativeArchitectures=x86_64
 
       - name: Stop Gradle daemon
         if: always()
@@ -270,7 +322,7 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
@@ -299,5 +351,6 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -jobs 2 \
             CODE_SIGNING_ALLOWED=NO \
             build

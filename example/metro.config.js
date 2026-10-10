@@ -22,16 +22,6 @@ const config = {
       path.resolve(__dirname, 'node_modules'),
       path.resolve(root, 'node_modules'),
     ],
-
-    resolveRequest: (context, moduleName, platform) => {
-      if (moduleName === 'nitro-webview') {
-        return {
-          filePath: path.join(root, 'src/index.ts'),
-          type: 'sourceFile',
-        }
-      }
-      return context.resolveRequest(context, moduleName, platform)
-    },
   },
 
   transformer: {

@@ -16,17 +16,23 @@
     "android/gradle.properties",
     "android/fix-prefab.gradle",
     "android/CMakeLists.txt",
-    "android/src",
+    "android/src/main",
     "cpp",
     "ios/**/*.h",
     "ios/**/*.m",
     "ios/**/*.mm",
     "ios/**/*.cpp",
     "ios/**/*.swift",
-    "app.plugin.js",
     "nitro.json",
     "*.podspec",
-    "README.md"
+    "README.md",
+    "!src/**/__tests__/**",
+    "!src/**/*.test.*",
+    "!src/**/*.type-test.*",
+    "!lib/**/__tests__/**",
+    "!lib/**/*.test.*",
+    "!lib/**/*.type-test.*",
+    "MIGRATION.md"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -39,7 +45,10 @@
     "format:kotlin": "ktlint --format 'android/src/**/*.kt' 'example/android/app/src/**/*.kt'",
     "typescript": "tsc",
     "prepare": "tsc",
-    "specs": "tsc --noEmit false && nitrogen --logLevel=\"debug\""
+    "specs": "tsc --noEmit false && nitrogen --logLevel=\"debug\"",
+    "prepack": "tsc",
+    "check:codegen": "yarn specs && git diff --exit-code -- nitrogen/generated && test -z \"$(git ls-files --others --exclude-standard -- nitrogen/generated)\"",
+    "test:package": "yarn prepack && node scripts/check-package.mjs"
   },
   "keywords": [
     "react-native",
@@ -65,11 +74,11 @@
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
-    "nitrogen": "*",
+    "nitrogen": "0.35.9",
     "prettier": "^3.8.3",
     "react": "19.2.3",
     "react-native": "0.85.3",
-    "react-native-nitro-modules": "*",
+    "react-native-nitro-modules": "0.35.9",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {

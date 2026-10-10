@@ -1,6 +1,20 @@
 name: E2E
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact source commit to verify
+        type: string
+        default: ''
+      packed:
+        description: Verify the release archive on both platforms
+        type: boolean
+        default: false
+      candidate_artifact:
+        description: Artifact containing the archive, metadata, and source bundle
+        type: string
+        default: ''
   push:
     branches: [main]
   pull_request:
@@ -11,8 +25,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: e2e-${{ inputs.ref || github.ref }}-${{ inputs.packed && 'packed' || 'linked' }}
+  cancel-in-progress: ${{ !inputs.packed }}
+
+env:
+  CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
 
 jobs:
   e2e-android:
@@ -33,6 +50,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.packed && github.sha || inputs.ref || github.sha }}
+
+      - name: Download release candidate
+        if: inputs.packed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.candidate_artifact }}
+          path: ${{ env.CANDIDATE_DIR }}
 
       - name: Enable KVM
         run: |
@@ -56,15 +81,28 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      - name: Restore exact release source
+        if: inputs.packed
+        env:
+          SOURCE_SHA: ${{ inputs.ref }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
+
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
+        if: ${{ !inputs.packed }}
         working-directory: example
         run: yarn install --immutable
+
+      - name: Install and verify packed native dependency
+        if: inputs.packed
+        env:
+          SOURCE_SHA: ${{ inputs.ref }}
+        run: node scripts/release-candidate.mjs install "$CANDIDATE_DIR" "$SOURCE_SHA" android
 
       - name: Gradle cache
         uses: actions/cache@v4
@@ -78,7 +116,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: example/android
-        run: ./gradlew :app:assembleDebug --no-daemon --build-cache
+        run: ./gradlew :app:assembleDebug --no-daemon --build-cache --max-workers=2 -PreactNativeArchitectures=x86_64
 
       - name: Stop Gradle daemon
         working-directory: example/android
@@ -134,6 +172,7 @@ jobs:
   e2e-ios:
     name: E2E iOS (simulator)
     if: >-
+      inputs.packed ||
       github.event_name == 'push' ||
       contains(github.event.pull_request.labels.*.name, 'e2e-ios')
     runs-on: macos-15
@@ -151,6 +190,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.packed && github.sha || inputs.ref || github.sha }}
+
+      - name: Download release candidate
+        if: inputs.packed
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.candidate_artifact }}
+          path: ${{ env.CANDIDATE_DIR }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -160,6 +207,12 @@ jobs:
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Restore exact release source
+        if: inputs.packed
+        env:
+          SOURCE_SHA: ${{ inputs.ref }}
+        run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
       - name: Setup Ruby (bundler cache)
         uses: ruby/setup-ruby@v1
@@ -173,12 +226,19 @@ jobs:
       - name: Install dependencies (root)
         run: yarn install --immutable
 
-      - name: Build library (yarn prepare - tsc + nitrogen)
+      - name: Build TypeScript library (yarn prepare)
         run: yarn prepare
 
       - name: Install dependencies (example)
+        if: ${{ !inputs.packed }}
         working-directory: example
         run: yarn install --immutable
+
+      - name: Install and verify packed native dependency
+        if: inputs.packed
+        env:
+          SOURCE_SHA: ${{ inputs.ref }}
+        run: node scripts/release-candidate.mjs install "$CANDIDATE_DIR" "$SOURCE_SHA" ios
 
       - name: Pods cache
         uses: actions/cache@v4
@@ -224,6 +284,7 @@ jobs:
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,id=$SIM_UDID" \
             -derivedDataPath build \
+            -jobs 2 \
             CODE_SIGNING_ALLOWED=NO \
             build
 
@@ -261,3 +322,61 @@ jobs:
           path: artifacts/ios-failure.png
           if-no-files-found: ignore
           retention-days: 7
+
+  packed-release-gate:
+    name: Require complete packed regressions
+    if: ${{ always() && inputs.packed }}
+    needs:
+      - e2e-android
+      - e2e-ios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both platform jobs to succeed
+        env:
+          ANDROID_RESULT: ${{ needs.e2e-android.result }}
+          IOS_RESULT: ${{ needs.e2e-ios.result }}
+        run: test "$ANDROID_RESULT" = success && test "$IOS_RESULT" = success
+
+      - name: Checkout regression validator
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download Android evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: android-regression
+          path: evidence/android
+
+      - name: Download iOS evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-regression
+          path: evidence/ios
+
+      - name: Require exact source, archive, and scenario coverage
+        env:
+          SOURCE_SHA: ${{ inputs.ref }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import { readFileSync } from 'node:fs'
+          import { validateRegressionResults } from './example/scripts/run-regression.mjs'
+          const read = path => JSON.parse(readFileSync(path, 'utf8'))
+          const android = read('evidence/android/release-candidate.json')
+          const ios = read('evidence/ios/release-candidate.json')
+          for (const [platform, candidate] of [['android', android], ['ios', ios]]) {
+            assert.equal(candidate.source_sha, process.env.SOURCE_SHA)
+            assert.equal(candidate.platform, platform)
+            validateRegressionResults(read(`evidence/${platform}/${platform}-regression-results.json`), platform)
+          }
+          assert.equal(android.integrity, ios.integrity)
+          assert.equal(android.version, ios.version)
+          console.log(JSON.stringify({ source_sha: android.source_sha, integrity: android.integrity, version: android.version }))
+          NODE

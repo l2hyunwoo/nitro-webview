@@ -5365,7 +5365,7 @@ __metadata:
     react: "npm:19.2.3"
     react-native: "npm:0.85.3"
     react-native-harness: "npm:^1.3.0"
-    react-native-nitro-modules: "npm:*"
+    react-native-nitro-modules: "npm:0.35.9"
     react-test-renderer: "npm:19.2.3"
     typescript: "npm:^5.8.3"
   languageName: unknown
@@ -8365,7 +8365,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-nitro-modules@npm:*":
+"react-native-nitro-modules@npm:0.35.9":
   version: 0.35.9
   resolution: "react-native-nitro-modules@npm:0.35.9"
   peerDependencies:

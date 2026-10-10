@@ -15,9 +15,9 @@ A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin n
 
 ## Introduction
 
-`nitro-webview` is a drop-in WebView component for React Native that replaces the legacy bridge with [Nitro Modules][nitro]'s JSI-direct dispatch. It targets two audiences:
+`nitro-webview` is a WebView component for React Native using [Nitro Modules][nitro]'s JSI dispatch. Migration requires callback wrappers, hybrid refs, and a review of platform-specific props. It targets two audiences:
 
-- **Experienced RN + Nitro developers** who want a WebView that participates in the Nitro view contract — `getHostComponent`, hybrid refs, `callback(...)` event handlers, `Promise<T>` method results — without paying for JSON serialization or thread-hops on every prop update or event.
+- **Experienced RN + Nitro developers** who want a WebView that uses the Nitro view contract: `getHostComponent`, hybrid refs, `callback(...)` event handlers, and Promise method results.
 - **Teams evaluating WebView libraries** ("comparison shoppers") who already use `react-native-webview` and want to know what they keep, what changes, and what improves before they switch.
 
 ### What you keep coming from `react-native-webview`
@@ -25,20 +25,46 @@ A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin n
 - Same conceptual props (`source`, `userAgent`, `injectedJavaScript`, `onLoadStart` / `onLoadEnd`, `onMessage`, `onError`, `onShouldStartLoadWithRequest`, `onFileDownload`).
 - Same `window.ReactNativeWebView.postMessage(...)` page-side contract.
 - Same `originWhitelist`-style default (`['http://*', 'https://*']`) exposed as `DEFAULT_ORIGIN_WHITELIST`.
-- Same `WebViewNavigationType` string union (`'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other'`) so existing call-sites compile unchanged.
+- Same `WebViewNavigationType` string union (`'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other'`).
 
 ### What changes
 
 - Event props must be wrapped in `callback(...)` from `react-native-nitro-modules` so Nitro can dispatch them on the right thread.
-- `onShouldStartLoadWithRequest` accepts `boolean | Promise<boolean>` — no `lockIdentifier` round-trip. `async` callbacks are awaited transparently.
+- Public `onShouldStartLoadWithRequest` callbacks accept `boolean | Promise<boolean>`. Platform waiting and fallback rules differ; see the [migration guide](MIGRATION.md#navigation-timing-and-public-callbacks).
 - Imperative methods (`goBack`, `evaluateJavaScript`, `getCookies`, `setCookie`, `clearCookies`, …) live on the **hybrid ref** captured via the `hybridRef` prop, not on a React `ref`.
-- Native packages: `io.github.l2hyunwoo.nitrowebview` (Android) / `NitroWebView` Swift module (iOS). MIT-licensed, npm-published as `nitro-webview` (unscoped).
+- Native package: `io.github.l2hyunwoo.nitro.webview` (Android). MIT-licensed, npm-published as `nitro-webview` (unscoped).
 
 ### Why Nitro
 
 Nitro Modules pipes props, methods, and event callbacks through JSI so a load event or a cookie read does not round-trip through `NativeEventEmitter` or the bridge's serialization queue. For a WebView — which is event-heavy (navigation, messages, errors, downloads) — that is the main practical win.
 
 ## Quick Start
+
+This branch describes the unreleased `0.2.0` candidate. Its package version remains `0.1.0` until release validation completes.
+An npm installation uses the API in that published version, which can differ from this branch.
+See the [migration guide](MIGRATION.md) before adopting candidate behavior.
+
+### Development baseline
+
+Native views require React Native's New Architecture. Development uses React Native `0.85.3`, React `19.2.3`, and Nitro Modules / Nitrogen `0.35.9`.
+RN 0.85.3 requires Android API 24 or later and iOS 15.1 or later.
+Use Node.js 22.13 or later in the Node 22 line for development checks.
+macOS and Windows have no implementation; visionOS has no verified support result.
+
+### Package and release checks
+
+`yarn prepare` and `yarn prepack` compile TypeScript. They do not run Nitrogen.
+Run `yarn check:codegen` to generate bindings and reject changes under `nitrogen/generated`.
+Run `yarn test:package` to build declarations, inspect an actual npm tarball, and compile package-root imports in an isolated consumer.
+The package check installs the tarball with lifecycle scripts disabled. It does not perform native builds.
+CI checks Nitro Modules `0.35.9` and `0.35.10` with at most two package/typecheck jobs.
+The native release gate uses the example’s pinned `0.35.9` runtime; package/typecheck success does not verify native compatibility.
+
+The example's `link:..` dependency supports local development. Metro also resolves an installed tarball through its normal package entry.
+It does not replace `nitro-webview` with a fixed repository source path.
+Before release, install the packed tarball in a separate native app and run both platform builds and the normal-root smoke checks.
+Match that artifact and all required results to the release SHA. A missing, skipped, or failed required check blocks release.
+The existing manual release workflow also repeats codegen and package checks on the version commit before publishing.
 
 ### 1. Install
 
