@@ -252,12 +252,29 @@ final class HybridNitroWebView:
   """
 
   func onDropView() {
+    guard !isDropped else { return }
     isDropped = true
+    clearEventCallbacks()
     cancelPendingCallbacks()
     rejectPendingEvaluations()
-    guard let webView else { return }
-    detachWebView(webView)
+    if let webView { detachWebView(webView) }
     clearDelegateOwnersAndDispatchers()
+  }
+
+  private func clearEventCallbacks() {
+    onLoadStart = nil
+    onLoad = nil
+    onLoadEnd = nil
+    onLoadProgress = nil
+    onNavigationStateChange = nil
+    onMessage = nil
+    onError = nil
+    onFileDownload = nil
+    onHttpError = nil
+    onRenderProcessGone = nil
+    onScroll = nil
+    onShouldStartLoadWithRequest = nil
+    onOpenWindow = nil
   }
 
   private func cancelPendingCallbacks() {
@@ -265,10 +282,6 @@ final class HybridNitroWebView:
     uiDelegate.dialogs.cancel()
     progressObservation?.invalidate()
     progressObservation = nil
-    onLoadStart = nil
-    onLoad = nil
-    onLoadEnd = nil
-    onLoadProgress = nil
   }
 
   private func rejectPendingEvaluations() {

@@ -1087,6 +1087,49 @@ export function RegressionVerificationScreen() {
     if (Platform.OS === 'ios') {
       tests.push(
         [
+          'ios-callback-cleanup',
+          async () => {
+            const view = await mount('/callback-cleanup', {}, () => true);
+            await ready(view);
+            // Inspect the native object only here to verify the drop contract.
+            const stale = ref(view);
+            const retained = stale as unknown as Record<string, unknown>;
+            const callbacks = [
+              'onLoadStart',
+              'onLoad',
+              'onLoadEnd',
+              'onLoadProgress',
+              'onNavigationStateChange',
+              'onMessage',
+              'onError',
+              'onFileDownload',
+              'onHttpError',
+              'onRenderProcessGone',
+              'onScroll',
+              'onShouldStartLoadWithRequest',
+              'onOpenWindow',
+            ];
+            for (const name of callbacks)
+              check(
+                typeof retained[name] === 'function',
+                `${name} was not installed`,
+              );
+            const events = view.events.length;
+            await unmount();
+            await until(
+              () => callbacks.every(name => retained[name] == null),
+              'native callback release while retaining hybridRef',
+            );
+            await rejects(
+              ref(view).evaluateJavaScript('true'),
+              'dropped iOS ref',
+            );
+            await delay(100);
+            check(view.events.length === events, 'callback fired after drop');
+            return 'all 13 native callbacks cleared while hybridRef stayed alive; stale evaluation rejected and no late event';
+          },
+        ],
+        [
           'ios-evaluation-error',
           async () => {
             const view = await mount('/evaluation-error');
@@ -1455,6 +1498,10 @@ export function RegressionVerificationScreen() {
               hybridRef={callback((nativeRef: NitroWebViewMethods) => {
                 view.ref = nativeRef;
               })}
+              onLoadProgress={callback(() => {})}
+              onFileDownload={callback(() => {})}
+              onScroll={callback(() => {})}
+              onOpenWindow={callback(() => {})}
               onLoadStart={callback((event: WebViewLoadEvent) => {
                 view.events.push('start');
                 view.timeline.push({
