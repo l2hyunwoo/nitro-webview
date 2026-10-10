@@ -1,0 +1,21 @@
+{
+  "name": "nitro-webview-website",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vitepress dev --host 127.0.0.1",
+    "reference:generate": "node scripts/reference.mjs --write",
+    "typecheck": "tsc --project tsconfig.json",
+    "check": "node scripts/reference.mjs && node scripts/check.mjs",
+    "build": "npm run typecheck && vitepress build && npm run check",
+    "preview": "vitepress preview --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitepress": "1.6.4",
+    "vue": "3.5.43"
+  }
+}
