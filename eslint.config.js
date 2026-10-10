@@ -30,6 +30,9 @@ module.exports = [
       'lib/',
       'nitrogen/',
       'example/',
+      'website/.vitepress/dist/',
+      'website/.vitepress/cache/',
+      'website/node_modules/',
       '.yarn/',
       // Gradle test reports drop HTML+JS artifacts under android/build/.
       'android/build/',
