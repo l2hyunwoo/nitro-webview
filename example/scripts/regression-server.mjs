@@ -224,7 +224,7 @@ export function createRegressionServer() {
         '/download-fixture': `<a href="/attachment${url.search}">Download HTTP</a><button onclick="downloadBlob()">Download blob</button>`,
         '/window-fixture': `<a href="/popup-blank${url.search}" target="_blank">Open blank</a><button onclick="window.open('/popup-script${url.search}','_blank')">Open script</button>`,
         '/upload-fixture': `<label>Upload fixture<input id="upload" type="file" accept="text/plain"></label><label>Capture fixture<input id="capture" type="file" accept="image/*" capture="environment"></label>`,
-        '/fullscreen-fixture': `<video id="video" playsinline preload="auto" src="/fixture.mp4${url.search}"></video><button onclick="prepareVideo()">Prepare video</button><button onclick="fullscreen()">Fullscreen</button>`,
+        '/fullscreen-fixture': `<video id="video" playsinline loop preload="auto" src="/fixture.mp4${url.search}"></video><button onclick="prepareVideo()">Prepare video</button><button onclick="fullscreen()">Fullscreen</button>`,
         '/permission-fixture': `<button onclick="navigator.geolocation.getCurrentPosition(function(p){post('location:allowed:'+p.coords.latitude)},function(e){post('location:denied:'+e.code)},{enableHighAccuracy:true,timeout:15000,maximumAge:0})">Location</button><button onclick="media('camera')">Camera permission</button><button onclick="media('microphone')">Microphone permission</button>`,
         '/frames': `<iframe src="/frame-same${url.search}"></iframe><iframe src="http://localhost:8098/frame-cross${url.search}"></iframe><iframe src="/frame-opaque${url.search}" sandbox="allow-scripts"></iframe>`,
       }[url.pathname] ?? '';
@@ -258,10 +258,10 @@ function prepareVideo() {
 function fullscreen() {
   var video=document.getElementById('video');
   try {
-    if(typeof video.webkitEnterFullscreen === 'function') {
-      video.webkitEnterFullscreen();
-    } else if(document.fullscreenEnabled && typeof video.requestFullscreen === 'function') {
+    if(document.fullscreenEnabled && typeof video.requestFullscreen === 'function') {
       video.requestFullscreen().catch(function(e){post('fullscreen:error:'+e.name)});
+    } else if(typeof video.webkitEnterFullscreen === 'function') {
+      video.webkitEnterFullscreen();
     } else { post('fullscreen:error:unsupported'); }
   } catch(e) { post('fullscreen:error:'+e.name); }
 }

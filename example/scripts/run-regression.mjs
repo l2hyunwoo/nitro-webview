@@ -252,7 +252,8 @@ export async function performNativeInteraction(value, context) {
       );
       const target = nodes.find(
         match =>
-          match[2] === 'button' || (platform === 'ios' &&
+          match[2] === 'button' ||
+          (platform === 'ios' &&
             (match[2] === 'link' ||
               (label === 'Media' && match[2] === 'other'))),
       );
