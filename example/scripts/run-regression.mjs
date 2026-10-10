@@ -143,14 +143,14 @@ export async function performNativeInteraction(value, context) {
       if (!fileInput && nodes.length)
         return agent(['find', label, 'click', '--first'], 30000);
       if (
-        label === 'Downloads' &&
+        !fileInput &&
         observed.some(
           match =>
-            match[2] === 'list' &&
-            match[3].split(',').some(item => item.trim() === 'Downloads'),
+            /^(list|scroll-area|gridview)$/.test(match[2]) &&
+            match[3].split(',').some(item => item.trim() === label),
         )
       )
-        return agent(['find', 'Downloads', 'click', '--first'], 30000);
+        return agent(['find', label, 'click', '--first'], 30000);
       if (Date.now() >= deadline) {
         const kind = fileInput ? 'file input button' : 'control';
         throw new Error(`${label} ${kind} was not observed`);
@@ -192,9 +192,16 @@ export async function performNativeInteraction(value, context) {
     if (!/Camera|Capture image/.test(picker))
       throw new Error('Capture input did not offer a camera activity');
     await tap(picker.includes('Capture image') ? 'Capture image' : 'Camera');
-    const camera = await agent(['snapshot', '-i'], 30000);
-    if (!/Shutter|Take photo|Capture|Camera|Photo|Switch camera/i.test(camera))
-      throw new Error('The system camera did not open');
+    const cameraDeadline = Date.now() + 15000;
+    while (
+      !/Shutter|Take photo|Capture|Switch camera/i.test(
+        await agent(['snapshot', '-i'], 30000),
+      )
+    ) {
+      if (Date.now() >= cameraDeadline)
+        throw new Error('The system camera did not open');
+      await sleep(Math.min(250, cameraDeadline - Date.now()));
+    }
     await adb(['shell', 'input', 'keyevent', '4']);
     return appVisible();
   }

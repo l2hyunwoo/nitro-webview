@@ -178,6 +178,7 @@ const documentsSnapshot =
 function nativeContext(snapshot = documentsSnapshot) {
   const calls = [];
   let surface = 'app';
+  let cameraSnapshots = 0;
   const app =
     'Page: com.example\n@e1 [button] "RUN REGRESSION" [disabled]\n@e4 [text] "Upload fixture"\n@e5 [button] "Upload fixture: No file chosen"\n@e6 [text] "Capture fixture"\n@e7 [button] "Capture fixture: No file chosen"\n@e8 [button] "Location"\n@e9 [button] "Done"';
   const permission =
@@ -195,7 +196,11 @@ function nativeContext(snapshot = documentsSnapshot) {
           ? app
           : surface === 'permission'
             ? permission
-            : snapshot;
+            : surface === 'camera'
+              ? ++cameraSnapshots === 1
+                ? snapshot
+                : '@e3 [image] "Shutter"'
+              : snapshot;
       if (args[0] === 'click') {
         if (surface === 'permission') {
           if (args[1] === '@e7' || args[1] === '@e9') surface = 'app';
@@ -206,6 +211,7 @@ function nativeContext(snapshot = documentsSnapshot) {
       }
       if (args[0] === 'find' && args[1] === 'nitro-regression.txt')
         surface = 'app';
+      if (args[0] === 'find' && args[1] === 'Camera') surface = 'camera';
       return '';
     },
     command: async (executable, args) => {
@@ -566,7 +572,7 @@ test('capture cancellation requires camera offering and camera UI; never fabrica
     /did not offer/,
   );
   const context = nativeContext(
-    'Page: com.example\n@e1 [text] "Camera"\n@e2 [text] "Photo"',
+    'Page: com.example\n@e2 [scroll-area] "Media picker, Camera"',
   );
   await performNativeInteraction(
     { id: 'capture', action: 'capture-cancel' },
