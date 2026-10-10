@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { EventEmitter } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 import { fileURLToPath } from 'node:url';
+import { Script, createContext } from 'node:vm';
+import { createRegressionServer } from '../regression-server.mjs';
 import {
   expectedRegressionCases,
   isPlatformRegressionArtifact,
@@ -10,6 +12,7 @@ import {
   validateRegressionResults,
   validateRegressionInteraction,
   performNativeInteraction,
+  prepareAndroidRuntimePermissions,
 } from '../run-regression.mjs';
 
 const result = (platform = 'ios') => ({
@@ -282,7 +285,7 @@ test('file input taps use fresh button refs and never the preceding text label',
   ]);
 });
 
-test('fixed-label tap polls fresh snapshots until its button appears without wait text', async () => {
+test('camera and microphone taps use their actual button refs after fresh snapshots', async () => {
   const context = nativeContext();
   let snapshots = 0;
   context.agent = async args => {
@@ -297,11 +300,127 @@ test('fixed-label tap polls fresh snapshots until its button appears without wai
     { id: 'media', action: 'tap', label: 'Camera permission' },
     context,
   );
+  await performNativeInteraction(
+    { id: 'audio', action: 'tap', label: 'Microphone permission' },
+    context,
+  );
   assert.deepEqual(context.calls, [
     ['snapshot', '-i'],
     ['snapshot', '-i'],
     ['click', '@e5'],
+    ['snapshot', '-i'],
+    ['click', '@e6'],
   ]);
+});
+
+test('Android setup grants both media permissions and keeps location OS consent absent', async () => {
+  const context = nativeContext();
+  await prepareAndroidRuntimePermissions(context);
+  assert.deepEqual(
+    context.calls,
+    [
+      ['grant', 'CAMERA'],
+      ['grant', 'RECORD_AUDIO'],
+      ['revoke', 'ACCESS_FINE_LOCATION'],
+      ['revoke', 'ACCESS_COARSE_LOCATION'],
+    ].map(([action, permission]) => [
+      'adb',
+      '-s',
+      'emulator-5554',
+      'shell',
+      'pm',
+      action,
+      'com.example',
+      `android.permission.${permission}`,
+    ]),
+  );
+});
+
+test('Android setup fails immediately when audio grant or location revoke fails', async () => {
+  for (const failedPermission of ['RECORD_AUDIO', 'ACCESS_FINE_LOCATION']) {
+    const context = nativeContext();
+    const failure = new Error(
+      `Permission preparation failed: ${failedPermission}`,
+    );
+    const command = context.command;
+    context.command = async (executable, args) => {
+      await command(executable, args);
+      if (args.includes(`android.permission.${failedPermission}`))
+        throw failure;
+    };
+    await assert.rejects(
+      prepareAndroidRuntimePermissions(context),
+      error => error === failure,
+    );
+    assert.equal(
+      context.calls.at(-1).at(-1),
+      `android.permission.${failedPermission}`,
+    );
+  }
+});
+
+test('media fixture reports live camera and audio tracks and stops them even if reporting throws', async () => {
+  const server = createRegressionServer().listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  try {
+    const html = await (
+      await fetch(
+        `http://127.0.0.1:${server.address().port}/permission-fixture`,
+      )
+    ).text();
+    const script = new Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
+    for (const kind of ['camera', 'microphone']) {
+      const label = kind === 'camera' ? 'Camera' : 'Microphone';
+      for (const reportingThrows of [false, true]) {
+        const messages = [];
+        let stopped = 0;
+        const track = {
+          kind: kind === 'camera' ? 'video' : 'audio',
+          readyState: 'live',
+          stop() {
+            stopped++;
+          },
+        };
+        const context = createContext({
+          window: {
+            addEventListener() {},
+            ReactNativeWebView: {
+              postMessage(message) {
+                messages.push(message);
+                if (reportingThrows && message.includes(':allowed:'))
+                  throw new Error('bridge failure');
+              },
+            },
+          },
+          document: {
+            getElementById: id => (id === 'marker' ? {} : null),
+            addEventListener() {},
+          },
+          navigator: {
+            mediaDevices: {
+              async getUserMedia(constraints) {
+                assert.equal(constraints.video, kind === 'camera');
+                assert.equal(constraints.audio, kind === 'microphone');
+                return { getTracks: () => [track] };
+              },
+            },
+          },
+        });
+        script.runInContext(context);
+        const handler = html.match(
+          new RegExp(`onclick="([^"]+)">${label} permission<`),
+        )[1];
+        new Script(handler).runInContext(context);
+        await new Promise(setImmediate);
+        assert.ok(
+          messages.includes(`media:${kind}:allowed:${track.kind}:live`),
+        );
+        assert.equal(stopped, 1);
+      }
+    }
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 
 test('only the expected permission transition is accepted after a fresh real permission dialog snapshot', async () => {
@@ -404,14 +523,17 @@ test('permission identity uses resumed activity, accepts actual curved/ASCII lab
       const result = await agent(args);
       if (
         controller === 'com.android.permissioncontroller' &&
-        args[0] === 'click' && args[1] === '@e8'
+        args[0] === 'click' &&
+        args[1] === '@e8'
       ) {
         throw Object.assign(new Error('agent failed'), {
           output:
             'press @e8 left com.example and foregrounded com.android.permissioncontroller. The tap likely escaped the app.',
         });
       }
-      const labels = ascii ? result.replace('Don’t allow', "Don't allow") : result;
+      const labels = ascii
+        ? result.replace('Don’t allow', "Don't allow")
+        : result;
       return uppercase
         ? labels
             .replace('While using the app', 'WHILE USING THE APP')
@@ -537,10 +659,13 @@ test('iOS document picker cancellation recognizes a localized navigation bar', a
     { id: 'localized-picker', action: 'chooser-cancel' },
     context,
   );
-  assert.deepEqual(calls.filter(call => call[0] === 'click'), [
-    ['click', '@e2'],
-    ['click', '@e3'],
-  ]);
+  assert.deepEqual(
+    calls.filter(call => call[0] === 'click'),
+    [
+      ['click', '@e2'],
+      ['click', '@e3'],
+    ],
+  );
 });
 
 test('upload selects one fixed file through DocumentsUI after preparing its real bytes', async () => {

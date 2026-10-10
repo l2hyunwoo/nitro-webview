@@ -1493,20 +1493,29 @@ export function RegressionVerificationScreen() {
               mediaCapturePermissionOrigins: [origin],
             });
             await ready(allowed);
-            await pageDiagnostic(allowed, 'before camera tap');
-            await interact('tap', 'Camera permission');
-            await pageDiagnostic(allowed, 'after camera tap');
-            await until(
-              () =>
-                allowed.messages.some(message =>
-                  message.startsWith('media:camera:'),
+            for (const kind of ['camera', 'microphone'] as const) {
+              await pageDiagnostic(allowed, `before ${kind} tap`);
+              await interact(
+                'tap',
+                kind === 'camera'
+                  ? 'Camera permission'
+                  : 'Microphone permission',
+              );
+              await pageDiagnostic(allowed, `after ${kind} tap`);
+              await until(
+                () =>
+                  allowed.messages.some(message =>
+                    message.startsWith(`media:${kind}:`),
+                  ),
+                `allowed media origin live ${kind} track`,
+              );
+              check(
+                allowed.messages.includes(
+                  `media:${kind}:allowed:${kind === 'camera' ? 'video' : 'audio'}:live`,
                 ),
-              'allowed media origin live camera track',
-            );
-            check(
-              allowed.messages.includes('media:camera:allowed:video:live'),
-              `allowed media origin did not obtain a live camera track: ${JSON.stringify(allowed.messages)}`,
-            );
+                `allowed media origin did not obtain a live ${kind} track: ${JSON.stringify(allowed.messages)}`,
+              );
+            }
             const view = await mount('/permission-fixture', {
               mediaCapturePermissionOrigins: [],
             });
@@ -1514,7 +1523,9 @@ export function RegressionVerificationScreen() {
             for (const kind of ['camera', 'microphone'] as const) {
               await interact(
                 'tap',
-                kind === 'camera' ? 'Camera permission' : 'Microphone permission',
+                kind === 'camera'
+                  ? 'Camera permission'
+                  : 'Microphone permission',
               );
               await until(
                 () =>
@@ -1528,7 +1539,7 @@ export function RegressionVerificationScreen() {
               !view.messages.some(message => message.includes(':allowed:')),
               'denied media origin obtained a live track',
             );
-            return `allowed origin obtained a live camera track; real camera and microphone getUserMedia calls from a denied origin both returned NotAllowedError; ${allowed.diagnostics.join('; ')}`;
+            return `allowed origin obtained live camera and microphone tracks with the same OS grants as the denied origin; real camera and microphone getUserMedia calls from a denied origin both returned NotAllowedError; ${allowed.diagnostics.join('; ')}`;
           },
         ],
         [
@@ -1828,10 +1839,7 @@ export function RegressionVerificationScreen() {
               () => callbacks.every(name => retained[name] == null),
               'native callback release while retaining hybridRef',
             );
-            await rejects(
-              stale.evaluateJavaScript('true'),
-              'dropped iOS ref',
-            );
+            await rejects(stale.evaluateJavaScript('true'), 'dropped iOS ref');
             await delay(100);
             check(view.events.length === events, 'callback fired after drop');
             return 'all 13 native callbacks cleared while hybridRef stayed alive; stale evaluation rejected and no late event';

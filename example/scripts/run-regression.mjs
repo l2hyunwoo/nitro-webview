@@ -107,6 +107,35 @@ export function validateRegressionResults(result, platform) {
   return result.cases.length;
 }
 
+export async function prepareAndroidRuntimePermissions({
+  device,
+  bundleID,
+  command,
+}) {
+  for (const permission of ['CAMERA', 'RECORD_AUDIO']) {
+    await command('adb', [
+      '-s',
+      device,
+      'shell',
+      'pm',
+      'grant',
+      bundleID,
+      `android.permission.${permission}`,
+    ]);
+  }
+  for (const permission of ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION']) {
+    await command('adb', [
+      '-s',
+      device,
+      'shell',
+      'pm',
+      'revoke',
+      bundleID,
+      `android.permission.${permission}`,
+    ]);
+  }
+}
+
 export async function performNativeInteraction(value, context) {
   const interaction = validateRegressionInteraction(value);
   if (!interaction) return;
@@ -236,7 +265,9 @@ export async function performNativeInteraction(value, context) {
     while (true) {
       picker = await agent(['snapshot', '-i'], 30000);
       if (
-        /Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(picker) ||
+        /Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(
+          picker,
+        ) ||
         (platform === 'ios' &&
           picker.includes('[navigation-bar]') &&
           /^\s*@e\d+ \[button\] "Cancel"/m.test(picker))
@@ -634,20 +665,7 @@ async function run(platform, device) {
     if (platform === 'android') {
       await command('adb', ['-s', device, 'reverse', 'tcp:8081', 'tcp:8081']);
       await command('adb', ['-s', device, 'reverse', 'tcp:8098', 'tcp:8098']);
-      for (const permission of [
-        'ACCESS_FINE_LOCATION',
-        'ACCESS_COARSE_LOCATION',
-      ]) {
-        await command('adb', [
-          '-s',
-          device,
-          'shell',
-          'pm',
-          'revoke',
-          bundleID,
-          `android.permission.${permission}`,
-        ]);
-      }
+      await prepareAndroidRuntimePermissions({ device, bundleID, command });
     } else {
       await agent(['prepare', 'ios-runner', '--timeout', '120000'], 150000);
     }

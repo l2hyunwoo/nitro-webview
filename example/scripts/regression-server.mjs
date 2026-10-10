@@ -236,8 +236,9 @@ window.fixtureText = ${JSON.stringify(fixtureText)};
 window.blobSize = 0;
 function media(kind) {
   navigator.mediaDevices.getUserMedia({video:kind==='camera',audio:kind==='microphone'}).then(function(stream){
-    post('media:'+kind+':allowed:'+stream.getTracks().map(function(track){return track.kind+':'+track.readyState}).join(','));
-    stream.getTracks().forEach(function(track){track.stop()});
+    try {
+      post('media:'+kind+':allowed:'+stream.getTracks().map(function(track){return track.kind+':'+track.readyState}).join(','));
+    } finally { stream.getTracks().forEach(function(track){track.stop()}); }
   }).catch(function(error){post('media:'+kind+':denied:'+error.name)});
 }
 function downloadBlob() {
