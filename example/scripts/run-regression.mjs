@@ -138,9 +138,10 @@ export async function performNativeInteraction(value, context) {
           (label === 'nitro-regression.txt' &&
             match[3].startsWith(`${label}, `)),
       );
-      const target =
-        nodes.find(match => match[2] === 'button') ?? (!fileInput && nodes[0]);
-      if (target) return agent(['click', target[1]], 30000);
+      const button = nodes.find(match => match[2] === 'button');
+      if (button) return agent(['click', button[1]], 30000);
+      if (!fileInput && nodes.length)
+        return agent(['find', label, 'click', '--first'], 30000);
       if (
         label === 'Downloads' &&
         observed.some(
@@ -158,21 +159,18 @@ export async function performNativeInteraction(value, context) {
     }
   };
   const appVisible = async () => {
-    await agent(
-      [
-        'wait',
-        'text',
-        platform === 'android' ? 'RUN REGRESSION' : 'Run regression',
-        '15000',
-      ],
-      30000,
-    );
-    const snapshot = await agent(['snapshot', '-i'], 30000);
-    if (
-      !/^\s*@e\d+ \[button\] "Run regression"/im.test(snapshot) ||
-      (platform === 'android' && (await foreground()) !== bundleID)
-    )
-      throw new Error('Regression app did not return to the foreground');
+    const deadline = Date.now() + 15000;
+    while (true) {
+      const snapshot = await agent(['snapshot', '-i'], 30000);
+      if (
+        /^\s*@e\d+ \[button\] "Run regression"/im.test(snapshot) &&
+        (platform !== 'android' || (await foreground()) === bundleID)
+      )
+        return;
+      if (Date.now() >= deadline)
+        throw new Error('Regression app did not return to the foreground');
+      await sleep(Math.min(250, deadline - Date.now()));
+    }
   };
   if (action === 'tap') return tap(interaction.label);
   if (action === 'background-resume') {

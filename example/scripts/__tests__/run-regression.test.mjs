@@ -202,14 +202,10 @@ function nativeContext(snapshot = documentsSnapshot) {
         } else if (surface === 'app') {
           if (args[1] === '@e5' || args[1] === '@e7') surface = 'picker';
           if (args[1] === '@e8') surface = 'permission';
-        } else if (
-          snapshot
-            .split('\n')
-            .find(line => line.startsWith(`${args[1]} `))
-            ?.includes('"nitro-regression.txt')
-        )
-          surface = 'app';
+        }
       }
+      if (args[0] === 'find' && args[1] === 'nitro-regression.txt')
+        surface = 'app';
       return '';
     },
     command: async (executable, args) => {
@@ -483,7 +479,11 @@ test('upload selects one fixed file through DocumentsUI after preparing its real
   ]);
   assert.deepEqual(
     context.calls.filter(call => call[1] === 'click').map(call => call[2]),
-    ['@e5', '@e2', '@e3', '@e4'],
+    ['@e5'],
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'find').map(call => call[2]),
+    ['Show roots', 'Downloads', 'nitro-regression.txt'],
   );
 });
 
@@ -506,7 +506,11 @@ test('upload opens roots from remembered Downloads without waiting for Recent', 
   assert.deepEqual(context.calls[openRoots - 1], ['agent', 'snapshot', '-i']);
   assert.deepEqual(
     context.calls.filter(call => call[1] === 'click').map(call => call[2]),
-    ['@e5', '@e4', '@e6', '@e8'],
+    ['@e5', '@e4'],
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'find').map(call => call[2]),
+    ['Downloads', 'nitro-regression.txt'],
   );
 });
 
@@ -544,7 +548,11 @@ test('upload selects Downloads from the observed collapsed DocumentsUI roots lis
   ]);
   assert.deepEqual(
     context.calls.filter(call => call[1] === 'click').map(call => call[2]),
-    ['@e5', '@e4', '@e8'],
+    ['@e5', '@e4'],
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'find').map(call => call[2]),
+    ['Downloads', 'nitro-regression.txt'],
   );
 });
 
@@ -566,7 +574,11 @@ test('capture cancellation requires camera offering and camera UI; never fabrica
   );
   assert.deepEqual(
     context.calls.filter(call => call[1] === 'click').map(call => call[2]),
-    ['@e7', '@e1'],
+    ['@e7'],
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'find').map(call => call[2]),
+    ['Camera'],
   );
   assert.deepEqual(
     context.calls.findLast(call => call.includes('keyevent')),
@@ -626,7 +638,7 @@ test('background and foreground use the same app without relaunch', async t => {
   ]);
 });
 
-test('fullscreen exit uses OS back on Android and Done on iOS', async () => {
+test('fullscreen exit uses OS back on Android and Done on iOS', async t => {
   const android = nativeContext();
   await performNativeInteraction(
     { id: 'exit', action: 'fullscreen-exit' },
@@ -650,18 +662,47 @@ test('fullscreen exit uses OS back on Android and Done on iOS', async () => {
     ios.calls.find(call => call[1] === 'click'),
     ['agent', 'click', '@e9'],
   );
-  assert.ok(
-    android.calls.some(
-      call => call[1] === 'wait' && call[3] === 'RUN REGRESSION',
-    ),
+  assert.equal(
+    android.calls.some(call => call[1] === 'wait'),
+    false,
   );
   const hidden = nativeContext();
   hidden.agent = async () => 'Page: com.example\n@e1 [button] "RUN REGRESSION"';
   hidden.command = async () =>
     'topResumedActivity=ActivityRecord{current u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t7}';
+  let clockReads = 0;
+  t.mock.method(Date, 'now', () => (clockReads++ ? 15000 : 0));
   await assert.rejects(
     performNativeInteraction({ id: 'exit', action: 'fullscreen-exit' }, hidden),
     /did not return to the foreground/,
+  );
+});
+
+test('app return polls fresh snapshots from the OS picker to the actual foreground app without wait text', async () => {
+  const context = nativeContext();
+  let snapshots = 0;
+  context.agent = async args => {
+    context.calls.push(['agent', ...args]);
+    return args[0] === 'snapshot'
+      ? ++snapshots === 1
+        ? '@e1 [scroll-area] "Files in Downloads"'
+        : '@e2 [button] "RUN REGRESSION" [disabled]'
+      : '';
+  };
+  await performNativeInteraction(
+    { id: 'exit', action: 'fullscreen-exit' },
+    context,
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[0] === 'agent'),
+    [
+      ['agent', 'snapshot', '-i'],
+      ['agent', 'snapshot', '-i'],
+    ],
+  );
+  assert.equal(
+    context.calls.filter(call => call.includes('dumpsys')).length,
+    1,
   );
 });
 
