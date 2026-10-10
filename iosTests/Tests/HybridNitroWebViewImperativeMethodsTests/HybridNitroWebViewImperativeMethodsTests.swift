@@ -1,4 +1,5 @@
 import XCTest
+@testable import NitroWebViewSource
 
 #if canImport(WebKit)
   import WebKit
@@ -15,15 +16,13 @@ import XCTest
 ///      predicate routing a `blob:` navigation response through
 ///      `WKDownloadDelegate` (temp-file streaming) instead of the HTTP
 ///      cancel-and-emit path.
-///   3. `HybridNitroWebView.NavigationDelegate.blobDownloadDestination(
-///      suggestedFilename:)` — the unique, non-existent temp-file path a blob
-///      download is written to.
+///   3. `NitroWebViewDownloadFiles.destination(suggestedFilename:)` — the
+///      unique, non-existent temp-file path for a blob download.
 ///
 /// As with every other iOS unit test in this harness, the production class
 /// cannot be linked (it depends on Nitro-generated bridge symbols resolved
-/// only at CocoaPods install time), so each helper is exercised through a
-/// **byte-for-byte probe mirror**. Any change to the production helpers must
-/// be ported here.
+/// only at CocoaPods install time). Cache and detection tests use probes.
+/// Destination tests exercise the production Foundation helper.
 #if canImport(WebKit)
 
   // MARK: - Production-logic mirrors
@@ -43,26 +42,6 @@ import XCTest
     ) -> Bool {
       guard response.url?.scheme?.lowercased() == "blob" else { return false }
       return !canShowMIMEType
-    }
-  }
-
-  /// Mirror of
-  /// `HybridNitroWebView.NavigationDelegate.blobDownloadDestination(
-  /// suggestedFilename:)`.
-  fileprivate enum BlobDestinationProbe {
-    static func blobDownloadDestination(suggestedFilename: String) -> URL? {
-      let dir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("nitro-webview-blob", isDirectory: true)
-        .appendingPathComponent(UUID().uuidString, isDirectory: true)
-      do {
-        try FileManager.default.createDirectory(
-          at: dir, withIntermediateDirectories: true
-        )
-      } catch {
-        return nil
-      }
-      let name = suggestedFilename.isEmpty ? "download" : suggestedFilename
-      return dir.appendingPathComponent(name)
     }
   }
 
@@ -156,11 +135,12 @@ import XCTest
     // MARK: - blobDownloadDestination
 
     func test_blobDownloadDestination_isAFileUrlThatDoesNotYetExist() {
-      guard let dest = BlobDestinationProbe.blobDownloadDestination(
+      guard let dest = try? NitroWebViewDownloadFiles.destination(
         suggestedFilename: "report.pdf"
       ) else {
         return XCTFail("destination must not be nil for a well-formed name")
       }
+      defer { try? NitroWebViewDownloadFiles.discard(dest) }
       XCTAssertTrue(dest.isFileURL, "destination must be a file:// URL")
       XCTAssertEqual(
         dest.lastPathComponent,
@@ -181,8 +161,12 @@ import XCTest
     }
 
     func test_blobDownloadDestination_isUniquePerCall() {
-      let a = BlobDestinationProbe.blobDownloadDestination(suggestedFilename: "f.bin")
-      let b = BlobDestinationProbe.blobDownloadDestination(suggestedFilename: "f.bin")
+      let a = try? NitroWebViewDownloadFiles.destination(suggestedFilename: "f.bin")
+      let b = try? NitroWebViewDownloadFiles.destination(suggestedFilename: "f.bin")
+      defer {
+        if let a { try? NitroWebViewDownloadFiles.discard(a) }
+        if let b { try? NitroWebViewDownloadFiles.discard(b) }
+      }
       XCTAssertNotNil(a)
       XCTAssertNotNil(b)
       XCTAssertNotEqual(
@@ -192,11 +176,12 @@ import XCTest
     }
 
     func test_blobDownloadDestination_fallsBackToDownloadForEmptyName() {
-      guard let dest = BlobDestinationProbe.blobDownloadDestination(
+      guard let dest = try? NitroWebViewDownloadFiles.destination(
         suggestedFilename: ""
       ) else {
         return XCTFail("destination must not be nil for empty name")
       }
+      defer { try? NitroWebViewDownloadFiles.discard(dest) }
       XCTAssertEqual(
         dest.lastPathComponent,
         "download",

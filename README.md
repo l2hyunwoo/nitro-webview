@@ -165,9 +165,9 @@ The exported React component. Backed by `getHostComponent<NitroWebViewProps, Nit
 | `onLoadEnd` | `(event: WebViewLoadEvent) => void` | Fired once when the main-document load ends, including errors. Terminal payloads have `loading: false`. |
 | `onNavigationStateChange` | `(state: WebViewNavigationState) => void` | URL / title / `canGoBack` / `canGoForward` / `loading`. |
 | `onMessage` | `(event: WebViewMessageEvent) => void` | Fires when the page calls `window.ReactNativeWebView.postMessage(...)`. |
-| `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation failure (network, SSL). |
+| `onError` | `(event: NitroWebViewErrorEvent) => void` | Navigation, configuration, or blob download failure. Check `nativeEvent.domain`. |
 | `onFileDownload` | `(event: FileDownloadEvent) => void` | Native intercepts a download and surfaces `{ url, mimeType?, fileName?, contentLength?, userAgent? }`. Storage is the JS layer's responsibility. Also fires for `blob:` downloads, with `url` resolved to a local `file://` (iOS) / `data:` (Android) URL — see [`FileDownload`](#filedownload--filedownloadevent). |
-| `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Disjoint from `onError` (transport/SSL). Sub-resource failures are dropped. |
+| `onHttpError` | `(event: NitroWebViewHttpErrorEvent) => void` | Main-frame HTTP 4xx/5xx (`{ statusCode, url, description }`). Transport, configuration, and blob failures use `onError`. Sub-resource failures are dropped. |
 | `onRenderProcessGone` | `(event: NitroWebViewRenderProcessGoneEvent) => void` | Renderer crash / OS reclaim. `nativeEvent.didCrash` is Android-only (API 26+); always `undefined` on iOS. Android: clear the old hybrid ref and remount with a new React `key`. iOS: call `reload()`. |
 | `onScroll` | `(event: NitroWebViewScrollEvent) => void` | Scroll stream. NOT throttled or deduped natively. iOS populates all geometry fields; Android populates `contentOffset` only. |
 | `onShouldStartLoadWithRequest` | `(event: ShouldStartLoadRequest) => boolean \| Promise<boolean>` | Allow or cancel requests delivered by the platform navigation hook. Returning `false` (or a `Promise` resolving to `false`) cancels silently. See platform timing and coverage below. |
@@ -362,21 +362,32 @@ interface FileDownloadEvent {
 }
 ```
 
-**Blob downloads (`blob:`) — deliberately platform-asymmetric.** A `blob:`
-URL is not fetchable natively (its bytes live only in the web context), so the
-two platforms resolve it differently and `onFileDownload.nativeEvent.url`
-carries a **local** reference instead of the `blob:` URL:
+**Blob downloads (`blob:`).** Native resolves the page-scoped blob before
+calling `onFileDownload`. The event carries a local reference:
 
-- **iOS** streams the blob to a temp file natively via `WKDownloadDelegate`
-  (iOS 14.5+) — `url` is a local `file://` URL. No bytes cross the JS bridge.
-- **Android** has no `WKDownloadDelegate` equivalent, so it injects a reader
-  that resolves the blob in-page (`fetch → FileReader.readAsDataURL`) and
-  bridges it back — `url` is a `data:` URL (base64). This is O(fileSize) in
-  memory; fine for the common blob (generated CSV/PDF/image, a few MB), but a
-  very large blob will strain the bridge.
+- **iOS** streams the blob through `WKDownloadDelegate` and returns a
+  `file://` URL in a unique temporary directory. The library cancels active
+  downloads on view disposal and removes partial files after cancellation or failure.
+  A successful callback transfers ownership of the file and its UUID directory
+  to the consumer. Move the file to persistent storage promptly, or delete the
+  file and its parent UUID directory after use. Successful files survive view
+  disposal, but the operating system can purge temporary storage.
+  If no `onFileDownload` handler exists, the library removes the completed file.
+- **Android** reads one blob per WebView through `fetch` and `FileReader`, then
+  returns a base64 `data:` URL. The limit is **8 MiB** of decoded bytes.
+  The reader checks `Blob.size` before creating a `FileReader`; native also
+  bounds the envelope and validates base64 length against the reported byte count.
+  A second concurrent request fails instead of creating another reader.
+  Reading times out after **30 seconds**. Source replacement, navigation, and
+  view disposal cancel the pending request. Native accepts a reply only for
+  its pending request ID and original blob URL. Unmatched envelopes remain
+  ordinary `onMessage` data.
 
-Either way a consumer already listening to `onFileDownload` receives blob
-downloads for free (no extra prop) and can `fetch()`/save `url` uniformly.
+Blob fetch, read, timeout, size, cancellation, and destination failures emit
+`onError` with domain **`NitroWebViewDownload`** and code **`-1`**. These
+operational errors do not mark a page load as failed or emit load lifecycle
+callbacks. Disposal removes callbacks, so it does not emit a cancellation event.
+Normal HTTP(S) downloads still return metadata for the consumer to handle.
 
 ### Origin whitelist helpers
 

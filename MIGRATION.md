@@ -90,3 +90,18 @@ Imperative methods use `hybridRef`, not a React `ref`.
 `NitroWebViewType` and inferred hybrid refs now expose read-only methods and Nitro lifecycle APIs. They no longer expose view props.
 Move prop reads into app state and prop assignments into React props. Method calls and standard React refs remain unchanged.
 This component requires changes when migrating from `react-native-webview`; unsupported props do not gain equivalents in this release.
+
+
+## Blob downloads and advanced bridge helpers
+
+Android now reads one blob per WebView, up to 8 MiB, with a 30-second timeout.
+Blob failures use `onError` with domain `NitroWebViewDownload` and code `-1`.
+These errors do not mark page loads as failed. Navigation and source replacement cancel Android readers.
+View disposal cancels active downloads on both platforms and removes partial iOS files.
+Consumers own successful iOS temporary files and their UUID directories. Move or delete them after use.
+
+Advanced `parseBlobEnvelope(raw, pending)` callers must supply the second argument explicitly.
+It accepts `{ requestId, url, fileName }`, or `undefined` when no native request is pending.
+It returns a validated success payload, a result containing `error`, or `null` for an unmatched message.
+`BlobDownloadRequest` and `BlobDownloadResult` describe this protocol.
+Uncorrelated legacy envelopes no longer produce downloads. Native creates and owns request IDs.

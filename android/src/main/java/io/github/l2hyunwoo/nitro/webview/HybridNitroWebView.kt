@@ -119,6 +119,8 @@ class HybridNitroWebView(
 
   private val sourceHandler = NitroWebViewSourceHandler()
   private val evaluator = NitroWebViewEvaluateJavaScriptHandler()
+  private val blobDownloads = NitroWebViewBlobDownloads()
+  private var blobDownloadTimeout: Runnable? = null
   private val htmlLoaderAdapter = AndroidWebViewHtmlLoader(view)
   private val jsEvaluatorAdapter = AndroidWebViewJavaScriptEvaluator(view)
 
@@ -688,6 +690,7 @@ class HybridNitroWebView(
   }
 
   private fun disposePendingWork() {
+    cancelBlobDownload("abort", report = false)
     evaluator.dispose(destroyedViewException())
     webChromeClient.dispose()
     documentStartScriptHandler?.remove()
@@ -731,6 +734,7 @@ class HybridNitroWebView(
 
   private fun applySource(source: WebViewSource) {
     postIfAvailable {
+      cancelBlobDownload("abort")
       source.match(
         first = { uriSource ->
           // Delegate to the companion helper so the header-merge + loadUrl
@@ -760,6 +764,90 @@ class HybridNitroWebView(
         },
       )
     }
+  }
+
+  private fun emitDownloadError(
+    url: String,
+    reason: String,
+  ) {
+    onError?.invoke(
+      NitroWebViewErrorEvent(
+        NitroWebViewErrorNativeEvent(
+          code = -1.0,
+          description = "Blob download failed: $reason",
+          url = url,
+          domain = "NitroWebViewDownload",
+        ),
+      ),
+    )
+  }
+
+  private fun clearBlobTimeout() {
+    blobDownloadTimeout?.let(mainHandler::removeCallbacks)
+    blobDownloadTimeout = null
+  }
+
+  private fun stopBlobReader(requestId: String) {
+    try {
+      view.evaluateJavascript(NitroWebViewBlobDownloads.cancelScript(requestId), null)
+    } catch (error: Exception) {
+      Log.w("NitroWebViewDownload", "Could not stop blob reader", error)
+    }
+  }
+
+  private fun cancelBlobDownload(
+    reason: String,
+    report: Boolean = true,
+  ) {
+    val request = blobDownloads.cancel() ?: return
+    clearBlobTimeout()
+    stopBlobReader(request.requestId)
+    if (report && !destroyed) emitDownloadError(request.url, reason)
+  }
+
+  private fun startBlobDownload(
+    url: String,
+    fileName: String,
+  ) {
+    if (url.length > 4096) {
+      emitDownloadError(url, "invalid URL")
+      return
+    }
+    val request = blobDownloads.begin(url, fileName)
+    if (request == null) {
+      emitDownloadError(url, "busy (one blob reader per WebView)")
+      return
+    }
+    blobDownloadTimeout =
+      Runnable { cancelBlobDownload("timeout") }.also {
+        mainHandler.postDelayed(it, NitroWebViewBlobDownloads.TIMEOUT_MS)
+      }
+    try {
+      view.evaluateJavascript(NitroWebViewBlobDownloads.readerScript(request), null)
+    } catch (error: Exception) {
+      cancelBlobDownload("reader unavailable")
+    }
+  }
+
+  /** Called on the UI thread before onMessage; unmatched/replayed envelopes stay user messages. */
+  internal fun handleBlobMessage(data: String): Boolean {
+    val result = blobDownloads.accept(data) ?: return false
+    clearBlobTimeout()
+    stopBlobReader(result.request.requestId)
+    if (result.error != null) {
+      emitDownloadError(result.request.url, result.error)
+    } else {
+      emitFileDownload(
+        FileDownload(
+          url = result.dataUrl!!,
+          mimeType = result.mimeType?.takeIf { it.isNotEmpty() },
+          fileName = result.request.fileName.takeIf { it.isNotEmpty() },
+          contentLength = result.size,
+          userAgent = null,
+        ),
+      )
+    }
+    return true
   }
 
   private fun emitFileDownload(event: FileDownload) {
@@ -844,6 +932,7 @@ class HybridNitroWebView(
       favicon: Bitmap?,
     ) {
       if (destroyed) return
+      cancelBlobDownload("abort")
       loadUrl = url
       loadActive = true
       // Chromium can report the response error before onPageStarted.
@@ -1034,29 +1123,9 @@ class HybridNitroWebView(
   private inner class BridgeInterface {
     @JavascriptInterface
     fun postMessage(data: String) {
-      // @JavascriptInterface runs on a dedicated `JavaBridge` thread.
-      // WebView.url / onMessage delivery must hop back to the UI thread.
-      // Peek for a reserved blob-download envelope BEFORE treating the
-      // payload as a normal onMessage string — a real download is routed to
-      // onFileDownload, everything else falls through unchanged.
-      val blob = parseBlobEnvelope(data)
-      if (blob != null) {
-        postIfAvailable {
-          // The data URL is the ONE place a data: URL is a legitimate
-          // FileDownload.url (blob bytes bridged in-band as base64).
-          emitFileDownload(
-            FileDownload(
-              url = blob.dataUrl,
-              mimeType = blob.mimeType.takeIf { it.isNotEmpty() },
-              fileName = blob.fileName.takeIf { it.isNotEmpty() },
-              contentLength = blob.size.takeIf { it > 0 },
-              userAgent = null,
-            ),
-          )
-        }
-        return
-      }
+      // JavaBridge callbacks must read pending requests and WebView state on the UI thread.
       postIfAvailable {
+        if (handleBlobMessage(data)) return@postIfAvailable
         val payload =
           WebViewMessageEvent(
             WebViewMessageNativeEvent(
@@ -1090,7 +1159,7 @@ class HybridNitroWebView(
   /**
    * Bridges Android's `WebView.setDownloadListener` callback to JS via
    * `onFileDownload`. Every `onDownloadStart` invocation maps 1:1 to a
-   * single emission and the WebView never persists the file — JS decides.
+   * metadata event for HTTP(S); blob requests emit success or an operational error.
    *
    * The native side performs NO automatic `DownloadManager.enqueue` and
    * NO file save: the listener exists purely to surface metadata to JS.
@@ -1105,7 +1174,7 @@ class HybridNitroWebView(
    * historic default the AOSP DownloadManager uses.
    *
    * `blob:` URLs cannot be fetched natively and take a JS-inject path; see
-   * the inline note below and [buildBlobReaderScript] / [parseBlobEnvelope].
+   * [NitroWebViewBlobDownloads] bounds and correlates the injected reader.
    */
   private inner class DownloadListenerImpl : DownloadListener {
     override fun onDownloadStart(
@@ -1122,8 +1191,7 @@ class HybridNitroWebView(
       // emitted from there, not here.
       if (url.startsWith("blob:")) {
         val guessed = deriveDownloadFileName(url, contentDisposition, mimetype)
-        val js = buildBlobReaderScript(url, guessed)
-        postIfAvailable { view.evaluateJavascript(js, null) }
+        postIfAvailable { startBlobDownload(url, guessed) }
         return
       }
       val fileName = deriveDownloadFileName(url, contentDisposition, mimetype)
@@ -1509,108 +1577,19 @@ class HybridNitroWebView(
       return out.toTypedArray()
     }
 
-    /**
-     * Reserved discriminator key for blob-download payloads. Kept in sync
-     * with `BLOB_ENVELOPE_KEY` in `src/bridgeScript.ts` (the canonical TS
-     * source). A payload literally starting with `{"__nitro_blob__"` is
-     * demuxed to `onFileDownload`; everything else is a normal `onMessage`.
-     */
-    internal const val BLOB_ENVELOPE_KEY = "__nitro_blob__"
-
-    /**
-     * Parsed blob-download payload. Mirrors `BlobDownloadPayload` in
-     * `src/bridgeScript.ts`.
-     */
-    internal data class BlobEnvelope(
-      val url: String,
-      val dataUrl: String,
-      val mimeType: String,
-      val fileName: String,
-      val size: Double,
-    )
-
-    /**
-     * Injects the in-page reader that resolves a `blob:` URL to a data URL and
-     * posts a reserved envelope back through the message bridge; the envelope
-     * must match `parseBlobEnvelope`'s contract in `src/bridgeScript.ts`.
-     * `suggestedName` is native-derived (usually junk off the blob URL).
-     */
+    /** Internal builders retained as test seams; a native request ID is mandatory. */
     @JvmStatic
     internal fun buildBlobReaderScript(
       blobUrl: String,
       suggestedName: String,
-    ): String {
-      val urlLit = jsonQuote(blobUrl)
-      val nameLit = jsonQuote(suggestedName)
-      val keyLit = jsonQuote(BLOB_ENVELOPE_KEY)
-      return """;(function () {
-  try {
-    fetch($urlLit).then(function (r) { return r.blob(); }).then(function (b) {
-      var reader = new FileReader();
-      reader.onloadend = function () {
-        var dataUrl = String(reader.result || '');
-        var envelope = {};
-        envelope[$keyLit] = {
-          url: $urlLit,
-          dataUrl: dataUrl,
-          mimeType: b.type || '',
-          fileName: $nameLit,
-          size: b.size || 0
-        };
-        var br = window.$BRIDGE_NAME;
-        if (br && typeof br.postMessage === 'function') {
-          br.postMessage(JSON.stringify(envelope));
-        }
-      };
-      reader.readAsDataURL(b);
-    })["catch"](function () { /* blob gone / cross-origin: swallow */ });
-  } catch (e) { /* no fetch/FileReader: swallow, no page throw */ }
-})();"""
-    }
+      requestId: String,
+    ): String = NitroWebViewBlobDownloads.readerScript(NitroWebViewBlobDownloads.Request(requestId, blobUrl, suggestedName))
 
-    /**
-     * Parse a raw `postMessage` string; return the blob payload or `null`
-     * when it is a normal `onMessage` payload. Kotlin port of
-     * `parseBlobEnvelope` in `src/bridgeScript.ts`. A cheap prefix peek runs
-     * before the JSON parse so ordinary payloads are forwarded untouched.
-     *
-     * ponytail: the whole blob rides the bridge base64'd (data URL) —
-     * O(fileSize) memory, ~1.33x inflation, held twice (JS string + native
-     * String). Fine for the common blob (generated CSV/PDF/image, a few MB);
-     * a very large blob will strain the bridge. Upgrade path: temp-file
-     * streaming (slice the blob and post chunks, or a native download to
-     * disk) surfacing a `file://` URL instead of a data: URL.
-     */
     @JvmStatic
-    internal fun parseBlobEnvelope(raw: String?): BlobEnvelope? {
-      if (raw == null) return null
-      if (!raw.startsWith("{\"$BLOB_ENVELOPE_KEY\"")) return null
-      return try {
-        val root = org.json.JSONObject(raw)
-        val b = root.optJSONObject(BLOB_ENVELOPE_KEY) ?: return null
-        val url = b.optString("url", "")
-        val dataUrl = b.optString("dataUrl", "")
-        if (url.isEmpty() || dataUrl.isEmpty()) return null
-        BlobEnvelope(
-          url = url,
-          dataUrl = dataUrl,
-          mimeType = b.optString("mimeType", ""),
-          fileName = b.optString("fileName", ""),
-          size = b.optDouble("size", 0.0),
-        )
-      } catch (e: org.json.JSONException) {
-        null
-      }
-    }
-
-    /**
-     * Minimal JSON string-literal encoder for the values embedded in the
-     * blob reader script. `org.json.JSONObject.quote` handles the escaping
-     * (quotes, backslashes, control chars) the same way `JSON.stringify`
-     * does for a bare string in the TS source.
-     */
-    @JvmStatic
-    internal fun jsonQuote(s: String): String = org.json.JSONObject.quote(s)
+    internal fun parseBlobEnvelope(
+      raw: String?,
+      request: NitroWebViewBlobDownloads.Request,
+    ): NitroWebViewBlobDownloads.Result? = NitroWebViewBlobDownloads.parse(raw, request)
 
     /**
      * Pipeline that mirrors the per-instance [setCookie] body 1:1 but
