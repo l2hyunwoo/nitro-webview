@@ -46,12 +46,17 @@ export const expectedRegressionCases = {
   ],
 };
 
-export async function tapRegressionControl(agent, label) {
+export async function tapRegressionControl(agent, label, platform = 'ios') {
   for (let attempt = 0; attempt < 3; attempt++) {
     const snapshot = await agent(['snapshot', '-i'], 30000);
     if (snapshot.includes('Open debugger to view warnings.')) {
       await agent(['react-native', 'dismiss-overlay'], 30000);
       continue;
+    }
+    // Android snapshots can omit WebView links; retain its native label lookup.
+    if (platform === 'android') {
+      await agent(['find', label, 'click', '--first'], 30000);
+      return;
     }
     const target = snapshot
       .split('\n')
@@ -403,7 +408,7 @@ async function run(platform, device) {
     await agent(['snapshot', '-i']);
     await agent(['wait', 'text', 'Regression verification', '60000']);
     await agent(['find', 'Regression verification', 'click', '--first']);
-    await tapRegressionControl(agent, 'Run regression');
+    await tapRegressionControl(agent, 'Run regression', platform);
     const deadline = Date.now() + 240000;
     const printed = new Set();
     const handledInteractions = new Set();
@@ -424,7 +429,7 @@ async function run(platform, device) {
         // Clear before tapping so polling cannot repeat the same gesture.
         await fetchJSON('/interaction', null);
         console.log(`Native tap: ${interaction.label} (${interaction.id})`);
-        await tapRegressionControl(agent, 'Navigate');
+        await tapRegressionControl(agent, 'Navigate', platform);
       }
       if (result !== null) {
         lastResult = result;

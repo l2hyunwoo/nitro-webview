@@ -45,6 +45,18 @@ test('native tap refuses absent controls and persistent overlays', async () => {
   assert.equal(calls.filter(args => args[0] === 'snapshot').length, 3);
 });
 
+test('Android retains native label lookup when WebView links are omitted', async () => {
+  const calls = [];
+  await tapRegressionControl(async args => {
+    calls.push(args);
+    return '@e1 [webview]';
+  }, 'Navigate', 'android');
+  assert.deepEqual(calls, [
+    ['snapshot', '-i'],
+    ['find', 'Navigate', 'click', '--first'],
+  ]);
+});
+
 const result = (platform = 'ios') => ({
   complete: true,
   platform,
