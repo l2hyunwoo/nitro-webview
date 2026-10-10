@@ -26,7 +26,6 @@ import kotlin.reflect.jvm.javaField
  * `org.mozilla.components:support-utils`.
  */
 class HybridNitroWebViewCompanionTest {
-
   @Test
   fun `cookie URLs require an absolute HTTP origin`() {
     for (url in listOf("https://example.com", "HTTP://example.com/a", "http://localhost:8080")) {

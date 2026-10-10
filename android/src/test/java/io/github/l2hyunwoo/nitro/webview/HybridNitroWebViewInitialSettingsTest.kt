@@ -6,7 +6,9 @@ import com.facebook.react.bridge.BridgeReactContext
 import com.facebook.react.uimanager.ThemedReactContext
 import com.margelo.nitro.nitrowebview.UriSource
 import com.margelo.nitro.nitrowebview.WebViewSource
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,7 +26,8 @@ class HybridNitroWebViewInitialSettingsTest {
     return HybridNitroWebView(ThemedReactContext(BridgeReactContext(app), app, "test", 1))
   }
 
-  @Test fun `source waits for the complete settings and callback batch`() {
+  @Test
+  fun `source waits for the complete settings and callback batch`() {
     val hybrid = newView()
     val shadow = shadowOf(hybrid.view)
     hybrid.source = WebViewSource.create(UriSource("https://fixture.test", null, null, null))
@@ -40,7 +43,8 @@ class HybridNitroWebViewInitialSettingsTest {
     hybrid.onDropView()
   }
 
-  @Test fun `unsupported private session emits once and leaves shared cookies intact`() {
+  @Test
+  fun `unsupported private session emits once and leaves shared cookies intact`() {
     val hybrid = newView()
     CookieManager.getInstance().setCookie("https://fixture.test", "existing=fixture")
     val errors = mutableListOf<String>()

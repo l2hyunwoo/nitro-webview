@@ -272,16 +272,21 @@ class HybridNitroWebView(
 
   override fun afterUpdate() {
     super.afterUpdate()
-      postIfAvailable {
+    postIfAvailable {
       if (incognito == true) {
         sourceNeedsLoading = false
         if (!configurationErrorReported) {
           configurationErrorReported = true
-          onError?.invoke(NitroWebViewErrorEvent(NitroWebViewErrorNativeEvent(
-            code = -1.0, description = "incognito is not supported on Android.",
-            url = source.match(first = { it.uri }, second = { it.baseUrl ?: "about:blank" }),
-            domain = "NitroWebViewConfiguration",
-          )))
+          onError?.invoke(
+            NitroWebViewErrorEvent(
+              NitroWebViewErrorNativeEvent(
+                code = -1.0,
+                description = "incognito is not supported on Android.",
+                url = source.match(first = { it.uri }, second = { it.baseUrl ?: "about:blank" }),
+                domain = "NitroWebViewConfiguration",
+              ),
+            ),
+          )
         }
         return@postIfAvailable
       }
@@ -289,9 +294,9 @@ class HybridNitroWebView(
       if (sourceNeedsLoading) {
         sourceNeedsLoading = false
         applySource(source)
-        }
       }
     }
+  }
 
   override var mediaPlaybackRequiresUserAction: Boolean? = null
     set(value) {
@@ -599,11 +604,12 @@ class HybridNitroWebView(
    * `secure`, `expires`, `domain`, or `path` — only name/value pairs survive
    * the round-trip — so each returned [Cookie] only carries name and value.
    */
-  override fun getCookies(url: String): Promise<Array<Cookie>> = withView { promise ->
-    if (!validCookieUrl(url)) {
-      promise.reject(IllegalArgumentException("Cookie URL must be an absolute HTTP(S) URL."))
-      return@withView
-    }
+  override fun getCookies(url: String): Promise<Array<Cookie>> =
+    withView { promise ->
+      if (!validCookieUrl(url)) {
+        promise.reject(IllegalArgumentException("Cookie URL must be an absolute HTTP(S) URL."))
+        return@withView
+      }
       val raw = CookieManager.getInstance().getCookie(url)
       val cookies = parseCookieHeader(raw)
       promise.resolve(cookies)
@@ -627,10 +633,10 @@ class HybridNitroWebView(
       // the default writer which delegates 1:1 to
       // `CookieManager.getInstance().setCookie(url, value, callback)` and
       // `flush()`. See [HybridNitroWebView.Companion.assembleAndWriteCookie].
-    if (!validCookieUrl(url)) {
-      promise.reject(IllegalArgumentException("Cookie URL must be an absolute HTTP(S) URL."))
-      return@withView
-    }
+      if (!validCookieUrl(url)) {
+        promise.reject(IllegalArgumentException("Cookie URL must be an absolute HTTP(S) URL."))
+        return@withView
+      }
       assembleAndWriteCookie(url, cookie, cookieWriter) { promise.resolve(Unit) }
     }
 
@@ -1208,12 +1214,13 @@ class HybridNitroWebView(
   }
 
   companion object {
-    internal fun validCookieUrl(raw: String): Boolean = try {
-      val uri = java.net.URI(raw)
-      (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) && !uri.host.isNullOrEmpty()
-    } catch (_: java.net.URISyntaxException) {
-      false
-    }
+    internal fun validCookieUrl(raw: String): Boolean =
+      try {
+        val uri = java.net.URI(raw)
+        (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) && !uri.host.isNullOrEmpty()
+      } catch (_: java.net.URISyntaxException) {
+        false
+      }
 
     private const val BRIDGE_NAME = "ReactNativeWebView"
 
