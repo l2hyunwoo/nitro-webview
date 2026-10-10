@@ -26,6 +26,7 @@
     "nitro.json",
     "*.podspec",
     "README.md",
+    "website/content/public/screenshots/*.png",
     "!src/**/__tests__/**",
     "!src/**/*.test.*",
     "!src/**/*.type-test.*",

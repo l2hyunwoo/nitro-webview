@@ -1,37 +1,62 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/l2hyunwoo/nitro-webview/main/website/content/public/nitro-webview.png" width="120" height="120" alt="Nitro WebView" />
+  <img src="https://raw.githubusercontent.com/l2hyunwoo/nitro-webview/main/website/content/public/nitro-webview.png" width="100" height="100" alt="Nitro WebView" />
 </p>
 
-# nitro-webview
+<h1 align="center">Nitro WebView</h1>
 
-[Documentation](https://l2hyunwoo.github.io/nitro-webview/) · [한국어 문서](https://l2hyunwoo.github.io/nitro-webview/ko/) · [API reference](https://l2hyunwoo.github.io/nitro-webview/reference/props.html)
+<p align="center">A React Native WebView powered by Nitro Modules.</p>
 
-<table>
+<p align="center">
+  <a href="https://www.npmjs.com/package/nitro-webview"><img src="https://img.shields.io/npm/v/nitro-webview?style=flat-square&amp;color=2563eb" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/nitro-webview"><img src="https://img.shields.io/npm/dw/nitro-webview?style=flat-square&amp;color=0d9488&amp;label=downloads%2Fweek" alt="npm downloads per week" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-64748b?style=flat-square" alt="License: MIT" /></a>
+</p>
+
+<p align="center">
+  <a href="https://l2hyunwoo.github.io/nitro-webview/"><b>Documentation</b></a> ·
+  <a href="https://l2hyunwoo.github.io/nitro-webview/ko/">한국어 문서</a> ·
+  <a href="https://l2hyunwoo.github.io/nitro-webview/reference/props.html">API reference</a> ·
+  <a href="#quick-start">Quick start</a>
+</p>
+
+<table align="center">
   <tr>
-    <td align="center"><b>iOS</b></td>
-    <td align="center"><b>Android</b></td>
+    <th width="25%">iOS · Playground</th>
+    <th width="25%">Android · Playground</th>
+    <th width="25%">iOS · JavaScript bridge</th>
+    <th width="25%">Android · JavaScript bridge</th>
   </tr>
   <tr>
-    <td><video src="https://github.com/user-attachments/assets/4ae45afd-b595-4efd-8e44-25c1d03434a8" width="360" autoplay loop muted playsinline /></td>
-    <td><video src="https://github.com/user-attachments/assets/9431b353-24a1-41f5-9aee-1fea0520e13d" width="360" autoplay loop muted playsinline /></td>
+    <td align="center"><img src="website/content/public/screenshots/playground-ios.png" width="170" alt="iOS playground with the capability catalog" /></td>
+    <td align="center"><img src="website/content/public/screenshots/playground-android.png" width="170" alt="Android playground with the capability catalog" /></td>
+    <td align="center"><img src="website/content/public/screenshots/bridge-ios.png" width="170" alt="iOS WebView showing a native message and JavaScript evaluation result" /></td>
+    <td align="center"><img src="website/content/public/screenshots/bridge-android.png" width="170" alt="Android WebView showing a native message and JavaScript evaluation result" /></td>
   </tr>
 </table>
 
-A React Native WebView built on [Nitro Modules][nitro] — pure Swift / Kotlin native sides, JSI-direct prop and event dispatch, no bridge round-trips.
+<p align="center"><sub>Captured from the iOS and Android Release playground apps.</sub></p>
 
-This branch describes the unreleased `0.2.0` candidate; its package version remains `0.1.0` until release validation completes.
-The published npm API can differ. Match the documentation to your installed version.
-The candidate requires the New Architecture, React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`.
-See [installation requirements](https://l2hyunwoo.github.io/nitro-webview/start/installation.html) and [migration](https://l2hyunwoo.github.io/nitro-webview/guides/migration.html).
+Embed web content in iOS and Android React Native apps with [Nitro Modules][nitro]. Native views are written in Swift and Kotlin, with props and events dispatched through JSI.
+
+## Features
+
+- Load web pages or render HTML with typed props, methods, and events.
+- Exchange messages between your app and the page.
+- Inject JavaScript on page loads or evaluate scripts and read their results.
+- Control navigation and manage cookies from React Native.
+
+See [platform support](https://l2hyunwoo.github.io/nitro-webview/reference/platforms.html) for differences between iOS and Android.
 
 ## Quick start
+
+Requires React Native's **New Architecture**. Check the [installation requirements](https://l2hyunwoo.github.io/nitro-webview/start/installation.html) for compatible React Native, React, and Nitro Modules versions.
 
 ```sh
 yarn add nitro-webview react-native-nitro-modules
 cd ios && pod install
 ```
 
-`react-native-nitro-modules` is a peer dependency — install it explicitly so your dependency graph stays deterministic.
+`react-native-nitro-modules` is a required peer dependency. Rebuild your native app after installation.
 
 ```tsx
 import { NitroWebView, callback } from 'nitro-webview'
