@@ -82,9 +82,9 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "react": "*",
-    "react-native": "*",
-    "react-native-nitro-modules": "*"
+    "react": "19.2.3",
+    "react-native": "~0.85.3",
+    "react-native-nitro-modules": "^0.35.9"
   },
   "prettier": {
     "quoteProps": "consistent",
