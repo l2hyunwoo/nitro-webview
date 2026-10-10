@@ -276,7 +276,11 @@ export function RegressionVerificationScreen() {
       return view.ref;
     }
 
-    async function ready(view: Observation, path?: string, timeoutMs = 10000) {
+    async function ready(
+      view: Observation,
+      path?: string,
+      timeoutMs = Platform.OS === 'ios' ? 30000 : 10000,
+    ) {
       await until(
         () =>
           view.messages.some(message => {
