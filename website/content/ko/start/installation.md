@@ -41,6 +41,9 @@ Autolinking으로 라이브러리를 등록합니다. 라이브러리나 Nitro �
 
 카메라·마이크·위치·파일 입력을 사용한다면 필요한 권한만 설정합니다. [미디어와 권한](../guides/permissions.md), [다운로드와 업로드](../guides/downloads.md)를 참고하세요.
 
+라이브러리는 `org.mozilla.components:support-utils`를 위해 Mozilla Maven 저장소를 선언합니다.
+앱에서 의존성 저장소를 중앙 관리한다면 해당 목록에 `maven { url "https://maven.mozilla.org/maven2" }`을 추가하세요.
+
 ## Expo {#expo}
 
 네이티브 autolinking을 사용하는 development build가 필요합니다. **Expo Go에는 이 네이티브 모듈이 없습니다.** 이 패키지는 config plugin을 제공하지 않습니다. 네이티브 프로젝트나 Expo 앱 설정에서 권한을 지정하고 필요에 따라 네이티브 앱을 다시 생성·빌드하세요.
