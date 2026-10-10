@@ -1,88 +1,117 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Example app
 
-# Getting Started
+This playground exercises Nitro WebView on Android and iOS. For library usage, see the [official documentation](https://l2hyunwoo.github.io/nitro-webview/).
+Complete the [React Native environment setup](https://reactnative.dev/docs/set-up-your-environment) before building the app.
+Use Node.js 22.13 or later in the Node 22 line for development checks.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Run the playground
 
-## Step 1: Start Metro
-
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
+From the repository root:
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+yarn install && yarn prepare
+(cd example && yarn install)
+(cd example/ios && bundle install && bundle exec pod install)
+(cd example && yarn start)
 ```
 
-## Step 2: Build and run your app
+In another terminal, run `(cd example && yarn android)` or `(cd example && yarn ios)`.
+The example links to the library in this repository. Rebuild the app after changing native code or generated bindings.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## Manual verification screens
 
-### Android
+For POST echo checks, run `node example/scripts/post-verification-server.mjs` from the repository root.
+On Android, also run `adb reverse tcp:18965 tcp:18965`. Open `PostVerificationScreen` in the playground.
+The page displays the HTTP response; the server logs the method, body, and content type.
+
+`PermissionsVerificationScreen` checks real camera, microphone, and location access.
+Use a device with the required hardware. Android deny mode checks origin blocking after OS permissions are granted.
+Missing hardware, location timeouts, and unavailable services are failures, not simulated successes.
+For playback fixture details, see [media fixture](src/fixtures/README.md).
+
+## Package and release checks
+
+`yarn prepare` and `yarn prepack` compile TypeScript. They do not run Nitrogen.
+Run `yarn check:codegen` to generate bindings and reject changes under `nitrogen/generated`.
+Run `yarn test:package` to build declarations, inspect an actual npm tarball, and compile package-root imports in an isolated consumer.
+The package check installs the tarball with lifecycle scripts disabled. It does not perform native builds.
+CI checks Nitro Modules `0.35.9` and `0.35.10` with at most two package/typecheck jobs.
+The native release gate uses the example’s pinned `0.35.9` runtime; package/typecheck success does not verify native compatibility.
+
+The example's `link:..` dependency supports local development. Metro also resolves an installed tarball through its normal package entry.
+It does not replace `nitro-webview` with a fixed repository source path.
+Before release, install the packed tarball in a separate native app and run both platform builds and the normal-root smoke checks.
+Match that artifact and all required results to the release SHA. A missing, skipped, or failed required check blocks release.
+The manual release workflow requires ESLint, ktlint, TypeScript checks, and Android JVM and iOS Swift unit tests before preparing the release candidate.
+It repeats codegen and package checks on the version commit, then requires both packed native regression suites before tagging or publishing.
+
+## E2E tests
+
+The primary native regression suite runs through the example app's normal
+AppRegistry root. `Regression verification` shows each case's PASS/FAIL result and
+uploads progress and final results to a local fixture server. It checks real native
+callbacks, methods, storage, navigation, and Android renderer recovery.
+
+Install dependencies first. Build and install the example app on a booted target
+before running the suite. Run these commands from the repository root:
 
 ```sh
-# Using npm
-npm run android
+yarn install && yarn prepare
+(cd example && yarn install)
 
-# OR using Yarn
-yarn android
+# iOS: use the UDID of an already booted simulator.
+SIM_UDID='<booted-simulator-udid>'
+(cd example/ios && bundle install && bundle exec pod install)
+xcodebuild -workspace example/ios/example.xcworkspace -scheme example \
+  -configuration Debug -sdk iphonesimulator \
+  -destination "platform=iOS Simulator,id=$SIM_UDID" \
+  -derivedDataPath example/ios/build CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install "$SIM_UDID" \
+  example/ios/build/Build/Products/Debug-iphonesimulator/example.app
+node example/scripts/run-regression.mjs ios "$SIM_UDID"
+
+# Android: use the serial of an already booted emulator or connected device.
+ANDROID_SERIAL='<booted-device-serial>'
+(cd example/android && ./gradlew :app:assembleDebug --no-daemon)
+adb -s "$ANDROID_SERIAL" install -r \
+  example/android/app/build/outputs/apk/debug/app-debug.apk
+node example/scripts/run-regression.mjs android "$ANDROID_SERIAL"
+
+# Fixture and runner host tests need no device.
+node --test example/scripts/__tests__/*.test.mjs
 ```
 
-### iOS
+The runner uses `agent-device@0.17.4` to open the app and select `Run regression`.
+It starts the fixture on port 8098 and Metro on port 8081. Its Metro process uses
+two workers and a 768 MiB Node heap limit. It can reuse Metro from this example
+directory, leaving that process running. It refuses an unrelated Metro process.
+Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
+runner's own processes and session, leaving the device booted.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+The runner polls for up to 240 seconds. Success requires all 37 named Android cases
+or all 33 named iOS cases, with `complete: true` and every `ok: true`. Missing,
+incomplete, duplicate, or failed cases make the command fail. Android includes an
+actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
+The history case uses a real native tap because
+[Chromium can skip history entries created without user activation](https://chromium.googlesource.com/chromium/src/+/refs/heads/lkgr/docs/history_manipulation_intervention.md).
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+Each run first removes only prior evidence with its own `<platform>-regression-`
+prefix. Evidence is saved in `example/artifacts/`: `<platform>-regression-results.json`,
+`<platform>-regression-requests.json`, `<platform>-regression-success.png`, and UI,
+fixture, and Metro logs. A successful run fails if it cannot save its device screenshot.
+Failures also save a screenshot and native logs when available. Fixture request records include
+cookie names and authorization match/count fields, without cookie or authorization
+values.
 
-```sh
-bundle install
-```
+CI invokes this runner on every PR for Android. iOS runs on pushes to main and PRs
+with the `e2e-ios` label. `.github/workflows/e2e.yml` builds, installs, runs, and
+uploads evidence. `.github/workflows/ci.yml` also runs the fixture and runner host
+tests.
 
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
+The remaining [react-native-harness](https://github.com/callstackincubator/react-native-harness) tests in
+`example/src/__tests__/*.harness.tsx` are mount smoke checks. They do not verify
+load, message, or HTTP-error callbacks. Use the AppRegistry regression suite for
+that coverage.
 
 ## Android renderer recovery
 
@@ -104,15 +133,3 @@ The app clears its active ref on renderer exit. It retains one old ref only for 
 Remounting does not restore history or page input. Apps that use POST sources must choose retry data and timing themselves.
 `chrome://crash` can affect several WebViews that share one renderer. Each affected instance must handle its own event.
 Record the build SHA, Android version, System WebView version, and observed log with device results.
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
