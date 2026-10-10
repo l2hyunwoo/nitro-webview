@@ -1,6 +1,10 @@
 import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
-import { BackHandler, TouchableOpacity } from 'react-native'
+import {
+  BackHandler,
+  KeyboardAvoidingView,
+  TouchableOpacity,
+} from 'react-native'
 import App from '../App'
 
 jest.mock(
@@ -77,6 +81,13 @@ test('routes a capability, returns home on Android back, and removes its listene
 })
 
 test('feature menu switches screens directly and closes without discarding the active screen', async () => {
+  let onBack: () => boolean = () => false
+  const listener = jest
+    .spyOn(BackHandler, 'addEventListener')
+    .mockImplementation((_event, handler) => {
+      onBack = handler as () => boolean
+      return { remove: jest.fn() }
+    })
   let renderer!: TestRenderer.ReactTestRenderer
   await act(() => {
     renderer = TestRenderer.create(<App />)
@@ -99,7 +110,22 @@ test('feature menu switches screens directly and closes without discarding the a
   ).toHaveLength(0)
   const active = renderer.root.findByProps({ testID: 'active-second' })
   await act(() => press('open-features-menu'))
+  expect(
+    renderer.root.findByType(KeyboardAvoidingView).props
+      .importantForAccessibility
+  ).toBe('no-hide-descendants')
+  await act(() => expect(onBack()).toBe(true))
+  expect(
+    renderer.root.findAllByProps({ testID: 'close-features-menu' })
+  ).toHaveLength(0)
+  expect(renderer.root.findByProps({ testID: 'active-second' })).toBe(active)
+  await act(() => press('open-features-menu'))
   await act(() => press('close-features-menu'))
   expect(renderer.root.findByProps({ testID: 'active-second' })).toBe(active)
+  expect(
+    renderer.root.findByType(KeyboardAvoidingView).props
+      .importantForAccessibility
+  ).toBe('auto')
   await act(() => renderer.unmount())
+  listener.mockRestore()
 })
