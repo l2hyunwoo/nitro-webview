@@ -1276,11 +1276,32 @@ test('a stale Android WebView accessibility tree resets only the selected device
   ]);
 });
 
-test('helper recovery happens at most once and a missing control still fails', async t => {
+test('Android falls back to native label lookup when helper recovery still omits WebView controls', async t => {
   const clock = [0, 5000, 15000];
   t.mock.method(Date, 'now', () => clock.shift() ?? 15000);
   const context = nativeContext();
-  context.agent = async () => '@e4 [webview] "fixture"';
+  context.agent = async args => {
+    context.calls.push(['agent', ...args]);
+    return '@e4 [webview] "fixture"';
+  };
+  await performNativeInteraction(
+    { id: 'fullscreen', label: 'Fullscreen' },
+    context,
+  );
+  assert.equal(context.calls.filter(call => call[0] === 'adb').length, 1);
+  assert.deepEqual(context.calls.at(-1), [
+    'agent', 'find', 'Fullscreen', 'click', '--first',
+  ]);
+});
+
+test('helper recovery happens at most once and native lookup still rejects a missing control', async t => {
+  const clock = [0, 5000, 15000];
+  t.mock.method(Date, 'now', () => clock.shift() ?? 15000);
+  const context = nativeContext();
+  context.agent = async args => {
+    if (args[0] === 'find') throw new Error('Location control was not observed');
+    return '@e4 [webview] "fixture"';
+  };
   await assert.rejects(
     performNativeInteraction({ id: 'missing', label: 'Location' }, context),
     /Location control was not observed/,

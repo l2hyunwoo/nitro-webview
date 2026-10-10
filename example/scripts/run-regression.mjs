@@ -290,6 +290,12 @@ export async function performNativeInteraction(value, context) {
         continue;
       }
       if (Date.now() >= deadline) {
+        if (
+          platform === 'android' &&
+          !fileInput &&
+          snapshot.includes('[webview]')
+        )
+          return agent(['find', label, 'click', '--first'], 30000);
         const kind = fileInput ? 'file input button' : 'control';
         throw new Error(`${label} ${kind} was not observed`);
       }
