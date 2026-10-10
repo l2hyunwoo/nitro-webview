@@ -65,7 +65,10 @@ test('real command failures and timeouts still reject and release the child', as
 
 test('native tap dismisses warnings and uses the refreshed link ref', async () => {
   for (const [tap, hold] of [
-    [agent => tapRegressionControl(agent, 'Navigate'), []],
+    [
+      agent => tapRegressionControl(agent, 'Navigate'),
+      ['--hold-ms', '100'],
+    ],
     [
       agent =>
         performNativeInteraction(

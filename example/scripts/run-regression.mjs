@@ -142,7 +142,7 @@ export async function tapRegressionControl(agent, label, platform = 'ios') {
       .map(line => line.match(/^\s*(@e\d+) \[(button|link)\] "([^"]+)"/))
       .find(match => match?.[3] === label);
     if (!target) throw new Error(`${label} control was not observed`);
-    await agent(['click', target[1]], 30000);
+    await agent(['click', target[1], '--hold-ms', '100'], 30000);
     return;
   }
   throw new Error(`${label} remained obscured by a development warning`);
@@ -784,8 +784,9 @@ async function run(platform, device) {
       platform === 'ios' ? 120000 : 90000,
     );
     await agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 90000);
-    await agent(['wait', 'text', 'Regression verification', '60000']);
-    await agent(['find', 'Regression verification', 'click', '--first']);
+    await agent(['wait', 'text', 'Open native regression checks', '60000']);
+    await tapRegressionControl(agent, 'Open native regression checks', platform);
+    await agent(['wait', 'text', 'Run regression', '60000']);
     await tapRegressionControl(agent, 'Run regression', platform);
     const deadline = Date.now() + 600000;
     const printed = new Set();
