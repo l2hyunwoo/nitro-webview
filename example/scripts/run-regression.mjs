@@ -180,7 +180,17 @@ export async function performNativeInteraction(value, context) {
   }
   if (action === 'fullscreen-exit') {
     if (platform === 'android') await adb(['shell', 'input', 'keyevent', '4']);
-    else await tap('Done');
+    else {
+      let controls = await agent(['snapshot', '-i'], 30000);
+      if (
+        !/\[button\] "(?:Done|Close)"/.test(controls) &&
+        controls.includes('"Media"')
+      ) {
+        await tap('Media');
+        controls = await agent(['snapshot', '-i'], 30000);
+      }
+      await tap(controls.includes('[button] "Close"') ? 'Close' : 'Done');
+    }
     return appVisible();
   }
   if (action === 'capture-cancel') {

@@ -695,6 +695,33 @@ test('background and foreground use the same app without relaunch', async t => {
   ]);
 });
 
+test('iOS fullscreen reveals hidden media controls and taps the observed Close button', async () => {
+  const calls = [];
+  let visible = false;
+  let closed = false;
+  const context = {
+    platform: 'ios',
+    device: 'simulator',
+    bundleID: 'com.example',
+    agent: async args => {
+      calls.push(args);
+      if (args[0] === 'find' && args[1] === 'Media') visible = true;
+      if (args[0] === 'click' && args[1] === '@e7') closed = true;
+      if (args[0] !== 'snapshot') return '';
+      if (closed) return '@e1 [button] "Run regression"';
+      return visible
+        ? '@e3 [other] "Media"\n@e7 [button] "Close"'
+        : '@e3 [other] "Media"';
+    },
+  };
+  await performNativeInteraction(
+    { id: 'exit', action: 'fullscreen-exit' },
+    context,
+  );
+  assert.ok(calls.some(call => call[0] === 'find' && call[1] === 'Media'));
+  assert.ok(calls.some(call => call[0] === 'click' && call[1] === '@e7'));
+});
+
 test('fullscreen exit uses OS back on Android and Done on iOS', async t => {
   const android = nativeContext();
   await performNativeInteraction(
