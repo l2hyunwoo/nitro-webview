@@ -1,6 +1,6 @@
 import Foundation
 
-/// Message sender consent is independent of the top-level navigation URL.
+/// Message sender policy is independent of the top-level navigation URL.
 enum NitroWebViewMessagePolicy {
   private static let hostCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789.-[]:")
 
@@ -8,10 +8,15 @@ enum NitroWebViewMessagePolicy {
     guard value.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
       let parts = URLComponents(string: value),
       let scheme = parts.scheme?.lowercased(), ["http", "https"].contains(scheme),
-      let host = parts.host?.lowercased(), !host.isEmpty,
+      let serialized = parts.string, let hostRange = parts.rangeOfHost
+    else { return nil }
+    // The serialized host preserves IDNA encoding and IPv6 brackets.
+    let host = serialized[hostRange].lowercased()
+    guard !host.isEmpty,
       host.unicodeScalars.allSatisfy(hostCharacters.contains),
       parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
       ["", "/"].contains(parts.path),
+      !serialized[hostRange.upperBound...].hasPrefix(":") || parts.port != nil,
       parts.port == nil || (1...65535).contains(parts.port!)
     else { return nil }
     let port = parts.port ?? (scheme == "https" ? 443 : 80)

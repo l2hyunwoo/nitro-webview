@@ -45,7 +45,9 @@ final class NitroWebViewMessageHandlerTests: XCTestCase {
 
   func test_invalidOrOpaqueOriginsFailClosed() {
     for invalid in ["*", "https://*.test", "https://trusted.test/path", "https://u@trusted.test",
-      "https://trusted.test?q=1", "https://trusted.test#x", "file:///tmp", "https://trusted.test:0", "https://trusted.test:65536"] {
+      "https://trusted.test?q=1", "https://trusted.test#x", "file:///tmp", "https://trusted.test:0", "https://trusted.test:65536",
+      "https://trusted.test:9999999999999999999999999999999999", "https://trusted.test:",
+      "https://[::1]:9999999999999999999999999999999999", "https://[::1]:"] {
       let policy = ["https://trusted.test", invalid]
       XCTAssertNotNil(NitroWebViewMessagePolicy.configurationError(policy), invalid)
       XCTAssertFalse(NitroWebViewMessagePolicy.allows(policy, senderOrigin: "https://trusted.test"), invalid)
@@ -56,6 +58,26 @@ final class NitroWebViewMessageHandlerTests: XCTestCase {
     XCTAssertEqual(NitroWebViewMessagePolicy.senderOrigin(scheme: "http", host: "::1", port: 8098), "http://[::1]:8098")
     XCTAssertEqual(NitroWebViewMessagePolicy.senderOrigin(scheme: "https", host: "trusted.test", port: 0), "https://trusted.test")
     XCTAssertEqual(NitroWebViewMessagePolicy.senderOrigin(scheme: "file", host: "", port: 0), "null")
+  }
+
+  func test_punycodeOriginsPreserveASCIIForPolicyAndSenderMetadata() {
+    let origin = "https://xn--bcher-kva.test"
+    let sender = NitroWebViewMessagePolicy.senderOrigin(scheme: "https", host: "xn--bcher-kva.test", port: 443)
+    XCTAssertEqual(NitroWebViewMessagePolicy.canonicalOrigin("HTTPS://XN--BCHER-KVA.TEST:443/"), origin)
+    XCTAssertNil(NitroWebViewMessagePolicy.configurationError([origin]))
+    XCTAssertEqual(sender, origin)
+    XCTAssertEqual(NitroWebViewMessagePolicy.senderOrigin(scheme: "https", host: "xn--bcher-kva.test", port: 0), origin)
+    XCTAssertEqual(NitroWebViewMessagePolicy.senderOrigin(scheme: "https", host: "xn--bcher-kva.test", port: 8443), "\(origin):8443")
+    XCTAssertTrue(NitroWebViewMessagePolicy.allows([origin], senderOrigin: sender))
+    XCTAssertFalse(NitroWebViewMessagePolicy.allows([origin], senderOrigin: "\(origin):8443"))
+
+    let spy = SpyMessageDispatcher()
+    let handler = NitroWebViewMessageHandler(dispatcher: spy)
+    handler.allowedOrigins = [origin]
+    handler.handle(message: StubScriptMessage(body: "accepted", postMessageWebView: nil,
+      senderOrigin: sender, senderIsMainFrame: false))
+    XCTAssertEqual(spy.events.first?.sourceOrigin, origin)
+    XCTAssertEqual(spy.events.first?.isMainFrame, false)
   }
 
   func test_handle_dispatchesEventWithDataAndUrl() {
