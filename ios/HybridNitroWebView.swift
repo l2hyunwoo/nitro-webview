@@ -377,6 +377,7 @@ final class HybridNitroWebView:
   func reload() throws { webView?.reload() }
   func stopLoading() throws {
     let stop: () -> Void = { [weak self] in
+      self?.sourceNeedsLoading = false
       self?.navigationDelegate.cancelPendingDecisions()
       self?.webView?.stopLoading()
     }
