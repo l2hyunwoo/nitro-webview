@@ -17,21 +17,26 @@ on:
           - 'true'
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   validate:
-    name: Validate (lint, typecheck, build)
+    name: Validate (ESLint, ktlint, typecheck, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -44,6 +49,21 @@ jobs:
 
       - name: Lint (ESLint, --max-warnings 0)
         run: yarn lint-ci
+
+      - name: Setup JDK 17 for ktlint
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Check handwritten Kotlin with ktlint 1.8.0
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 180 \
+            https://github.com/ktlint/ktlint/releases/download/1.8.0/ktlint \
+            --output "$RUNNER_TEMP/ktlint"
+          printf '%s  %s\n' a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75 "$RUNNER_TEMP/ktlint" | sha256sum --check
+          java -Xmx256m -jar "$RUNNER_TEMP/ktlint" 'android/src/**/*.kt' 'example/android/app/src/**/*.kt'
 
       - name: Typecheck (tsc --noEmit)
         run: yarn typecheck
@@ -73,14 +93,16 @@ jobs:
   test:
     name: Test (yarn test)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -114,12 +136,83 @@ jobs:
             echo "yarn test executed and reported success."
           fi
 
+  swift-test:
+    name: Swift tests (XCTest)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Run Swift tests
+        working-directory: iosTests
+        run: swift test --jobs 2
+
+  robolectric:
+    name: Android unit tests (Robolectric)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies (root)
+        run: yarn install --immutable
+
+      - name: Build TypeScript library (yarn prepare)
+        run: yarn prepare
+
+      - name: Install dependencies (example)
+        working-directory: example
+        run: yarn install --immutable
+
+      - name: Gradle cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('example/android/**/*.gradle*', 'example/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Run Robolectric suite
+        working-directory: example/android
+        run: ./gradlew :nitro-webview:testDebugUnitTest --no-daemon --build-cache --max-workers=2 -PreactNativeArchitectures=x86_64
+
+      - name: Stop Gradle daemon
+        if: always()
+        working-directory: example/android
+        run: ./gradlew --stop
+
   create-version-commit:
     name: Create version commit
     needs:
       - validate
       - test
+      - swift-test
+      - robolectric
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     outputs:
@@ -127,13 +220,13 @@ jobs:
       commit_sha: ${{ steps.bump.outputs.commit_sha }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -199,7 +292,7 @@ jobs:
         run: node scripts/release-candidate.mjs create "$CANDIDATE_DIR"
 
       - name: Upload release candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-candidate
           path: ${{ env.CANDIDATE_DIR }}/
@@ -219,29 +312,32 @@ jobs:
 
   create-version-tag:
     name: Create version tag
+    permissions:
+      contents: write
     needs:
       - create-version-commit
       - verify-release-candidate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
       - name: Download verified release candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-candidate
           path: ${{ env.CANDIDATE_DIR }}
@@ -322,6 +418,7 @@ jobs:
       - create-version-tag
       - verify-release-candidate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: npm-publish
     env:
       CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
@@ -330,20 +427,21 @@ jobs:
       id-token: write
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
           ref: ${{ github.sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
 
       - name: Download verified release candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-candidate
           path: ${{ env.CANDIDATE_DIR }}
@@ -412,24 +510,26 @@ jobs:
       - create-version-tag
       - publish-npm
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       CANDIDATE_DIR: ${{ github.workspace }}-release-candidate
     permissions:
       contents: write
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
           ref: ${{ github.sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
 
       - name: Download verified release candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-candidate
           path: ${{ env.CANDIDATE_DIR }}
