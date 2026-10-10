@@ -60,7 +60,7 @@ React Native 0.85.3 requires its embedded React renderer version, `19.2.3`, exac
 Future versions allowed by these ranges remain unverified until their checks run.
 RN 0.85.3 requires Android API 24 or later and iOS 15.1 or later.
 Use Node.js 22.13 or later in the Node 22 line for development checks.
-macOS and Windows have no implementation; visionOS has no verified support result.
+Supported platforms are Android and iOS. visionOS, macOS, and Windows are not supported.
 
 ### Package and release checks
 
@@ -75,7 +75,8 @@ The example's `link:..` dependency supports local development. Metro also resolv
 It does not replace `nitro-webview` with a fixed repository source path.
 Before release, install the packed tarball in a separate native app and run both platform builds and the normal-root smoke checks.
 Match that artifact and all required results to the release SHA. A missing, skipped, or failed required check blocks release.
-The existing manual release workflow also repeats codegen and package checks on the version commit before publishing.
+The manual release workflow requires ESLint, ktlint, TypeScript checks, and Android JVM and iOS Swift unit tests before preparing the release candidate.
+It repeats codegen and package checks on the version commit, then requires both packed native regression suites before tagging or publishing.
 
 ### 1. Install
 
