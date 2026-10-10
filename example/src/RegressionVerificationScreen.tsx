@@ -1162,7 +1162,38 @@ export function RegressionVerificationScreen() {
             deny.messages.length === 0 && deny.errors.length === 0,
             'deny-all delivered a message or broke navigation',
           );
-          return 'allowlist delivered main/same-origin only and rejected cross/opaque frames; [] rejected all while navigation completed';
+          if (Platform.OS === 'ios') {
+            for (const idnOrigin of [
+              'https://xn--bcher-kva.example',
+              'https://xn--bcher-kva.example:8443',
+            ]) {
+              await unmount();
+              const idn = await mount(
+                '',
+                { allowedMessageOrigins: [idnOrigin] },
+                undefined,
+                {
+                  html: '<!doctype html><title>IDN sender</title><script>window.ReactNativeWebView.postMessage("idn-probe")</script>',
+                  baseUrl: `${idnOrigin}/`,
+                },
+              );
+              await until(
+                () =>
+                  idn.messageEvents.some(event => event.data === 'idn-probe'),
+                'allowed IDNA sender',
+              );
+              const messages = idn.messageEvents.filter(
+                event => event.data === 'idn-probe',
+              );
+              check(
+                messages.length === 1 &&
+                  messages[0]?.sourceOrigin === idnOrigin &&
+                  messages[0]?.isMainFrame === true,
+                `IDNA native sender: ${JSON.stringify(messages)}`,
+              );
+            }
+          }
+          return 'allowlist delivered main/same-origin only and rejected cross/opaque frames; [] rejected all; iOS also verified native IDNA sender identity at default and nondefault ports';
         },
       ],
       [
