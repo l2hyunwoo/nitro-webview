@@ -49,10 +49,10 @@ See [platform support](https://l2hyunwoo.github.io/nitro-webview/reference/platf
 
 ## Quick start
 
-Requires React Native's **New Architecture**. Check the [installation requirements](https://l2hyunwoo.github.io/nitro-webview/start/installation.html) for compatible React Native, React, and Nitro Modules versions.
+Version `0.2.0` requires React Native's **New Architecture**, React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`. See the [installation requirements](https://l2hyunwoo.github.io/nitro-webview/start/installation.html) for platform constraints.
 
 ```sh
-yarn add nitro-webview react-native-nitro-modules
+yarn add nitro-webview@0.2.0 react-native-nitro-modules
 cd ios && pod install
 ```
 
@@ -79,7 +79,7 @@ Every event prop must be wrapped in `callback(...)` so Nitro can dispatch it on 
 - [Quick start and hybrid refs](https://l2hyunwoo.github.io/nitro-webview/start/quick-start.html)
 - [Props](https://l2hyunwoo.github.io/nitro-webview/reference/props.html), [methods](https://l2hyunwoo.github.io/nitro-webview/reference/methods.html), and [events](https://l2hyunwoo.github.io/nitro-webview/reference/events.html)
 - [Platform support](https://l2hyunwoo.github.io/nitro-webview/reference/platforms.html), [permissions](https://l2hyunwoo.github.io/nitro-webview/guides/permissions.html), and [downloads and uploads](https://l2hyunwoo.github.io/nitro-webview/guides/downloads.html)
-- [Migration from react-native-webview or 0.1](https://l2hyunwoo.github.io/nitro-webview/guides/migration.html)
+- [Migration from react-native-webview or 0.1](https://l2hyunwoo.github.io/nitro-webview/guides/migration.html) and [0.2.0 release notes](https://github.com/l2hyunwoo/nitro-webview/releases/tag/v0.2.0)
 
 ## Development
 

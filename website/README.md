@@ -16,4 +16,4 @@ After changing public types, run `npm run reference:generate` and review both ge
 
 The Documentation workflow installs only this package and uploads a site artifact on pull requests. To publish after merge, enable GitHub Pages with the **GitHub Actions** source, then dispatch the workflow on `main` with `deploy=true`. Pull requests and ordinary pushes do not publish.
 
-The docs describe the development API. Update the development notices, installation requirements, and migration guide when publishing version-specific documentation.
+The docs describe version 0.2.0. Keep the version banner, installation requirements, and migration guide aligned with the package release.
