@@ -4,6 +4,11 @@ import { createWriteStream, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  fixtureText,
+  validateRegressionInteraction,
+} from './regression-server.mjs';
+export { validateRegressionInteraction } from './regression-server.mjs';
 
 const exampleDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureURL = 'http://127.0.0.1:8098';
@@ -29,12 +34,28 @@ const commonCases = [
   'post-body-once',
   'redirect-once',
   'history-back-forward',
+  'download-http-metadata',
+  'download-blob-bytes',
+  'message-native-frame-origins',
+  'message-origin-policy',
+  'window-open-parent-unchanged',
+  'background-resume',
+  'file-chooser-cancel',
+  'fullscreen-exit-unmount',
 ];
 export const expectedRegressionCases = {
   android: [
     ...commonCases,
     'android-incognito-rejection',
     'android-renderer-recovery',
+    'android-renderer-shared-views',
+    'android-blob-failures-replay',
+    'android-file-upload',
+    'android-capture-chooser-cancel',
+    'android-permission-origin-deny',
+    'android-media-origin-deny',
+    'android-permission-os-deny',
+    'android-permission-os-allow',
   ],
   ios: [
     ...commonCases,
@@ -86,18 +107,183 @@ export function validateRegressionResults(result, platform) {
   return result.cases.length;
 }
 
-export function validateRegressionInteraction(value) {
-  if (value === null) return null;
-  if (
-    typeof value !== 'object' ||
-    typeof value.id !== 'string' ||
-    !value.id ||
-    value.label !== 'Navigate'
-  )
-    throw new Error(
-      'Unsupported regression interaction; only Navigate is allowed',
+export async function performNativeInteraction(value, context) {
+  const interaction = validateRegressionInteraction(value);
+  if (!interaction) return;
+  const { platform, device, bundleID, agent, command, uploadFile } = context;
+  const action = interaction.action ?? 'tap';
+  const adb = args => command('adb', ['-s', device, ...args]);
+  const foreground = async () => {
+    const activity = await adb(['shell', 'dumpsys', 'activity', 'activities']);
+    return (activity.match(
+      /\btopResumedActivity=ActivityRecord\{[^\n]*?\s([\w.]+)\//,
+    ) ??
+      activity.match(
+        /\b(?:mResumedActivity|ResumedActivity):\s*ActivityRecord\{[^\n]*?\s([\w.]+)\//,
+      ))?.[1];
+  };
+  const tap = async label => {
+    const fileInput = label === 'Upload fixture' || label === 'Capture fixture';
+    const deadline = Date.now() + 15000;
+    while (true) {
+      const snapshot = await agent(['snapshot', '-i'], 30000);
+      const nodes = snapshot
+        .split('\n')
+        .map(line => line.match(/^\s*(@e\d+) \[([^\]]+)\] "([^"]+)"/))
+        .filter(
+          match =>
+            match &&
+            (match[3] === label ||
+              match[3].startsWith(`${label}:`) ||
+              (label === 'nitro-regression.txt' &&
+                match[3].startsWith(`${label}, `))),
+        );
+      const target =
+        nodes.find(match => match[2] === 'button') ?? (!fileInput && nodes[0]);
+      if (target) return agent(['click', target[1]], 30000);
+      if (Date.now() >= deadline) {
+        const kind = fileInput ? 'file input button' : 'control';
+        throw new Error(`${label} ${kind} was not observed`);
+      }
+      await sleep(Math.min(250, deadline - Date.now()));
+    }
+  };
+  const appVisible = async () => {
+    await agent(
+      [
+        'wait',
+        'text',
+        platform === 'android' ? 'RUN REGRESSION' : 'Run regression',
+        '15000',
+      ],
+      30000,
     );
-  return { id: value.id, label: 'Navigate' };
+    const snapshot = await agent(['snapshot', '-i'], 30000);
+    if (
+      !/^\s*@e\d+ \[button\] "Run regression"/im.test(snapshot) ||
+      (platform === 'android' && (await foreground()) !== bundleID)
+    )
+      throw new Error('Regression app did not return to the foreground');
+  };
+  if (action === 'tap') return tap(interaction.label);
+  if (action === 'background-resume') {
+    await agent(['home'], 30000);
+    await sleep(1500);
+    return agent(['open', bundleID], 30000);
+  }
+  if (action === 'fullscreen-exit') {
+    if (platform === 'android') await adb(['shell', 'input', 'keyevent', '4']);
+    else await tap('Done');
+    return appVisible();
+  }
+  if (action === 'capture-cancel') {
+    if (platform !== 'android')
+      throw new Error('Camera chooser automation requires Android');
+    await adb(['shell', 'pm', 'grant', bundleID, 'android.permission.CAMERA']);
+    await tap('Capture fixture');
+    const picker = await agent(['snapshot', '-i'], 30000);
+    if (!/Camera|Capture image/.test(picker))
+      throw new Error('Capture input did not offer a camera activity');
+    await tap(picker.includes('Capture image') ? 'Capture image' : 'Camera');
+    const camera = await agent(['snapshot', '-i'], 30000);
+    if (!/Shutter|Take photo|Capture|Camera|Photo|Switch camera/i.test(camera))
+      throw new Error('The system camera did not open');
+    await adb(['shell', 'input', 'keyevent', '4']);
+    return appVisible();
+  }
+  if (action === 'chooser-cancel' || action === 'chooser-upload') {
+    if (action === 'chooser-upload' && platform !== 'android')
+      throw new Error('File selection automation requires Android DocumentsUI');
+    if (action === 'chooser-upload') {
+      await adb(['push', uploadFile, '/sdcard/Download/nitro-regression.txt']);
+      await adb([
+        'shell',
+        'am',
+        'broadcast',
+        '-a',
+        'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+        '-d',
+        'file:///sdcard/Download/nitro-regression.txt',
+      ]);
+    }
+    await tap('Upload fixture');
+    const picker = await agent(['snapshot', '-i'], 30000);
+    if (
+      !/Choose file|Choose File|Files|Recent|Browse|Photo Library/i.test(picker)
+    )
+      throw new Error('The OS file chooser did not appear');
+    if (action === 'chooser-cancel') {
+      if (platform === 'android')
+        await adb(['shell', 'input', 'keyevent', '4']);
+      else {
+        if (picker.includes('Choose File')) await tap('Choose File');
+        await tap('Cancel');
+      }
+      return appVisible();
+    }
+    if (picker.includes('Choose file')) await tap('Files');
+    await tap('Show roots');
+    await tap('Downloads');
+    await tap('nitro-regression.txt');
+    return appVisible();
+  }
+  if (action === 'permission-allow' || action === 'permission-deny') {
+    if (platform !== 'android')
+      throw new Error('OS permission automation requires Android');
+    await adb([
+      'shell',
+      'pm',
+      'clear-permission-flags',
+      bundleID,
+      'android.permission.ACCESS_COARSE_LOCATION',
+      'user-set',
+      'user-fixed',
+    ]);
+    await adb([
+      'shell',
+      'pm',
+      'clear-permission-flags',
+      bundleID,
+      'android.permission.ACCESS_FINE_LOCATION',
+      'user-set',
+      'user-fixed',
+    ]);
+    // Runtime permissions start absent in the dedicated fixture installation.
+    try {
+      await tap('Location');
+    } catch (error) {
+      const output = error.output ?? String(error);
+      if (
+        error.timedOut ||
+        error.signal ||
+        !/press @e\d+ /.test(output) ||
+        !output.includes(
+          `left ${bundleID} and foregrounded com.google.android.permissioncontroller. The tap likely escaped the app.`,
+        )
+      )
+        throw error;
+    }
+    const permissionPackage = await foreground();
+    const permission = await agent(['snapshot', '-i'], 30000);
+    const allow = permission.match(
+      /^\s*(@e\d+) \[button\] "While using the app"/m,
+    );
+    const deny = permission.match(/^\s*(@e\d+) \[button\] "Don[’']t allow"/m);
+    if (
+      permissionPackage !== 'com.google.android.permissioncontroller' ||
+      !/location/i.test(permission) ||
+      !allow ||
+      !deny
+    )
+      throw new Error('Android location permission dialog was not observed');
+    await agent(
+      ['click', action === 'permission-allow' ? allow[1] : deny[1]],
+      30000,
+    );
+    if (action === 'permission-allow' && device.startsWith('emulator-'))
+      await adb(['emu', 'geo', 'fix', '127.0', '37.5']);
+    return;
+  }
 }
 
 export function isPlatformRegressionArtifact(name, platform) {
@@ -216,6 +402,8 @@ async function run(platform, device) {
   const json = (suffix, value) =>
     writeFile(artifact(suffix), `${JSON.stringify(value, null, 2)}\n`);
   const uiLog = createWriteStream(artifact('ui.log'));
+  const uploadFile = artifact('upload.txt');
+  await writeFile(uploadFile, fixtureText);
   const children = [];
   const commands = new Set();
   const session = `nitro-regression-${platform}-${process.pid}`;
@@ -303,6 +491,15 @@ async function run(platform, device) {
       child.stdout.pipe(output, { end: false });
       child.stderr.pipe(output, { end: false });
       let timedOut = false;
+      let captured = '';
+      let failureOutput = '';
+      child.stdout.on('data', chunk => {
+        captured = (captured + chunk.toString()).slice(-100000);
+        failureOutput = (failureOutput + chunk.toString()).slice(-8000);
+      });
+      child.stderr.on('data', chunk => {
+        failureOutput = (failureOutput + chunk.toString()).slice(-8000);
+      });
       const timer = setTimeout(() => {
         timedOut = true;
         signalChild(child, 'SIGKILL');
@@ -315,11 +512,14 @@ async function run(platform, device) {
       child.once('close', (code, signal) => {
         clearTimeout(timer);
         commands.delete(child);
-        if (code === 0 && !timedOut) resolveCommand();
+        if (code === 0 && !timedOut) resolveCommand(captured);
         else
           reject(
-            new Error(
-              `${executable} ${args.slice(0, 3).join(' ')} failed (${timedOut ? 'timeout' : (signal ?? code)}); see ${artifact('ui.log')}`,
+            Object.assign(
+              new Error(
+                `${executable} ${args.slice(0, 3).join(' ')} failed (${timedOut ? 'timeout' : (signal ?? code)}); see ${artifact('ui.log')}`,
+              ),
+              { output: failureOutput, timedOut, signal },
             ),
           );
       });
@@ -394,6 +594,20 @@ async function run(platform, device) {
     if (platform === 'android') {
       await command('adb', ['-s', device, 'reverse', 'tcp:8081', 'tcp:8081']);
       await command('adb', ['-s', device, 'reverse', 'tcp:8098', 'tcp:8098']);
+      for (const permission of [
+        'ACCESS_FINE_LOCATION',
+        'ACCESS_COARSE_LOCATION',
+      ]) {
+        await command('adb', [
+          '-s',
+          device,
+          'shell',
+          'pm',
+          'revoke',
+          bundleID,
+          `android.permission.${permission}`,
+        ]);
+      }
     } else {
       await agent(['prepare', 'ios-runner', '--timeout', '120000'], 150000);
     }
@@ -403,7 +617,7 @@ async function run(platform, device) {
     await agent(['find', 'Regression verification', 'click', '--first']);
     await agent(['snapshot', '-i']);
     await agent(['find', 'Run regression', 'click', '--first']);
-    const deadline = Date.now() + 240000;
+    const deadline = Date.now() + 600000;
     const printed = new Set();
     const handledInteractions = new Set();
     let finished = false;
@@ -422,9 +636,32 @@ async function run(platform, device) {
         handledInteractions.add(interaction.id);
         // Clear before tapping so polling cannot repeat the same gesture.
         await fetchJSON('/interaction', null);
-        console.log(`Native tap: ${interaction.label} (${interaction.id})`);
-        await agent(['snapshot', '-i'], 30000);
-        await agent(['find', 'Navigate', 'click', '--first'], 30000);
+        console.log(
+          `Native interaction: ${interaction.action ?? interaction.label} (${interaction.id})`,
+        );
+        let outcome;
+        try {
+          await performNativeInteraction(interaction, {
+            platform,
+            device,
+            bundleID,
+            agent,
+            command,
+            uploadFile,
+          });
+          outcome = {
+            id: interaction.id,
+            ok: true,
+            detail: 'Native commands completed',
+          };
+        } catch (error) {
+          outcome = {
+            id: interaction.id,
+            ok: false,
+            detail: String(error).slice(0, 2000),
+          };
+        }
+        await fetchJSON('/interaction-result', outcome);
       }
       if (result !== null) {
         lastResult = result;
@@ -451,7 +688,7 @@ async function run(platform, device) {
     }
     if (!finished)
       throw new Error(
-        'Regression results were missing or incomplete after 240 seconds',
+        'Regression results were missing or incomplete after 600 seconds',
       );
   } catch (error) {
     failure = error;

@@ -9,6 +9,7 @@ import {
   stopOwnedChild,
   validateRegressionResults,
   validateRegressionInteraction,
+  performNativeInteraction,
 } from '../run-regression.mjs';
 
 const result = (platform = 'ios') => ({
@@ -23,8 +24,8 @@ const result = (platform = 'ios') => ({
 });
 
 test('accepts completed production result schema', () => {
-  assert.equal(validateRegressionResults(result(), 'ios'), 25);
-  assert.equal(validateRegressionResults(result('android'), 'android'), 21);
+  assert.equal(validateRegressionResults(result(), 'ios'), 33);
+  assert.equal(validateRegressionResults(result('android'), 'android'), 37);
 });
 
 test('incomplete, missing, empty and cross-platform results never pass', () => {
@@ -136,12 +137,25 @@ test('invalid CLI arguments fail before touching services or devices', () => {
   assert.match(child.stderr, /Usage:/);
 });
 
-test('native interaction accepts only an identified Navigate tap', () => {
+test('native interaction accepts only identified fixed fixture actions', () => {
   assert.equal(validateRegressionInteraction(null), null);
   assert.deepEqual(
     validateRegressionInteraction({ id: 'history-1', label: 'Navigate' }),
     { id: 'history-1', label: 'Navigate' },
   );
+  for (const action of [
+    'background-resume',
+    'chooser-cancel',
+    'chooser-upload',
+    'capture-cancel',
+    'fullscreen-exit',
+    'permission-allow',
+    'permission-deny',
+  ])
+    assert.deepEqual(validateRegressionInteraction({ id: 'native', action }), {
+      id: 'native',
+      action,
+    });
   for (const value of [
     undefined,
     false,
@@ -151,8 +165,466 @@ test('native interaction accepts only an identified Navigate tap', () => {
     { id: 1, label: 'Navigate' },
     { id: 'history-1', label: 'Delete' },
     { id: 'history-1', label: 'Navigate --shutdown' },
+    { id: 'native', action: 'shell' },
+    { id: 'native', action: 'chooser-upload', label: 'Delete' },
+    { id: 'native', action: 'tap', label: 'Navigate', executable: 'rm' },
   ])
     assert.throws(() => validateRegressionInteraction(value));
+});
+
+const documentsSnapshot =
+  'Page: com.example\n@e1 [text] "Recent"\n@e2 [text] "Show roots"\n@e3 [text] "Downloads"\n@e4 [text] "nitro-regression.txt"';
+
+function nativeContext(snapshot = documentsSnapshot) {
+  const calls = [];
+  let surface = 'app';
+  const app =
+    'Page: com.example\n@e1 [button] "RUN REGRESSION" [disabled]\n@e4 [text] "Upload fixture"\n@e5 [button] "Upload fixture: No file chosen"\n@e6 [text] "Capture fixture"\n@e7 [button] "Capture fixture: No file chosen"\n@e8 [button] "Location"\n@e9 [button] "Done"';
+  const permission =
+    'Page: com.example\n@e1 [scroll-area] "Allow example to access this device’s location?"\n@e5 [radiobutton] "Precise"\n@e7 [button] "While using the app"\n@e9 [button] "Don’t allow"';
+  return {
+    calls,
+    platform: 'android',
+    device: 'emulator-5554',
+    bundleID: 'com.example',
+    uploadFile: '/tmp/fixture-upload.txt',
+    agent: async args => {
+      calls.push(['agent', ...args]);
+      if (args[0] === 'snapshot')
+        return surface === 'app'
+          ? app
+          : surface === 'permission'
+            ? permission
+            : snapshot;
+      if (args[0] === 'click') {
+        if (surface === 'permission') {
+          if (args[1] === '@e7' || args[1] === '@e9') surface = 'app';
+        } else if (surface === 'app') {
+          if (args[1] === '@e5' || args[1] === '@e7') surface = 'picker';
+          if (args[1] === '@e8') surface = 'permission';
+        } else if (
+          snapshot
+            .split('\n')
+            .find(line => line.startsWith(`${args[1]} `))
+            ?.includes('"nitro-regression.txt')
+        )
+          surface = 'app';
+      }
+      return '';
+    },
+    command: async (executable, args) => {
+      calls.push([executable, ...args]);
+      if (args.includes('keyevent')) surface = 'app';
+      if (args.includes('dumpsys')) {
+        const component =
+          surface === 'permission'
+            ? 'com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity'
+            : 'com.example/.MainActivity';
+        return `ActivityRecord{old u0 com.other/.OldActivity t1}\n  topResumedActivity=ActivityRecord{current u0 ${component} t7}\n  ResumedActivity: ActivityRecord{current u0 ${component} t7}`;
+      }
+      return '';
+    },
+  };
+}
+
+test('invalid and unsupported native actions fail before device commands', async () => {
+  const context = nativeContext();
+  await assert.rejects(
+    performNativeInteraction({ id: 'bad', action: 'shell' }, context),
+  );
+  for (const action of [
+    'chooser-upload',
+    'capture-cancel',
+    'permission-allow',
+  ]) {
+    await assert.rejects(
+      performNativeInteraction(
+        { id: action, action },
+        { ...context, platform: 'ios' },
+      ),
+    );
+  }
+  assert.deepEqual(context.calls, []);
+});
+
+test('file input taps use fresh button refs and never the preceding text label', async t => {
+  const context = nativeContext();
+  await performNativeInteraction(
+    { id: 'input', action: 'tap', label: 'Upload fixture' },
+    context,
+  );
+  assert.deepEqual(context.calls, [
+    ['agent', 'snapshot', '-i'],
+    ['agent', 'click', '@e5'],
+  ]);
+  const missing = nativeContext();
+  missing.agent = async args => {
+    missing.calls.push(args);
+    return '@e4 [text] "Upload fixture"';
+  };
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  const rejected = assert.rejects(
+    performNativeInteraction(
+      { id: 'input', action: 'tap', label: 'Upload fixture' },
+      missing,
+    ),
+    /button was not observed/,
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  t.mock.timers.tick(15000);
+  await rejected;
+  assert.deepEqual(missing.calls, [
+    ['snapshot', '-i'],
+    ['snapshot', '-i'],
+  ]);
+});
+
+test('fixed-label tap polls fresh snapshots until its button appears without wait text', async () => {
+  const context = nativeContext();
+  let snapshots = 0;
+  context.agent = async args => {
+    context.calls.push(args);
+    if (args[0] === 'snapshot')
+      return ++snapshots === 1
+        ? '@e2 [button] "RUN REGRESSION"\n@e3 [webview] "regression fixture"'
+        : '@e2 [button] "Unrelated control"\n@e5 [button] "Camera permission"\n@e6 [button] "Microphone permission"';
+    return '';
+  };
+  await performNativeInteraction(
+    { id: 'media', action: 'tap', label: 'Camera permission' },
+    context,
+  );
+  assert.deepEqual(context.calls, [
+    ['snapshot', '-i'],
+    ['snapshot', '-i'],
+    ['click', '@e5'],
+  ]);
+});
+
+test('only the expected permission transition is accepted after a fresh real permission dialog snapshot', async () => {
+  const transition = new Error('agent failed');
+  transition.output =
+    'Error (COMMAND_FAILED): press @e8 left com.example and foregrounded com.google.android.permissioncontroller. The tap likely escaped the app.';
+  const context = nativeContext();
+  const agent = context.agent;
+  context.agent = async args => {
+    const result = await agent(args);
+    if (args[0] === 'click' && args[1] === '@e8') throw transition;
+    return result;
+  };
+  await performNativeInteraction(
+    { id: 'deny', action: 'permission-deny' },
+    context,
+  );
+  assert.ok(
+    context.calls.some(call => call[1] === 'click' && call[2] === '@e9'),
+  );
+
+  for (const message of [
+    'ADB disconnected',
+    transition.output.replace(
+      'com.google.android.permissioncontroller',
+      'com.android.settings',
+    ),
+  ]) {
+    const broken = nativeContext();
+    const next = broken.agent;
+    const failure = Object.assign(new Error('other failure'), {
+      output: message,
+    });
+    broken.agent = async args => {
+      const result = await next(args);
+      if (args[0] === 'click' && args[1] === '@e8') throw failure;
+      return result;
+    };
+    await assert.rejects(
+      performNativeInteraction(
+        { id: 'deny', action: 'permission-deny' },
+        broken,
+      ),
+      error => error === failure,
+    );
+    assert.equal(
+      broken.calls.some(call => call[2] === '@e9'),
+      false,
+    );
+  }
+  const absent = nativeContext();
+  const next = absent.agent;
+  absent.agent = async args => {
+    const result = await next(args);
+    if (args[0] === 'click' && args[1] === '@e8') throw transition;
+    return result.includes('Allow example to access this device’s location?')
+      ? 'Page: com.example\n@e1 [button] "RUN REGRESSION"'
+      : result;
+  };
+  await assert.rejects(
+    performNativeInteraction({ id: 'deny', action: 'permission-deny' }, absent),
+    /permission dialog was not observed/,
+  );
+  assert.equal(
+    absent.calls.some(call => call[2] === '@e9'),
+    false,
+  );
+  for (const state of [{ timedOut: true }, { signal: 'SIGTERM' }]) {
+    const interrupted = nativeContext();
+    const agent = interrupted.agent;
+    const failure = Object.assign(new Error('command interrupted'), {
+      output: transition.output,
+      ...state,
+    });
+    interrupted.agent = async args => {
+      const result = await agent(args);
+      if (args[0] === 'click' && args[1] === '@e8') throw failure;
+      return result;
+    };
+    await assert.rejects(
+      performNativeInteraction(
+        { id: 'deny', action: 'permission-deny' },
+        interrupted,
+      ),
+      error => error === failure,
+    );
+  }
+});
+
+test('permission identity uses resumed activity, accepts actual curved/ASCII labels, and clicks their observed ref', async () => {
+  for (const ascii of [false, true]) {
+    const context = nativeContext();
+    const agent = context.agent;
+    context.agent = async args => {
+      const result = await agent(args);
+      return ascii ? result.replace('Don’t allow', "Don't allow") : result;
+    };
+    const command = context.command;
+    context.command = async (executable, args) => {
+      const result = await command(executable, args);
+      // Older dumps omit topResumedActivity, while session snapshot Page remains com.example.
+      return result.replace(/^.*topResumedActivity=.*\n/m, '');
+    };
+    await performNativeInteraction(
+      { id: 'deny', action: 'permission-deny' },
+      context,
+    );
+    assert.ok(
+      context.calls.some(call => call[1] === 'click' && call[2] === '@e9'),
+    );
+    assert.equal(
+      context.calls.some(call => call[1] === 'find'),
+      false,
+    );
+  }
+  for (const resumed of [
+    '',
+    'topResumedActivity=ActivityRecord{current u0 com.example/.MainActivity t7}\nResumedActivity: ActivityRecord{old u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t6}',
+  ]) {
+    const context = nativeContext();
+    const command = context.command;
+    context.command = async (executable, args) => {
+      await command(executable, args);
+      return args.includes('dumpsys') ? resumed : '';
+    };
+    await assert.rejects(
+      performNativeInteraction(
+        { id: 'deny', action: 'permission-deny' },
+        context,
+      ),
+      /permission dialog was not observed/,
+    );
+    assert.equal(
+      context.calls.some(call => call[1] === 'click' && call[2] === '@e9'),
+      false,
+    );
+  }
+});
+
+test('picker cancellation requires observed OS UI and never selects a file', async () => {
+  const absent = nativeContext('Regression verification');
+  await assert.rejects(
+    performNativeInteraction(
+      { id: 'cancel', action: 'chooser-cancel' },
+      absent,
+    ),
+    /did not appear/,
+  );
+  assert.equal(
+    absent.calls.some(call => call[0] === 'adb'),
+    false,
+  );
+  const context = nativeContext();
+  await performNativeInteraction(
+    { id: 'cancel', action: 'chooser-cancel' },
+    context,
+  );
+  assert.deepEqual(
+    context.calls.findLast(call => call.includes('keyevent')),
+    ['adb', '-s', 'emulator-5554', 'shell', 'input', 'keyevent', '4'],
+  );
+  assert.equal(
+    context.calls.some(call => call.includes('nitro-regression.txt')),
+    false,
+  );
+});
+
+test('upload selects one fixed file through DocumentsUI after preparing its real bytes', async () => {
+  const context = nativeContext();
+  await performNativeInteraction(
+    { id: 'upload', action: 'chooser-upload' },
+    context,
+  );
+  assert.deepEqual(context.calls[0], [
+    'adb',
+    '-s',
+    'emulator-5554',
+    'push',
+    '/tmp/fixture-upload.txt',
+    '/sdcard/Download/nitro-regression.txt',
+  ]);
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'click').map(call => call[2]),
+    ['@e5', '@e2', '@e3', '@e4'],
+  );
+});
+
+test('upload opens roots from remembered Downloads without waiting for Recent', async () => {
+  const context = nativeContext(
+    'Page: com.example\n@e1 [text] "Files in Downloads"\n@e4 [button] "Show roots"\n@e6 [text] "Downloads"\n@e8 [gridview] "nitro-regression.txt, 43 B, 10:28 AM"',
+  );
+  await performNativeInteraction(
+    { id: 'upload-downloads', action: 'chooser-upload' },
+    context,
+  );
+  assert.equal(
+    context.calls.some(call => call[1] === 'wait' && call.includes('Recent')),
+    false,
+  );
+  const openRoots = context.calls.findIndex(
+    call => call[1] === 'click' && call[2] === '@e4',
+  );
+  assert.ok(openRoots > 0);
+  assert.deepEqual(context.calls[openRoots - 1], ['agent', 'snapshot', '-i']);
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'click').map(call => call[2]),
+    ['@e5', '@e4', '@e6', '@e8'],
+  );
+});
+
+test('capture cancellation requires camera offering and camera UI; never fabricates a photo', async () => {
+  const absent = nativeContext();
+  await assert.rejects(
+    performNativeInteraction(
+      { id: 'capture', action: 'capture-cancel' },
+      absent,
+    ),
+    /did not offer/,
+  );
+  const context = nativeContext(
+    'Page: com.example\n@e1 [text] "Camera"\n@e2 [text] "Photo"',
+  );
+  await performNativeInteraction(
+    { id: 'capture', action: 'capture-cancel' },
+    context,
+  );
+  assert.deepEqual(
+    context.calls.filter(call => call[1] === 'click').map(call => call[2]),
+    ['@e7', '@e1'],
+  );
+  assert.deepEqual(
+    context.calls.findLast(call => call.includes('keyevent')),
+    ['adb', '-s', 'emulator-5554', 'shell', 'input', 'keyevent', '4'],
+  );
+});
+
+test('runtime location flows tap explicit OS consent and inject only emulator GPS', async () => {
+  const allow = nativeContext();
+  await performNativeInteraction(
+    { id: 'allow', action: 'permission-allow' },
+    allow,
+  );
+  assert.deepEqual(
+    allow.calls.filter(call => call[1] === 'click').map(call => call[2]),
+    ['@e8', '@e7'],
+  );
+  assert.deepEqual(allow.calls.at(-1), [
+    'adb',
+    '-s',
+    'emulator-5554',
+    'emu',
+    'geo',
+    'fix',
+    '127.0',
+    '37.5',
+  ]);
+  const deny = nativeContext();
+  deny.device = 'physical-device';
+  await performNativeInteraction(
+    { id: 'deny', action: 'permission-deny' },
+    deny,
+  );
+  assert.deepEqual(
+    deny.calls.filter(call => call[1] === 'click').map(call => call[2]),
+    ['@e8', '@e9'],
+  );
+  assert.equal(
+    deny.calls.some(call => call.includes('emu')),
+    false,
+  );
+});
+
+test('background and foreground use the same app without relaunch', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const context = nativeContext();
+  const running = performNativeInteraction(
+    { id: 'resume', action: 'background-resume' },
+    context,
+  );
+  await Promise.resolve();
+  t.mock.timers.tick(1500);
+  await running;
+  assert.deepEqual(context.calls, [
+    ['agent', 'home'],
+    ['agent', 'open', 'com.example'],
+  ]);
+});
+
+test('fullscreen exit uses OS back on Android and Done on iOS', async () => {
+  const android = nativeContext();
+  await performNativeInteraction(
+    { id: 'exit', action: 'fullscreen-exit' },
+    android,
+  );
+  assert.deepEqual(android.calls[0], [
+    'adb',
+    '-s',
+    'emulator-5554',
+    'shell',
+    'input',
+    'keyevent',
+    '4',
+  ]);
+  const ios = { ...nativeContext(), platform: 'ios' };
+  await performNativeInteraction(
+    { id: 'exit', action: 'fullscreen-exit' },
+    ios,
+  );
+  assert.deepEqual(
+    ios.calls.find(call => call[1] === 'click'),
+    ['agent', 'click', '@e9'],
+  );
+  assert.ok(
+    android.calls.some(
+      call => call[1] === 'wait' && call[3] === 'RUN REGRESSION',
+    ),
+  );
+  const hidden = nativeContext();
+  hidden.agent = async () => 'Page: com.example\n@e1 [button] "RUN REGRESSION"';
+  hidden.command = async () =>
+    'topResumedActivity=ActivityRecord{current u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t7}';
+  await assert.rejects(
+    performNativeInteraction({ id: 'exit', action: 'fullscreen-exit' }, hidden),
+    /did not return to the foreground/,
+  );
 });
 
 test('artifact cleanup matches only this platform regression evidence', () => {
