@@ -2,13 +2,59 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { PassThrough } from 'node:stream';
 import {
   expectedRegressionCases,
   isPlatformRegressionArtifact,
   validateRegressionResults,
   validateRegressionInteraction,
   tapRegressionControl,
+  runLoggedCommand,
 } from '../run-regression.mjs';
+
+test('real command returns stdout and still streams stdout/stderr to the log', async () => {
+  const output = new PassThrough();
+  const commands = new Set();
+  let log = '';
+  output.on('data', chunk => {
+    log += chunk.toString();
+  });
+  const stdout = await runLoggedCommand(
+    process.execPath,
+    [
+      '-e',
+      'process.stdout.write("@e20 [link] \\"Navigate\\"\\n"); process.stderr.write("diagnostic\\n");',
+    ],
+    { output, commands, logPath: 'test-ui.log' },
+  );
+  assert.equal(stdout, '@e20 [link] "Navigate"\n');
+  assert.match(log, /@e20 \[link\] "Navigate"/);
+  assert.match(log, /diagnostic/);
+  assert.equal(commands.size, 0);
+  output.end();
+});
+
+test('real command failures and timeouts still reject and release the child', async () => {
+  for (const [code, timeoutMs, expected] of [
+    ['process.exit(7)', 1000, /failed \(7\)/],
+    ['setInterval(() => {}, 1000)', 100, /failed \(timeout\)/],
+  ]) {
+    const output = new PassThrough();
+    output.resume();
+    const commands = new Set();
+    await assert.rejects(
+      runLoggedCommand(process.execPath, ['-e', code], {
+        output,
+        commands,
+        timeoutMs,
+        logPath: 'test-ui.log',
+      }),
+      expected,
+    );
+    assert.equal(commands.size, 0);
+    output.end();
+  }
+});
 
 test('native tap dismisses warnings and uses the refreshed link ref', async () => {
   const calls = [];
@@ -18,7 +64,21 @@ test('native tap dismisses warnings and uses the refreshed link ref', async () =
   ];
   await tapRegressionControl(async args => {
     calls.push(args);
-    return args[0] === 'snapshot' ? snapshots.shift() : '';
+    const output = new PassThrough();
+    output.resume();
+    try {
+      return await runLoggedCommand(
+        process.execPath,
+        [
+          '-e',
+          'process.stdout.write(process.argv[1]);',
+          args[0] === 'snapshot' ? snapshots.shift() : '',
+        ],
+        { output, commands: new Set(), logPath: 'test-ui.log' },
+      );
+    } finally {
+      output.end();
+    }
   }, 'Navigate');
   assert.deepEqual(calls, [
     ['snapshot', '-i'],
@@ -47,10 +107,14 @@ test('native tap refuses absent controls and persistent overlays', async () => {
 
 test('Android retains native label lookup when WebView links are omitted', async () => {
   const calls = [];
-  await tapRegressionControl(async args => {
-    calls.push(args);
-    return '@e1 [webview]';
-  }, 'Navigate', 'android');
+  await tapRegressionControl(
+    async args => {
+      calls.push(args);
+      return '@e1 [webview]';
+    },
+    'Navigate',
+    'android',
+  );
   assert.deepEqual(calls, [
     ['snapshot', '-i'],
     ['find', 'Navigate', 'click', '--first'],

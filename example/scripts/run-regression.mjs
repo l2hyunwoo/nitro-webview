@@ -46,6 +46,61 @@ export const expectedRegressionCases = {
   ],
 };
 
+function signalChild(child, signal) {
+  if (!child.pid) return;
+  try {
+    if (process.platform === 'win32') child.kill(signal);
+    else process.kill(-child.pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+
+export function runLoggedCommand(
+  executable,
+  args,
+  { cwd, output, commands, timeoutMs = 90000, logPath },
+) {
+  return new Promise((resolveCommand, reject) => {
+    const child = spawn(executable, args, {
+      cwd,
+      detached: process.platform !== 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    commands.add(child);
+    let stdout = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', chunk => {
+      stdout += chunk;
+    });
+    child.stdout.pipe(output, { end: false });
+    child.stderr.pipe(output, { end: false });
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      signalChild(child, 'SIGKILL');
+    }, timeoutMs);
+    child.once('error', error => {
+      clearTimeout(timer);
+      commands.delete(child);
+      reject(error);
+    });
+    child.once('close', (code, signal) => {
+      clearTimeout(timer);
+      commands.delete(child);
+      if (code === 0 && !timedOut) resolveCommand(stdout);
+      else
+        reject(
+          new Error(
+            `${executable} ${args.slice(0, 3).join(' ')} failed (${
+              timedOut ? 'timeout' : signal ?? code
+            }); see ${logPath}`,
+          ),
+        );
+    });
+  });
+}
+
 export async function tapRegressionControl(agent, label, platform = 'ios') {
   for (let attempt = 0; attempt < 3; attempt++) {
     const snapshot = await agent(['snapshot', '-i'], 30000);
@@ -233,16 +288,6 @@ async function run(platform, device) {
   await json('results.json', lastResult);
   await json('requests.json', []);
 
-  function signalChild(child, signal) {
-    if (!child.pid) return;
-    try {
-      if (process.platform === 'win32') child.kill(signal);
-      else process.kill(-child.pid, signal);
-    } catch (error) {
-      if (error.code !== 'ESRCH') throw error;
-    }
-  }
-
   function interrupt() {
     interrupted = true;
     for (const child of commands) signalChild(child, 'SIGTERM');
@@ -300,36 +345,12 @@ async function run(platform, device) {
 
   function command(executable, args, output = uiLog, timeoutMs = 90000) {
     uiLog.write(`\n$ ${executable} ${args.join(' ')}\n`);
-    return new Promise((resolveCommand, reject) => {
-      const child = spawn(executable, args, {
-        cwd: exampleDir,
-        detached: process.platform !== 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      commands.add(child);
-      child.stdout.pipe(output, { end: false });
-      child.stderr.pipe(output, { end: false });
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        signalChild(child, 'SIGKILL');
-      }, timeoutMs);
-      child.once('error', error => {
-        clearTimeout(timer);
-        commands.delete(child);
-        reject(error);
-      });
-      child.once('close', (code, signal) => {
-        clearTimeout(timer);
-        commands.delete(child);
-        if (code === 0 && !timedOut) resolveCommand();
-        else
-          reject(
-            new Error(
-              `${executable} ${args.slice(0, 3).join(' ')} failed (${timedOut ? 'timeout' : (signal ?? code)}); see ${artifact('ui.log')}`,
-            ),
-          );
-      });
+    return runLoggedCommand(executable, args, {
+      cwd: exampleDir,
+      output,
+      commands,
+      timeoutMs,
+      logPath: artifact('ui.log'),
     });
   }
 
