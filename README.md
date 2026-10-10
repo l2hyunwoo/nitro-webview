@@ -475,37 +475,71 @@ allprojects {
 
 ## E2E tests
 
-On-device / on-simulator smoke tests using [react-native-harness][harness] live in
-`example/src/__tests__/*.harness.tsx`. They mount the real `NitroWebView` against a
-tiny stdlib HTTP server (`example/e2e-server.mjs`, no deps) and assert it renders
-without crashing. Strict event-callback assertions (`onLoadEnd` / `onMessage` /
-`onHttpError`) are present but `test.skip`ped: Nitro view-event callbacks don't yet
-propagate through the harness `render()` overlay. Re-enable them once that lands.
+The primary native regression suite runs through the example app's normal
+AppRegistry root. `Regression verification` shows each case's PASS/FAIL result and
+uploads progress and final results to a local fixture server. It checks real native
+callbacks, methods, storage, navigation, and Android renderer recovery.
 
-The harness does not build or install the app, so pre-build it first, then run the harness:
+Install dependencies first. Build and install the example app on a booted target
+before running the suite. Run these commands from the repository root:
 
 ```sh
-# from repo root
-yarn install && yarn prepare          # tsc + committed nitrogen output
+yarn install && yarn prepare
+(cd example && yarn install)
 
-# iOS simulator
-cd example && yarn install
-cd ios && bundle install && bundle exec pod install && cd ..
-xcodebuild -workspace ios/example.xcworkspace -scheme example \
-  -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
-node e2e-server.mjs &                  # controlled pages the tests drive
-yarn test:e2e:ios                      # SIM_DEVICE / SIM_OS override the target simulator
+# iOS: use the UDID of an already booted simulator.
+SIM_UDID='<booted-simulator-udid>'
+(cd example/ios && bundle install && bundle exec pod install)
+xcodebuild -workspace example/ios/example.xcworkspace -scheme example \
+  -configuration Debug -sdk iphonesimulator \
+  -destination "platform=iOS Simulator,id=$SIM_UDID" \
+  -derivedDataPath example/ios/build CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install "$SIM_UDID" \
+  example/ios/build/Build/Products/Debug-iphonesimulator/example.app
+node example/scripts/run-regression.mjs ios "$SIM_UDID"
 
-# Android emulator (emulator already booted; harness handles adb reverse)
-cd example/android && ./gradlew :app:assembleDebug && cd ..
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-node e2e-server.mjs &
-yarn test:e2e:android                  # tests reach the host via 10.0.2.2
+# Android: use the serial of an already booted emulator or connected device.
+ANDROID_SERIAL='<booted-device-serial>'
+(cd example/android && ./gradlew :app:assembleDebug --no-daemon)
+adb -s "$ANDROID_SERIAL" install -r \
+  example/android/app/build/outputs/apk/debug/app-debug.apk
+node example/scripts/run-regression.mjs android "$ANDROID_SERIAL"
+
+# Fixture and runner host tests need no device.
+node --test example/scripts/__tests__/*.test.mjs
 ```
 
-CI runs these on every PR (Android) and on push-to-main or a `e2e-ios`-labeled PR
-(iOS) via `.github/workflows/e2e.yml`; the baseline lint/typecheck/compile gate is
-`.github/workflows/ci.yml`.
+The runner uses `agent-device@0.17.4` to open the app and select `Run regression`.
+It starts the fixture on port 8098 and Metro on port 8081. Its Metro process uses
+two workers and a 768 MiB Node heap limit. It can reuse Metro from this example
+directory, leaving that process running. It refuses an unrelated Metro process.
+Android uses explicit-device `adb reverse` for both ports. Cleanup stops only the
+runner's own processes and session, leaving the device booted.
+
+The runner polls for up to 240 seconds. Success requires all 21 named Android cases
+or all 24 named iOS cases, with `complete: true` and every `ok: true`. Missing,
+incomplete, duplicate, or failed cases make the command fail. Android includes an
+actual renderer crash, stale-ref checks, and an explicit fresh-view retry.
+The history case uses a real native tap because
+[Chromium can skip history entries created without user activation](https://chromium.googlesource.com/chromium/src/+/refs/heads/lkgr/docs/history_manipulation_intervention.md).
+
+Each run first removes only prior evidence with its own `<platform>-regression-`
+prefix. Evidence is saved in `example/artifacts/`: `<platform>-regression-results.json`,
+`<platform>-regression-requests.json`, `<platform>-regression-success.png`, and UI,
+fixture, and Metro logs. A successful run fails if it cannot save its device screenshot.
+Failures also save a screenshot and native logs when available. Fixture request records include
+cookie names and authorization match/count fields, without cookie or authorization
+values.
+
+CI invokes this runner on every PR for Android. iOS runs on pushes to main and PRs
+with the `e2e-ios` label. `.github/workflows/e2e.yml` builds, installs, runs, and
+uploads evidence. `.github/workflows/ci.yml` also runs the fixture and runner host
+tests.
+
+The remaining [react-native-harness][harness] tests in
+`example/src/__tests__/*.harness.tsx` are mount smoke checks. They do not verify
+load, message, or HTTP-error callbacks. Use the AppRegistry regression suite for
+that coverage.
 
 ## License
 

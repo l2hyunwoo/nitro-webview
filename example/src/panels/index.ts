@@ -7,11 +7,8 @@
  * the per-panel header) and a `component` reference (the panel screen
  * mounted full-screen when the row is tapped).
  *
- * The order here is the order the home list shows. It mirrors the
- * top-to-bottom order of the demo sections in the pre-refactor
- * `example/App.tsx`, with the postMessage bridge / Evaluate JS demo
- * placed first because it owned the global chrome WebView before the
- * split (so it is the most "default" panel to land in).
+ * The home list shows regression verification first, followed by the
+ * existing verification screens and demos.
  *
  * Per the Seed contract:
  *   - This module is read by the home list and the active-panel
@@ -24,6 +21,7 @@
  */
 
 import type { ComponentType } from 'react';
+import { RegressionVerificationScreen } from '../RegressionVerificationScreen';
 import { PostVerificationScreen } from '../PostVerificationScreen';
 import { LoadEventsVerificationScreen } from '../LoadEventsVerificationScreen';
 import { MediaVerificationScreen } from '../MediaVerificationScreen';
@@ -45,6 +43,7 @@ import { UserAgentDemo } from './UserAgentDemo';
  * `active_panel_id` value held in App.tsx router state.
  */
 export type PanelId =
+  | 'regression-verification'
   | 'renderer-recovery'
   | 'post-verification'
   | 'js-dialogs'
@@ -73,11 +72,14 @@ export type PanelEntry = {
 
 /**
  * Ordered list of demo panels. Order is the rendering
- * order in the home list and reflects the original App.tsx scroll
- * order, with the JS bridge (the old global-chrome WebView demo)
- * surfaced first.
+ * order in the home list, with regression verification first.
  */
 export const PANELS: readonly PanelEntry[] = [
+  {
+    id: 'regression-verification',
+    title: 'Regression verification',
+    component: RegressionVerificationScreen,
+  },
   {
     id: 'renderer-recovery',
     title: 'Android renderer recovery verification',

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'feature/**']
 
 permissions:
   contents: read
@@ -91,6 +91,9 @@ jobs:
 
       - name: Run host TS tests (node --test)
         run: yarn test
+
+      - name: Test AppRegistry regression fixture and runner
+        run: node --test example/scripts/__tests__/*.test.mjs
 
   swift-test:
     name: Swift tests (XCTest)
