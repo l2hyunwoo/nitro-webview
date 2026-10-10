@@ -643,9 +643,12 @@ Declare the permissions your app uses in its **app** AndroidManifest.xml:
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 ```
+
+Microphone capture also requires the normal `MODIFY_AUDIO_SETTINGS` permission; `RECORD_AUDIO` alone can fail with `NotReadableError`.
 
 The host must implement React Native's `PermissionAwareActivity` (as ReactActivity
 does). Missing runtime permissions prompt the user. Approximate location is

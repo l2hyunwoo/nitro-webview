@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { EventEmitter, once } from 'node:events';
 import { fileURLToPath } from 'node:url';
@@ -1044,4 +1045,19 @@ test('cleanup reports permission errors instead of treating them as success', as
   await assert.rejects(stopOwnedChild({ closed: false, child: { pid: 123 } }), {
     code: 'EPERM',
   });
+});
+
+test('the native fixture declares both audio permissions required by WebView recording', () => {
+  const manifest = readFileSync(
+    new URL('../../android/app/src/main/AndroidManifest.xml', import.meta.url),
+    'utf8',
+  );
+  for (const permission of ['RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS']) {
+    assert.match(
+      manifest,
+      new RegExp(
+        `<uses-permission\\s+android:name="android\\.permission\\.${permission}"`,
+      ),
+    );
+  }
 });
