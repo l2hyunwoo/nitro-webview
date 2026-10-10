@@ -1283,8 +1283,8 @@ class HybridNitroWebView(
       hook: (event: ShouldStartLoadRequest) -> Promise<Boolean>,
       payload: ShouldStartLoadRequest,
       timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
-    ): Boolean {
-      return awaitBooleanWithTimeout(
+    ): Boolean =
+      awaitBooleanWithTimeout(
         timeoutMs = timeoutMs,
         subscribe = { onResolve, onReject ->
           val promise = hook(payload)
@@ -1292,7 +1292,6 @@ class HybridNitroWebView(
           promise.catch { error -> onReject(error) }
         },
       )
-    }
 
     /**
      * Pure-Kotlin decision wait, shared with JVM tests. The clock and wait
@@ -1317,19 +1316,20 @@ class HybridNitroWebView(
       val lock = Object()
       var completed = false
       var result = true
+
       fun complete(value: Boolean) {
-          synchronized(lock) {
+        synchronized(lock) {
           if (!completed) {
             result = if (nanoTime() - startedAt < timeoutNanos) value else true
             completed = true
             lock.notifyAll()
           }
-          }
-          }
-          try {
+        }
+      }
+      try {
         subscribe({ value -> complete(value) }, { _ -> complete(true) })
-          } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
+      } catch (e: InterruptedException) {
+        Thread.currentThread().interrupt()
         synchronized(lock) {
           completed = true
           return true

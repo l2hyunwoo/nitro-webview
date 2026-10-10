@@ -17,18 +17,20 @@ class HybridNitroWebViewShouldStartLoadTest {
     val waits = mutableListOf<Long>()
     var duringWait: ((Long) -> Unit)? = null
 
-    fun await(
-      subscribe: (onResolve: (Boolean) -> Unit, onReject: (Throwable) -> Unit) -> Unit,
-    ): Boolean = HybridNitroWebView.awaitBooleanWithTimeout(
-      timeoutMs = 250L,
-      nanoTime = { reads += 1; nanos },
-      waitFor = { _, remaining ->
-        waits += remaining
-        val action = duringWait
-        if (action == null) nanos += remaining else action(remaining)
-      },
-      subscribe = subscribe,
-    )
+    fun await(subscribe: (onResolve: (Boolean) -> Unit, onReject: (Throwable) -> Unit) -> Unit): Boolean =
+      HybridNitroWebView.awaitBooleanWithTimeout(
+        timeoutMs = 250L,
+        nanoTime = {
+          reads += 1
+          nanos
+        },
+        waitFor = { _, remaining ->
+          waits += remaining
+          val action = duringWait
+          if (action == null) nanos += remaining else action(remaining)
+        },
+        subscribe = subscribe,
+      )
   }
 
   @Test
@@ -67,10 +69,12 @@ class HybridNitroWebViewShouldStartLoadTest {
   @Test
   fun `response at deadline fails open without another wait`() {
     val clock = Clock()
-    assertTrue(clock.await { resolve, _ ->
-      clock.nanos += TimeUnit.MILLISECONDS.toNanos(250L)
-      resolve(false)
-    })
+    assertTrue(
+      clock.await { resolve, _ ->
+        clock.nanos += TimeUnit.MILLISECONDS.toNanos(250L)
+        resolve(false)
+      },
+    )
     assertTrue(clock.waits.isEmpty())
   }
 
@@ -94,11 +98,13 @@ class HybridNitroWebViewShouldStartLoadTest {
   @Test
   fun `first completion is final`() {
     val clock = Clock()
-    assertFalse(clock.await { resolve, reject ->
-      resolve(false)
-      reject(RuntimeException("duplicate"))
-      resolve(true)
-    })
+    assertFalse(
+      clock.await { resolve, reject ->
+        resolve(false)
+        reject(RuntimeException("duplicate"))
+        resolve(true)
+      },
+    )
     assertTrue(clock.waits.isEmpty())
   }
 
@@ -106,10 +112,12 @@ class HybridNitroWebViewShouldStartLoadTest {
   fun `subscription failure fails open and seals late completions`() {
     val clock = Clock()
     var resolve: ((Boolean) -> Unit)? = null
-    assertTrue(clock.await { onResolve, _ ->
-      resolve = onResolve
-      throw Exception("subscription failed")
-    })
+    assertTrue(
+      clock.await { onResolve, _ ->
+        resolve = onResolve
+        throw Exception("subscription failed")
+      },
+    )
     val reads = clock.reads
     resolve!!(false)
     assertEquals(reads, clock.reads)
@@ -118,13 +126,20 @@ class HybridNitroWebViewShouldStartLoadTest {
 
   @Test
   fun `hook invocation failure fails open`() {
-    val payload = ShouldStartLoadRequest(
-      "https://example.com/", WebViewNavigationType.OTHER, null, true, true,
+    val payload =
+      ShouldStartLoadRequest(
+        "https://example.com/",
+        WebViewNavigationType.OTHER,
+        null,
+        true,
+        true,
+      )
+    assertTrue(
+      HybridNitroWebView.awaitShouldStart(
+        hook = { throw IllegalStateException("callback failed") },
+        payload = payload,
+      ),
     )
-    assertTrue(HybridNitroWebView.awaitShouldStart(
-      hook = { throw IllegalStateException("callback failed") },
-      payload = payload,
-    ))
   }
 
   @Test(expected = AssertionError::class)
@@ -137,10 +152,12 @@ class HybridNitroWebViewShouldStartLoadTest {
     val clock = Clock()
     var resolve: ((Boolean) -> Unit)? = null
     var reject: ((Throwable) -> Unit)? = null
-    assertTrue(clock.await { onResolve, onReject ->
-      resolve = onResolve
-      reject = onReject
-    })
+    assertTrue(
+      clock.await { onResolve, onReject ->
+        resolve = onResolve
+        reject = onReject
+      },
+    )
     val reads = clock.reads
     resolve!!(false)
     reject!!(RuntimeException("too late"))
@@ -193,12 +210,14 @@ class HybridNitroWebViewShouldStartLoadTest {
   fun `real background completion wakes the monitor`() {
     val executor = Executors.newSingleThreadScheduledExecutor()
     try {
-      assertFalse(HybridNitroWebView.awaitBooleanWithTimeout(
-        timeoutMs = 1000L,
-        subscribe = { resolve, _ ->
-          executor.schedule({ resolve(false) }, 10L, TimeUnit.MILLISECONDS)
-        },
-      ))
+      assertFalse(
+        HybridNitroWebView.awaitBooleanWithTimeout(
+          timeoutMs = 1000L,
+          subscribe = { resolve, _ ->
+            executor.schedule({ resolve(false) }, 10L, TimeUnit.MILLISECONDS)
+          },
+        ),
+      )
     } finally {
       executor.shutdownNow()
     }
