@@ -1024,13 +1024,12 @@ class HybridNitroWebView(
     hook: (event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision) -> Unit,
     payload: ShouldStartLoadRequest,
     timeoutMs: Long = SHOULD_OVERRIDE_URL_LOADING_TIMEOUT_MS,
-  ): Boolean {
-    return Companion.awaitShouldStart({ request ->
+  ): Boolean =
+    Companion.awaitShouldStart({ request ->
       val promise = Promise<Boolean>()
       hook(request, ShouldStartLoadDecision { allow -> promise.resolve(allow ?: true) })
       promise
     }, payload, timeoutMs)
-  }
 
   private inner class BridgeInterface {
     @JavascriptInterface
@@ -1402,8 +1401,12 @@ class HybridNitroWebView(
       loader: UrlLoader,
     ) {
       val merged = mergeHeaders(defaultHeaders, uriSource.headers)
-      val body = NitroWebViewSourceHandler.postBody(
-        uriSource.uri, uriSource.method?.name, uriSource.body, merged,
+      val body =
+        NitroWebViewSourceHandler.postBody(
+          uriSource.uri,
+          uriSource.method?.name,
+          uriSource.body,
+          merged,
         )
       if (body == null) {
         loader.loadUrl(uriSource.uri, merged)

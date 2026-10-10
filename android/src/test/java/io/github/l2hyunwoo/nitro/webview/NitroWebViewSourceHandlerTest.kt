@@ -41,8 +41,10 @@ class NitroWebViewSourceHandlerTest {
   fun `headers merge case insensitively and retain per request casing`() {
     val defaults = mapOf("Authorization" to "default", "X-App" to "nitro")
     val request = mapOf("authorization" to "request", "X-Extra" to "value")
-    assertEquals(mapOf("authorization" to "request", "X-App" to "nitro", "X-Extra" to "value"),
-      NitroWebViewSourceHandler.mergeHeaders(defaults, request))
+    assertEquals(
+      mapOf("authorization" to "request", "X-App" to "nitro", "X-Extra" to "value"),
+      NitroWebViewSourceHandler.mergeHeaders(defaults, request),
+    )
     assertEquals(emptyMap<String, String>(), NitroWebViewSourceHandler.mergeHeaders(null, null))
     assertEquals(defaults, NitroWebViewSourceHandler.mergeHeaders(defaults, null))
     assertEquals(request, NitroWebViewSourceHandler.mergeHeaders(null, request))
@@ -52,8 +54,12 @@ class NitroWebViewSourceHandlerTest {
   @Test
   fun `duplicate logical keys in either map are rejected even if overridden`() {
     val duplicates = mapOf("Authorization" to "one", "authorization" to "two")
-    for ((defaults, request) in listOf(duplicates to null, null to duplicates,
-      duplicates to mapOf("authorization" to "override"), mapOf("Authorization" to "default") to duplicates)) {
+    for ((defaults, request) in listOf(
+      duplicates to null,
+      null to duplicates,
+      duplicates to mapOf("authorization" to "override"),
+      mapOf("Authorization" to "default") to duplicates,
+    )) {
       org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
         NitroWebViewSourceHandler.mergeHeaders(defaults, request)
       }

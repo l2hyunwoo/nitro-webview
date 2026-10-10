@@ -1,5 +1,7 @@
 package io.github.l2hyunwoo.nitro.webview
 
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -7,8 +9,6 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
-import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -382,16 +382,22 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
     for (raw in listOf("", "undefined", "[broken", "true false")) {
       val codes = mutableListOf<String>()
       var completion: ((String?) -> Unit)? = null
-      val evaluator = object : JavaScriptEvaluator {
-        override fun evaluateJavaScriptPayload(code: String, resultCallback: (String?) -> Unit) {
-          codes.add(code)
-          completion = resultCallback
+      val evaluator =
+        object : JavaScriptEvaluator {
+          override fun evaluateJavaScriptPayload(
+            code: String,
+            resultCallback: (String?) -> Unit,
+          ) {
+            codes.add(code)
+            completion = resultCallback
+          }
         }
-      }
       val outcome = Outcome()
       NitroWebViewEvaluateJavaScriptHandler().evaluate(
-        code = "({ a: 1 })", evaluator = evaluator,
-        resolve = outcome.resolve, reject = outcome.reject,
+        code = "({ a: 1 })",
+        evaluator = evaluator,
+        resolve = outcome.resolve,
+        reject = outcome.reject,
       )
       assertEquals(0, outcome.resolveCount + outcome.rejectCount)
       completion!!(raw)
@@ -400,5 +406,4 @@ class NitroWebViewEvaluateJavaScriptHandlerTest {
       assertEquals(1, outcome.rejectCount)
     }
   }
-
 }

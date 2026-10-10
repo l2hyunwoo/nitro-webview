@@ -54,7 +54,7 @@ class NitroWebViewEvaluateJavaScriptHandler {
           callbacks.resolve(normalize(rawResult))
         } catch (error: Exception) {
           callbacks.reject(error)
-      }
+        }
       }
     } catch (error: Exception) {
       pending.remove(evaluationToken)?.reject?.invoke(error)
