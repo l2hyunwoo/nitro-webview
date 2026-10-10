@@ -40,21 +40,19 @@ public enum NitroWebViewCookieFilter {
     }
   }
 
-  /// Parse a raw URL string into a `UrlScope`. Returns a scope whose host is
-  /// `nil` when the URL is unparseable or hostless; in that case the host
-  /// rule degrades to "match anything" so the filter never silently swallows
-  /// the entire cookie list on a malformed input — the path/secure rules
-  /// still apply.
+  public static func validCookieURL(_ raw: String) -> URL? {
+    guard let url = URL(string: raw),
+      let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+      let host = url.host, !host.isEmpty else { return nil }
+    return url
+  }
+
+  /// Invalid scopes match no cookies; public cookie APIs reject them.
   public static func urlScope(forUrl raw: String) -> UrlScope {
-    guard let url = URL(string: raw) else {
+    guard let url = validCookieURL(raw) else {
       return UrlScope(host: nil, path: "/", isSecure: false)
     }
-    let scheme = (url.scheme ?? "").lowercased()
-    return UrlScope(
-      host: url.host,
-      path: url.path,
-      isSecure: scheme == "https" || scheme == "wss"
-    )
+    return UrlScope(host: url.host, path: url.path, isSecure: url.scheme?.lowercased() == "https")
   }
 
   /// Top-level filter: returns true iff the cookie matches host AND path
@@ -82,12 +80,11 @@ public enum NitroWebViewCookieFilter {
   ///     any subdomain,
   ///   * un-prefixed parent domain (`example.com`) — matches subdomains via
   ///     a `.example.com` suffix.
-  /// When the URL has no host (e.g. unparseable input) we treat host match
-  /// as a no-op so the path/secure checks remain the binding constraints.
+  /// A missing host never grants access to cookies.
   public static func hostMatches(cookieDomain: String, host: String?) -> Bool {
-    guard let host = host?.lowercased() else { return true }
+    guard let host = host?.lowercased(), !host.isEmpty else { return false }
     let domain = cookieDomain.lowercased()
-    if domain.isEmpty { return true }
+    if domain.isEmpty { return false }
     if domain == host { return true }
     if domain.hasPrefix(".") {
       let bare = String(domain.dropFirst())

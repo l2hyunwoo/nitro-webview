@@ -40,7 +40,20 @@ public protocol WebViewHTMLLoader: AnyObject {
 /// than substituting `about:blank`; that policy belongs in the HybridView
 /// wrapper, not in this dispatch primitive.
 public final class NitroWebViewSourceHandler {
+  var sourceNeedsLoading = false
+  var cookiesReady = false
+
   public init() {}
+
+  func consumePendingLoad() -> Bool {
+    guard cookiesReady && sourceNeedsLoading else { return false }
+    sourceNeedsLoading = false
+    return true
+  }
+
+  func cancelPendingLoad() {
+    sourceNeedsLoading = false
+  }
 
   /// Builds the request used by the actual WKWebView load path.
   public static func makeRequest(

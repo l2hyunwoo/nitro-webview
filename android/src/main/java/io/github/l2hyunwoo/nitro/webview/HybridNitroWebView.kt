@@ -196,10 +196,13 @@ class HybridNitroWebView(
   // the listener set that actually fires from `onActivityResult`.
   private val reactContext: ReactContext = context.reactApplicationContext
 
+  private var sourceNeedsLoading = false
+  private var configurationErrorReported = false
+
   override var source: WebViewSource = WebViewSource.create(UriSource("about:blank", null, null, null))
     set(value) {
       field = value
-      applySource(value)
+      sourceNeedsLoading = true
     }
 
   /**
@@ -264,31 +267,36 @@ class HybridNitroWebView(
       if (value != null) postIfAvailable { view.settings.cacheMode = cacheModeFor(value) }
     }
 
-  /**
-   * There is no first-class incognito mode on Android. Approximate it by
-   * disabling DOM storage and the disk cache for this WebView. Cookies
-   * written through the cookie API stay process-global (a single
-   * `CookieManager` per process), so full data isolation is NOT guaranteed
-   * (documented on the prop's JSDoc).
-   *
-   * Turning `incognito` back off restores whatever `domStorageEnabled` /
-   * `cacheEnabled` the consumer explicitly set (or Android's own defaults -
-   * DOM storage on, `LOAD_DEFAULT` - if those props were never set), instead
-   * of leaving the WebView stuck on the incognito values.
-   */
+  // CookieManager is process-global; refusing this setting avoids false isolation.
   override var incognito: Boolean? = null
-    set(value) {
-      field = value
-      postIfAvailable {
-        if (value == true) {
-          view.settings.domStorageEnabled = false
-          view.settings.cacheMode = WebSettings.LOAD_NO_CACHE
-        } else {
-          view.settings.domStorageEnabled = domStorageEnabled ?: true
-          view.settings.cacheMode = cacheEnabled?.let { cacheModeFor(it) } ?: WebSettings.LOAD_DEFAULT
+
+  override fun afterUpdate() {
+    super.afterUpdate()
+    postIfAvailable {
+      if (incognito == true) {
+        sourceNeedsLoading = false
+        if (!configurationErrorReported) {
+          configurationErrorReported = true
+          onError?.invoke(
+            NitroWebViewErrorEvent(
+              NitroWebViewErrorNativeEvent(
+                code = -1.0,
+                description = "incognito is not supported on Android.",
+                url = source.match(first = { it.uri }, second = { it.baseUrl ?: "about:blank" }),
+                domain = "NitroWebViewConfiguration",
+              ),
+            ),
+          )
         }
+        return@postIfAvailable
+      }
+      configurationErrorReported = false
+      if (sourceNeedsLoading) {
+        sourceNeedsLoading = false
+        applySource(source)
       }
     }
+  }
 
   override var mediaPlaybackRequiresUserAction: Boolean? = null
     set(value) {
@@ -598,6 +606,10 @@ class HybridNitroWebView(
    */
   override fun getCookies(url: String): Promise<Array<Cookie>> =
     withView { promise ->
+      if (!validCookieUrl(url)) {
+        promise.reject(IllegalArgumentException("Cookie URL must be an absolute HTTP(S) URL."))
+        return@withView
+      }
       val raw = CookieManager.getInstance().getCookie(url)
       val cookies = parseCookieHeader(raw)
       promise.resolve(cookies)
@@ -621,6 +633,10 @@ class HybridNitroWebView(
       // the default writer which delegates 1:1 to
       // `CookieManager.getInstance().setCookie(url, value, callback)` and
       // `flush()`. See [HybridNitroWebView.Companion.assembleAndWriteCookie].
+      if (!validCookieUrl(url)) {
+        promise.reject(IllegalArgumentException("Cookie URL must be an absolute HTTP(S) URL."))
+        return@withView
+      }
       assembleAndWriteCookie(url, cookie, cookieWriter) { promise.resolve(Unit) }
     }
 
@@ -1198,6 +1214,14 @@ class HybridNitroWebView(
   }
 
   companion object {
+    internal fun validCookieUrl(raw: String): Boolean =
+      try {
+        val uri = java.net.URI(raw)
+        (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) && !uri.host.isNullOrEmpty()
+      } catch (_: java.net.URISyntaxException) {
+        false
+      }
+
     private const val BRIDGE_NAME = "ReactNativeWebView"
 
     /**
