@@ -1,3 +1,4 @@
+import iosUICases from '../src/ios-ui-cases.json' with { type: 'json' };
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { createWriteStream, realpathSync } from 'node:fs';
@@ -148,7 +149,14 @@ export async function tapRegressionControl(agent, label, platform = 'ios') {
   throw new Error(`${label} remained obscured by a development warning`);
 }
 
-export function validateRegressionResults(result, platform) {
+export function validateRegressionResults(result, platform, profile = 'full') {
+  if (
+    !['full', 'ios-core'].includes(profile) ||
+    (profile === 'ios-core' && platform !== 'ios')
+  )
+    throw new Error('Invalid regression profile');
+  if ((result?.profile ?? 'full') !== profile)
+    throw new Error('Regression profile mismatch');
   if (
     result?.complete !== true ||
     result.platform !== platform ||
@@ -159,7 +167,9 @@ export function validateRegressionResults(result, platform) {
       'Regression results are incomplete, empty, or for another platform',
     );
   }
-  const expected = expectedRegressionCases[platform];
+  const expected = expectedRegressionCases[platform]?.filter(
+    name => profile !== 'ios-core' || !iosUICases.includes(name),
+  );
   if (!expected)
     throw new Error(`Unsupported regression platform: ${platform}`);
   const names = new Set();
@@ -602,7 +612,13 @@ export async function stopOwnedChild(owned) {
   if (!owned.closed) signalChild(owned.child, 'SIGKILL');
 }
 
-async function run(platform, device) {
+async function run(platform, device, profile = 'full') {
+  const core = platform === 'ios' && profile === 'ios-core';
+  if (
+    !['full', 'ios-core'].includes(profile) ||
+    (profile === 'ios-core' && !core)
+  )
+    throw new Error('Invalid regression profile');
   if (
     !['ios', 'android'].includes(platform) ||
     !device ||
@@ -746,51 +762,76 @@ async function run(platform, device) {
       async () => fixture.ready && (await fetchJSON('/health')).ok,
       'Regression fixture',
     );
-    if (await metroRunning()) {
-      verifyExistingMetro();
-      console.log(
-        'Reusing Metro for this example directory; it will remain running',
-      );
-    } else {
-      const require = createRequire(join(exampleDir, 'package.json'));
-      const cli = join(
-        dirname(require.resolve('react-native/package.json')),
-        'cli.js',
-      );
-      start(
-        'metro',
-        process.execPath,
-        [cli, 'start', '--port', '8081', '--max-workers', '2'],
-        {
-          env: {
-            ...process.env,
-            CI: 'true',
-            NODE_OPTIONS:
-              `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=768`.trim(),
+    if (!core) {
+      if (await metroRunning()) {
+        verifyExistingMetro();
+        console.log(
+          'Reusing Metro for this example directory; it will remain running',
+        );
+      } else {
+        const require = createRequire(join(exampleDir, 'package.json'));
+        const cli = join(
+          dirname(require.resolve('react-native/package.json')),
+          'cli.js',
+        );
+        start(
+          'metro',
+          process.execPath,
+          [cli, 'start', '--port', '8081', '--max-workers', '2'],
+          {
+            env: {
+              ...process.env,
+              CI: 'true',
+              NODE_OPTIONS:
+                `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=768`.trim(),
+            },
           },
-        },
-      );
-      await healthy(metroRunning, 'Metro');
+        );
+        await healthy(metroRunning, 'Metro');
+      }
     }
     checkChildren();
-    if (platform === 'android') {
-      await command('adb', ['-s', device, 'reverse', 'tcp:8081', 'tcp:8081']);
-      await command('adb', ['-s', device, 'reverse', 'tcp:8098', 'tcp:8098']);
-      await prepareAndroidRuntimePermissions({ device, bundleID, command });
+    if (core) {
+      await command(
+        'env',
+        [
+          'SIMCTL_CHILD_NITRO_REGRESSION_PROFILE=ios-core',
+          'xcrun',
+          'simctl',
+          'launch',
+          '--terminate-running-process',
+          device,
+          bundleID,
+        ],
+        uiLog,
+        30000,
+      );
     } else {
-      await agent(['prepare', 'ios-runner', '--timeout', '240000'], 270000);
+      if (platform === 'android') {
+        await command('adb', ['-s', device, 'reverse', 'tcp:8081', 'tcp:8081']);
+        await command('adb', ['-s', device, 'reverse', 'tcp:8098', 'tcp:8098']);
+        await prepareAndroidRuntimePermissions({ device, bundleID, command });
+      } else {
+        await agent(['prepare', 'ios-runner', '--timeout', '240000'], 270000);
+      }
+      // Relaunch stops the iOS runner that prepare just warmed.
+      await agent(
+        platform === 'ios'
+          ? ['open', bundleID]
+          : ['open', bundleID, '--relaunch'],
+        platform === 'ios' ? 120000 : 90000,
+      );
+      await agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 90000);
+      await agent(['wait', 'text', 'Open native regression checks', '60000']);
+      await tapRegressionControl(
+        agent,
+        'Open native regression checks',
+        platform,
+      );
+      await agent(['wait', 'text', 'Run regression', '60000']);
+      await tapRegressionControl(agent, 'Run regression', platform);
     }
-    // Relaunch stops the iOS runner that prepare just warmed.
-    await agent(
-      platform === 'ios' ? ['open', bundleID] : ['open', bundleID, '--relaunch'],
-      platform === 'ios' ? 120000 : 90000,
-    );
-    await agent(['snapshot', '-i'], platform === 'ios' ? 120000 : 90000);
-    await agent(['wait', 'text', 'Open native regression checks', '60000']);
-    await tapRegressionControl(agent, 'Open native regression checks', platform);
-    await agent(['wait', 'text', 'Run regression', '60000']);
-    await tapRegressionControl(agent, 'Run regression', platform);
-    const deadline = Date.now() + 600000;
+    const deadline = Date.now() + (core ? 180000 : 600000);
     const printed = new Set();
     const handledInteractions = new Set();
     let finished = false;
@@ -812,6 +853,10 @@ async function run(platform, device) {
         console.log(
           `Native interaction: ${interaction.action ?? interaction.label} (${interaction.id})`,
         );
+        if (core)
+          throw new Error(
+            'Core profile unexpectedly requested OS UI automation',
+          );
         let outcome;
         try {
           await performNativeInteraction(interaction, {
@@ -851,8 +896,9 @@ async function run(platform, device) {
         }
         if (result.complete === true) {
           checkChildren();
-          const count = validateRegressionResults(result, platform);
-          await agent(['screenshot', artifact('success.png')], 30000);
+          const count = validateRegressionResults(result, platform, profile);
+          if (!core)
+            await agent(['screenshot', artifact('success.png')], 30000);
           console.log(`COMPLETE PASS: ${count} ${platform} cases`);
           finished = true;
           break;
@@ -862,13 +908,20 @@ async function run(platform, device) {
     }
     if (!finished)
       throw new Error(
-        'Regression results were missing or incomplete after 600 seconds',
+        `Regression results were missing or incomplete after ${core ? 180 : 600} seconds`,
       );
   } catch (error) {
     failure = error;
     console.error(error.message);
     try {
-      await agent(['screenshot', artifact('failure.png')], 30000);
+      if (core)
+        await command(
+          'xcrun',
+          ['simctl', 'io', device, 'screenshot', artifact('failure.png')],
+          uiLog,
+          10000,
+        );
+      else await agent(['screenshot', artifact('failure.png')], 30000);
     } catch (captureError) {
       console.error(`Failure screenshot: ${captureError.message}`);
     }

@@ -199,6 +199,56 @@ test('accepts completed production result schema', () => {
   assert.equal(validateRegressionResults(result('android'), 'android'), 37);
 });
 
+test('iOS core requires an explicit profile and all 29 cases', () => {
+  const uiCases = [
+    'window-open-parent-unchanged',
+    'background-resume',
+    'file-chooser-cancel',
+    'fullscreen-exit-unmount',
+  ];
+  const core = {
+    ...result(),
+    profile: 'ios-core',
+    cases: result().cases.filter(item => !uiCases.includes(item.name)),
+  };
+  assert.equal(validateRegressionResults(core, 'ios', 'ios-core'), 29);
+  assert.throws(
+    () => validateRegressionResults(core, 'ios'),
+    /profile mismatch/,
+  );
+  assert.throws(
+    () => validateRegressionResults(result(), 'ios', 'ios-core'),
+    /profile mismatch/,
+  );
+  assert.throws(
+    () => validateRegressionResults(core, 'android', 'ios-core'),
+    /Invalid/,
+  );
+  assert.throws(
+    () =>
+      validateRegressionResults(
+        { ...core, cases: core.cases.slice(1) },
+        'ios',
+        'ios-core',
+      ),
+    /coverage/,
+  );
+  assert.throws(
+    () =>
+      validateRegressionResults(
+        {
+          ...core,
+          cases: core.cases.map((item, index) =>
+            index ? item : { ...item, ok: false },
+          ),
+        },
+        'ios',
+        'ios-core',
+      ),
+    /FAIL/,
+  );
+});
+
 test('incomplete, missing, empty and cross-platform results never pass', () => {
   for (const value of [
     null,
