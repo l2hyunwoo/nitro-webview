@@ -10,10 +10,8 @@ final class HybridNitroWebView:
 {
   let view = UIView()
   private var webView: WKWebView?
-  private var sourceNeedsLoading = false
   private var isDropped = false
   private var mountedSettings: NitroWebViewSessionSettings?
-  private var cookiesReady = false
   private var lastConfigurationError: String?
   private var pendingEvaluations: [UUID: Promise<String>] = [:]
 
@@ -81,7 +79,7 @@ final class HybridNitroWebView:
   func afterUpdate() {
     guard !isDropped else { return }
     if let message = sessionSettings.error(comparedTo: mountedSettings) {
-      sourceNeedsLoading = false
+      sourceHandler.cancelPendingLoad()
       if lastConfigurationError != message {
         lastConfigurationError = message
         emitError(NSError(domain: "NitroWebViewConfiguration", code: -1,
@@ -91,8 +89,7 @@ final class HybridNitroWebView:
     }
     lastConfigurationError = nil
     if webView == nil { createWebView() }
-    if cookiesReady && sourceNeedsLoading {
-      sourceNeedsLoading = false
+    if sourceHandler.consumePendingLoad() {
       applySource(source)
     }
   }
@@ -183,7 +180,7 @@ final class HybridNitroWebView:
 
   private func prepareCookies(in configuration: WKWebViewConfiguration, sharedCookies: Bool) {
     guard sharedCookies else {
-      cookiesReady = true
+      sourceHandler.cookiesReady = true
       return
     }
     let group = DispatchGroup()
@@ -195,7 +192,7 @@ final class HybridNitroWebView:
     }
     group.notify(queue: .main) { [weak self] in
       guard let self, !self.isDropped else { return }
-      self.cookiesReady = true
+      self.sourceHandler.cookiesReady = true
       self.afterUpdate()
     }
   }
@@ -306,7 +303,7 @@ final class HybridNitroWebView:
   }
 
   var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil, method: nil, body: nil)) {
-    didSet { sourceNeedsLoading = true }
+    didSet { sourceHandler.sourceNeedsLoading = true }
   }
 
   /// Default HTTP headers applied to every main-frame navigation initiated
@@ -377,7 +374,7 @@ final class HybridNitroWebView:
   func reload() throws { webView?.reload() }
   func stopLoading() throws {
     let stop: () -> Void = { [weak self] in
-      self?.sourceNeedsLoading = false
+      self?.sourceHandler.cancelPendingLoad()
       self?.navigationDelegate.cancelPendingDecisions()
       self?.webView?.stopLoading()
     }

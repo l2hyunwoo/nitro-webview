@@ -22,6 +22,28 @@ private final class SpyHTMLLoader: WebViewHTMLLoader {
 }
 
 final class NitroWebViewSourceHandlerTests: XCTestCase {
+  func test_sourceWaitsForCookiesAndLoadsOnce() {
+    let handler = NitroWebViewSourceHandler()
+    handler.sourceNeedsLoading = true
+    XCTAssertFalse(handler.consumePendingLoad())
+    handler.cookiesReady = true
+    XCTAssertTrue(handler.consumePendingLoad())
+    XCTAssertFalse(handler.consumePendingLoad())
+  }
+
+  func test_stopCancelsSourceWaitingForCookiesAndAllowsNextSource() {
+    let handler = NitroWebViewSourceHandler()
+    handler.sourceNeedsLoading = true
+    XCTAssertFalse(handler.consumePendingLoad())
+    handler.cancelPendingLoad()
+    handler.cookiesReady = true
+    XCTAssertFalse(handler.consumePendingLoad())
+
+    handler.sourceNeedsLoading = true
+    XCTAssertTrue(handler.consumePendingLoad())
+    XCTAssertFalse(handler.consumePendingLoad())
+  }
+
   func testPOSTRequestUsesUTF8AndPreservesHeadersAndCachePolicy() throws {
     let request = try NitroWebViewSourceHandler.makeRequest(
       uri: "https://example.com/form", method: "POST", body: "name=한글",

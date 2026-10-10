@@ -156,7 +156,7 @@ The hybrid ref captured by `hybridRef={callback((r) => ref.current = r)}` expose
 | `goBack()` | `void` | Navigate back in history. |
 | `goForward()` | `void` | Navigate forward in history. |
 | `reload()` | `void` | Reload the current page. |
-| `stopLoading()` | `void` | Stop the current load. On iOS, also cancel all currently pending navigation decisions. |
+| `stopLoading()` | `void` | Stop the current load. On iOS, also cancel pending navigation decisions and a source waiting for shared-cookie import. |
 | `evaluateJavaScript(code)` | `Promise<string>` | Result is the serialized string evaluation. iOS uses `String(describing:)`; Android uses the JSON-encoded `ValueCallback<String>` result. Undefined/nil surfaces as `''`. |
 | `injectJavaScript(code)` | `void` | Fire-and-forget execution — no result awaited. Use for side effects only. No-op if no page is loaded. |
 | `postMessage(data)` | `void` | Push a string into the page as a DOM `message` event (`event.data === data`). Listen on **both** targets for portability: `window.addEventListener('message', ...)` (iOS) and `document.addEventListener('message', ...)` (Android). Dispatched once, no buffering. `data` is escaped safely (quotes, newlines, `</script>`, unicode). |
