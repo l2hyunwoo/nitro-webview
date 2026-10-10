@@ -44,30 +44,12 @@ This branch describes the unreleased `0.2.0` candidate. Its package version rema
 An npm installation uses the API in that published version, which can differ from this branch.
 See the [migration guide](MIGRATION.md) before adopting candidate behavior.
 
-### Support candidate
+### Development baseline
 
-Native views require React Native's New Architecture. The candidate dependency ranges are:
-
-| Dependency | Candidate peer range | Development pin |
-| --- | --- | --- |
-| React Native | `~0.85.3` | `0.85.3` |
-| React | `19.2.3` | `19.2.3` |
-| Nitro Modules | `^0.35.9` | `0.35.9` |
-| Nitrogen generator | Development only | `0.35.9` |
-
-The exact combinations below passed native builds and AppRegistry regression tests on Android 15 (API 35) and iOS 26.5. Other OS versions and future versions in the peer ranges remain unverified.
-
-| Boundary | React Native | React | Nitro Modules | Native builds and device smoke |
-| --- | --- | --- | --- | --- |
-| Lower | `0.85.3` | `19.2.3` | `0.35.9` | Android 21/21; iOS 24/24 |
-| Upper candidate selected 2026-10-10 | `0.85.3` | `19.2.3` | `0.35.10` | Android 21/21; iOS 24/24 |
-
-RN 0.85.3 embeds React renderer 19.2.3 and checks the exact React version at runtime, so this candidate pins React 19.2.3.
+Native views require React Native's New Architecture. Development uses React Native `0.85.3`, React `19.2.3`, and Nitro Modules / Nitrogen `0.35.9`.
 RN 0.85.3 requires Android API 24 or later and iOS 15.1 or later.
-These requirements come from its `gradle/libs.versions.toml` and `scripts/cocoapods/helpers.rb` files.
-Use Node.js 22.13 or later in the Node 22 line for the development checks.
-visionOS is declared in the podspec but has no verified support result. macOS and Windows have no implementation.
-See the [PR #18 device validation evidence](https://github.com/l2hyunwoo/nitro-webview/pull/18) for the source fingerprint, archive integrity, OS, SDK, System WebView version, and complete results.
+Use Node.js 22.13 or later in the Node 22 line for development checks.
+macOS and Windows have no implementation; visionOS has no verified support result.
 
 ### Package and release checks
 
@@ -75,7 +57,8 @@ See the [PR #18 device validation evidence](https://github.com/l2hyunwoo/nitro-w
 Run `yarn check:codegen` to generate bindings and reject changes under `nitrogen/generated`.
 Run `yarn test:package` to build declarations, inspect an actual npm tarball, and compile package-root imports in an isolated consumer.
 The package check installs the tarball with lifecycle scripts disabled. It does not perform native builds.
-CI checks the lower and upper candidate combinations with at most two package jobs.
+CI checks Nitro Modules `0.35.9` and `0.35.10` with at most two package/typecheck jobs.
+The native release gate uses the example’s pinned `0.35.9` runtime; package/typecheck success does not verify native compatibility.
 
 The example's `link:..` dependency supports local development. Metro also resolves an installed tarball through its normal package entry.
 It does not replace `nitro-webview` with a fixed repository source path.

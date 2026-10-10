@@ -40,14 +40,16 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
+    let provider = RCTBundleURLProvider.sharedSettings()
 #if targetEnvironment(simulator)
-    // Avoid the synchronous localhost status probe during simulator startup.
-    URL(string: "http://127.0.0.1:8081/index.bundle?platform=ios&dev=true&minify=false")
-#else
-    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+    // Prefer IPv4 for the default simulator server, preserving developer settings.
+    if provider.jsLocation == nil {
+      provider.jsLocation = "127.0.0.1:\(kRCTBundleURLProviderDefaultPort)"
+    }
 #endif
+    return provider.jsBundleURL(forBundleRoot: "index")
 #else
-    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
 }
