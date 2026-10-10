@@ -333,15 +333,30 @@ export async function performNativeInteraction(value, context) {
         await adb(['shell', 'input', 'keyevent', '4']);
       }
     } else {
-      let controls = await captureSnapshot(agent, platform);
-      if (
-        !/\[button\] "(?:Done|Close)"/.test(controls) &&
-        controls.includes('"Media"')
-      ) {
-        await tap('Media');
-        controls = await captureSnapshot(agent, platform);
+      // Raw snapshots avoid live descendant expansion for AVKit sliders.
+      const captureControls = async () =>
+        JSON.parse(
+          await agent(['snapshot', '-i', '--raw', '--json'], 120000),
+        ).data.nodes;
+      const dismissButton = nodes =>
+        nodes.find(
+          node => node.type === 'Button' && /^(Close|Done)$/.test(node.label),
+        );
+      let controls = await captureControls();
+      let dismiss = dismissButton(controls);
+      if (!dismiss) {
+        const media = controls.find(
+          node => node.type === 'Other' && node.label === 'Media',
+        );
+        if (media) {
+          await agent(['click', `@${media.ref}`], 30000);
+          controls = await captureControls();
+          dismiss = dismissButton(controls);
+        }
       }
-      await tap(controls.includes('[button] "Close"') ? 'Close' : 'Done');
+      if (!dismiss)
+        throw new Error('Fullscreen Close or Done button was not observed');
+      await agent(['click', `@${dismiss.ref}`], 30000);
     }
     return appVisible();
   }

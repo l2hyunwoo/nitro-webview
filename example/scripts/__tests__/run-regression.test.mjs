@@ -341,6 +341,11 @@ function nativeContext(snapshot = documentsSnapshot) {
     uploadFile: '/tmp/fixture-upload.txt',
     agent: async args => {
       calls.push(['agent', ...args]);
+      if (args.includes('--json'))
+        return JSON.stringify({
+          success: true,
+          data: { nodes: [{ ref: 'e9', type: 'Button', label: 'Done' }] },
+        });
       if (args[0] === 'snapshot')
         return surface === 'app'
           ? app
@@ -1051,18 +1056,49 @@ test('iOS fullscreen reveals hidden media controls and taps the observed Close b
       if (args[0] === 'click' && args[1] === '@e7') closed = true;
       if (args[0] !== 'snapshot') return '';
       if (closed) return '@e1 [button] "Run regression"';
-      return visible
-        ? '@e3 [other] "Media"\n@e7 [button] "Close"'
-        : '@e3 [other] "Media"';
+      assert.deepEqual(args, ['snapshot', '-i', '--raw', '--json']);
+      return JSON.stringify({
+        success: true,
+        data: {
+          nodes: visible
+            ? [{ ref: 'e7', type: 'Button', label: 'Close' }]
+            : [{ ref: 'e3', type: 'Other', label: 'Media' }],
+        },
+      });
     },
   };
   await performNativeInteraction(
     { id: 'exit', action: 'fullscreen-exit' },
     context,
   );
-  assert.ok(calls.some(call => call[0] === 'click' && call[1] === '@e3'));
-  assert.equal(calls.some(call => call[0] === 'find'), false);
-  assert.ok(calls.some(call => call[0] === 'click' && call[1] === '@e7'));
+  assert.deepEqual(calls, [
+    ['snapshot', '-i', '--raw', '--json'],
+    ['click', '@e3'],
+    ['snapshot', '-i', '--raw', '--json'],
+    ['click', '@e7'],
+    ['snapshot', '-i'],
+  ]);
+});
+
+test('iOS fullscreen refuses a label that is not a native dismiss button', async () => {
+  const calls = [];
+  await assert.rejects(
+    performNativeInteraction(
+      { id: 'exit', action: 'fullscreen-exit' },
+      {
+        platform: 'ios',
+        agent: async args => {
+          calls.push(args);
+          return JSON.stringify({
+            success: true,
+            data: { nodes: [{ ref: 'e2', type: 'StaticText', label: 'Close' }] },
+          });
+        },
+      },
+    ),
+    /Close or Done button was not observed/,
+  );
+  assert.equal(calls.length, 1);
 });
 
 test('fullscreen exit uses OS back on Android and Done on iOS', async t => {
