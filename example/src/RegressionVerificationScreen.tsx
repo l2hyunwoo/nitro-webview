@@ -1469,15 +1469,21 @@ export function RegressionVerificationScreen() {
         [
           'android-media-origin-deny',
           async () => {
+            const allowed = await mount('/permission-fixture', {
+              mediaCapturePermissionOrigins: [origin],
+            });
+            await ready(allowed);
+            await evaluate(allowed, "media('camera');true;");
+            await until(
+              () => allowed.messages.includes('media:camera:allowed:video:live'),
+              'allowed media origin live camera track',
+            );
             const view = await mount('/permission-fixture', {
               mediaCapturePermissionOrigins: [],
             });
             await ready(view);
-            for (const [label, kind] of [
-              ['Camera permission', 'camera'],
-              ['Microphone permission', 'microphone'],
-            ] as const) {
-              await interact('tap', label);
+            for (const kind of ['camera', 'microphone'] as const) {
+              await evaluate(view, `media(${JSON.stringify(kind)});true;`);
               await until(
                 () =>
                   view.messages.includes(
@@ -1490,7 +1496,7 @@ export function RegressionVerificationScreen() {
               !view.messages.some(message => message.includes(':allowed:')),
               'denied media origin obtained a live track',
             );
-            return 'real camera and microphone getUserMedia calls reached native origin policy and both returned NotAllowedError';
+            return 'allowed origin obtained a live camera track; real camera and microphone getUserMedia calls from a denied origin both returned NotAllowedError';
           },
         ],
         [
