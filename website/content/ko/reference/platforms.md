@@ -4,7 +4,7 @@ Android와 iOS 네이티브 뷰를 지원합니다. Web·macOS·Windows·visionO
 
 ## 개발 기준 {#development-baseline}
 
-후보 버전은 New Architecture의 React Native 0.85.3 / React 19.2.3을 사용합니다. 개발 런타임·생성기는 Nitro 0.35.9로 고정합니다. 후보 peer 범위는 RN `~0.85.3`, React `19.2.3`, Nitro `^0.35.9`입니다.
+0.2.0은 New Architecture의 React Native 0.85.3 / React 19.2.3을 사용합니다. 개발 런타임·생성기는 Nitro 0.35.9로 고정합니다. 0.2.0의 peer 범위는 RN `~0.85.3`, React `19.2.3`, Nitro `^0.35.9`입니다.
 
 RN 0.85.3의 최소 앱 배포 버전은 Android API 24, iOS 15.1입니다. API 최소 버전은 기기 검증 결과가 아닙니다. Peer 범위 안의 이후 버전도 별도 검증이 필요합니다.
 

@@ -496,6 +496,8 @@ export async function performNativeInteraction(value, context) {
       ['click', action === 'permission-allow' ? allow[1] : deny[1]],
       30000,
     );
+    // Do not remount a WebView while the OS permission window is closing.
+    await appVisible();
     if (action === 'permission-allow' && device.startsWith('emulator-'))
       await adb(['emu', 'geo', 'fix', '127.0', '37.5']);
     return;

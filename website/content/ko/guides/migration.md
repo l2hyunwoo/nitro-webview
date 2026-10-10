@@ -15,14 +15,14 @@
 
 문서에 있는 prop만 구현합니다. react-native-webview의 모든 prop에 대응하는 기능이 있는 것은 아닙니다. [Props](../reference/props.md)와 [플랫폼 지원](../reference/platforms.md)을 확인하세요.
 
-## 0.1에서 0.2 후보 버전으로 전환 {#from-0-1-to-the-0-2-candidate}
+## 0.1.0에서 0.2.0으로 전환 {#from-0-1-to-the-0-2-candidate}
 
-아직 출시되지 않은 변경사항입니다. 릴리스 검증이 끝날 때까지 패키지 버전은 `0.1.0`입니다.
+`0.2.0`에 적용되는 변경사항입니다. JavaScript 패키지·생성 바인딩과 맞는 네이티브 앱을 다시 빌드하세요.
 출시된 버전의 동작은 설치한 패키지의 README와 비교하세요.
 
 ### 의존성과 네이티브 아키텍처 {#dependencies-and-native-architecture}
 
-후보 버전은 제한이 없던 peer 범위를 React Native `~0.85.3`, React `19.2.3`, Nitro Modules `^0.35.9`로 좁힙니다.
+0.2.0은 제한이 없던 peer 범위를 React Native `~0.85.3`, React `19.2.3`, Nitro Modules `^0.35.9`로 좁힙니다.
 범위 밖의 소비자는 peer 의존성 충돌을 받습니다. 검증 기준에 따른 정책이며 다른 React Native 버전이 호환되지 않는다는 뜻은 아닙니다.
 네이티브 뷰에는 New Architecture가 필요합니다. 개발용 Nitro Modules와 Nitrogen은 `0.35.9`로 고정합니다.
 [설치 요구사항](../start/installation.md#requirements)을 확인하세요.

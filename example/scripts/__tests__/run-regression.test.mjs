@@ -596,6 +596,34 @@ test('media fixture reports live camera and audio tracks and stops them even if 
   }
 });
 
+test('location interactions wait for the permission window to close before allowing the next case', async () => {
+  for (const action of ['permission-deny', 'permission-allow']) {
+    const context = nativeContext();
+    const agent = context.agent;
+    const command = context.command;
+    let selected = false;
+    let foregroundChecks = 0;
+    context.agent = async args => {
+      const result = await agent(args);
+      if (args[0] === 'click' && ['@e7', '@e9'].includes(args[1]))
+        selected = true;
+      return result;
+    };
+    context.command = async (executable, args) => {
+      const result = await command(executable, args);
+      if (selected && args.includes('dumpsys')) {
+        foregroundChecks++;
+        if (foregroundChecks === 1)
+          return 'topResumedActivity=ActivityRecord{closing u0 com.android.permissioncontroller/.GrantPermissionsActivity t7}';
+      }
+      return result;
+    };
+    await performNativeInteraction({ id: action, action }, context);
+    assert.equal(selected, true);
+    assert.equal(foregroundChecks, 2);
+  }
+});
+
 test('only the expected permission transition is accepted after a fresh real permission dialog snapshot', async () => {
   const transition = new Error('agent failed');
   transition.output =

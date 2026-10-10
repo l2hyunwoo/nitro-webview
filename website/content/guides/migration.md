@@ -15,14 +15,14 @@ Nitro WebView shares familiar WebView concepts, but migration requires API and b
 
 Only documented props are implemented. There is no automatic equivalent for every react-native-webview prop. Check [props](../reference/props.md) and [platform support](../reference/platforms.md).
 
-## From 0.1 to the 0.2 candidate
+## From 0.1.0 to 0.2.0 {#from-0-1-to-the-0-2-candidate}
 
-These changes are unreleased. The package version remains `0.1.0` until the release checks pass.
+These changes apply to `0.2.0`. Rebuild your native app with the matching JavaScript package and generated bindings.
 Use the README from your installed package version when comparing published behavior.
 
 ### Dependencies and native architecture
 
-The candidate narrows previously unrestricted peers to React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`.
+Version 0.2.0 narrows previously unrestricted peers to React Native `~0.85.3`, React `19.2.3`, and Nitro Modules `^0.35.9`.
 Consumers outside these ranges receive a peer dependency conflict. This policy follows the validation baseline; it does not establish that other React Native versions are incompatible.
 Native views require the New Architecture. Nitro Modules / Nitrogen development pins remain `0.35.9`.
 See the [support policy and verification limits](../start/installation.md#requirements).
