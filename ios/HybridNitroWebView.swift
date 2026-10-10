@@ -743,7 +743,9 @@ final class HybridNitroWebView:
       loading = false
       if let error = error {
         failed = true
-        owner?.emitError(error, fallbackUrl: owner?.webView?.url?.absoluteString)
+        if !NitroWebViewErrorMapper.isPolicyInterruption(error) {
+          owner?.emitError(error, fallbackUrl: owner?.webView?.url?.absoluteString)
+        }
       }
       owner?.emitLoadEnd(success: !failed)
       owner?.emitNavigationState()

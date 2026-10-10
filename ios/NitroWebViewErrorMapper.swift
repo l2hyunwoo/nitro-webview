@@ -24,6 +24,10 @@ public struct MappedNitroWebViewError: Equatable {
 /// `MappedNitroWebViewError` that the JS-side `onError` callback expects.
 public enum NitroWebViewErrorMapper {
 
+  internal static func isPolicyInterruption(_ error: NSError) -> Bool {
+    error.domain == "WebKitErrorDomain" && error.code == 102
+  }
+
   /// Map an `NSError` from a WKNavigationDelegate failure callback into a
   /// `MappedNitroWebViewError`.
   ///
