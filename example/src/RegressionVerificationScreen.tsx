@@ -1121,7 +1121,7 @@ export function RegressionVerificationScreen() {
               'native callback release while retaining hybridRef',
             );
             await rejects(
-              ref(view).evaluateJavaScript('true'),
+              stale.evaluateJavaScript('true'),
               'dropped iOS ref',
             );
             await delay(100);
