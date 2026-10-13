@@ -103,7 +103,7 @@ final class HybridNitroWebView:
   }
 
   private func reportMessagePolicyError() {
-    let error = NitroWebViewMessagePolicy.configurationError(allowedMessageOrigins)
+    let error = messageHandler.policy.error
     if let error, error != lastMessagePolicyError {
       emitError(NSError(domain: "NitroWebViewConfiguration", code: -1,
         userInfo: [NSLocalizedDescriptionKey: error]), fallbackUrl: nil)

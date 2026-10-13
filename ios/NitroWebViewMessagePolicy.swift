@@ -2,6 +2,25 @@ import Foundation
 
 /// Message sender policy is independent of the top-level navigation URL.
 enum NitroWebViewMessagePolicy {
+  struct Compiled {
+    let origins: Set<String>?
+    let error: String?
+
+    init(_ values: [String]?) {
+      guard let values else { origins = nil; error = nil; return }
+      let canonical = values.compactMap(NitroWebViewMessagePolicy.canonicalOrigin)
+      origins = Set(canonical)
+      error = canonical.count == values.count ? nil
+        : "allowedMessageOrigins accepts only exact HTTP(S) origins."
+    }
+
+    func allows(_ senderOrigin: String?) -> Bool {
+      guard error == nil else { return false }
+      guard let origins else { return true }
+      guard let senderOrigin, let target = NitroWebViewMessagePolicy.canonicalOrigin(senderOrigin) else { return false }
+      return origins.contains(target)
+    }
+  }
   private static let hostCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789.-[]:")
 
   static func canonicalOrigin(_ value: String) -> String? {
@@ -31,16 +50,10 @@ enum NitroWebViewMessagePolicy {
   }
 
   static func configurationError(_ origins: [String]?) -> String? {
-    guard let origins else { return nil }
-    return origins.contains { canonicalOrigin($0) == nil }
-      ? "allowedMessageOrigins accepts only exact HTTP(S) origins." : nil
+    Compiled(origins).error
   }
 
   static func allows(_ origins: [String]?, senderOrigin: String?) -> Bool {
-    guard let origins else { return true }
-    guard configurationError(origins) == nil,
-      let senderOrigin, let target = canonicalOrigin(senderOrigin)
-    else { return false }
-    return origins.contains { canonicalOrigin($0) == target }
+    Compiled(origins).allows(senderOrigin)
   }
 }

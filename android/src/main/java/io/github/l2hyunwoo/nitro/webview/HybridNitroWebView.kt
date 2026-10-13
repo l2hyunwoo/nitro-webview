@@ -82,7 +82,12 @@ class HybridNitroWebView(
   private val mainHandler = Handler(Looper.getMainLooper())
   private val supportsMessageListener = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
   private var lastMessagePolicyError: String? = null
+  private var messagePolicy = NitroWebViewMessagePolicy.compile(null, supportsMessageListener)
   override var allowedMessageOrigins: Array<String>? = null
+    set(value) {
+      field = value
+      messagePolicy = NitroWebViewMessagePolicy.compile(value, supportsMessageListener)
+    }
 
   @Volatile
   private var destroyed = false
@@ -1143,7 +1148,7 @@ class HybridNitroWebView(
     }, payload, timeoutMs)
 
   private fun reportMessagePolicyError() {
-    val error = NitroWebViewMessagePolicy.configurationError(allowedMessageOrigins, supportsMessageListener)
+    val error = messagePolicy.error
     if (error != null && error != lastMessagePolicyError) {
       onError?.invoke(
         NitroWebViewErrorEvent(
@@ -1174,7 +1179,8 @@ class HybridNitroWebView(
   ) {
     if (destroyed) return
     if (handleBlobMessage(data)) return
-    if (!NitroWebViewMessagePolicy.allows(allowedMessageOrigins, sourceOrigin, supportsMessageListener)) return
+    val receive = onMessage ?: return
+    if (!messagePolicy.allows(sourceOrigin)) return
     val payload =
       WebViewMessageEvent(
         WebViewMessageNativeEvent(
@@ -1184,7 +1190,7 @@ class HybridNitroWebView(
           isMainFrame = isMainFrame,
         ),
       )
-    onMessage?.invoke(payload)
+    receive(payload)
   }
 
   /**
