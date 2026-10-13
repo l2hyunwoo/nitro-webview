@@ -37,6 +37,7 @@ final class HybridNitroWebView:
   private let uiDelegate: UIDelegate
   private let scrollDelegate: ScrollDelegate
   private var currentInjectedUserScript: WKUserScript?
+  private var userScriptsNeedUpdating = false
 
   var onLoadStart: ((WebViewLoadEvent) -> Void)?
   private var progressObservation: NSKeyValueObservation?
@@ -94,6 +95,7 @@ final class HybridNitroWebView:
     }
     lastConfigurationError = nil
     if webView == nil { createWebView() }
+    if userScriptsNeedUpdating { reinstallUserScripts() }
     if sourceHandler.consumePendingLoad() {
       applySource(source)
     }
@@ -387,14 +389,14 @@ final class HybridNitroWebView:
   var javaScriptEnabled: Bool?
 
   var injectedJavaScript: String? {
-    didSet { reinstallUserScripts() }
+    didSet { userScriptsNeedUpdating = true }
   }
 
   /// JS injected at `.atDocumentStart` (main frame only), before any page
   /// script runs. Distinct from `injectedJavaScript`, which runs at
   /// `.atDocumentEnd`. Re-registers all user scripts in order on change.
   var injectedJavaScriptBeforeContentLoaded: String? {
-    didSet { reinstallUserScripts() }
+    didSet { userScriptsNeedUpdating = true }
   }
 
   func goBack() throws {
@@ -660,13 +662,10 @@ final class HybridNitroWebView:
   ///      `postMessage`) but before any page script.
   ///   4. injected (after)  — `.atDocumentEnd`, main frame only.
   ///
-  /// `removeAllUserScripts()` + re-add on every change keeps the list
-  /// idempotent regardless of the order the props are set at mount. The
-  /// history shim is re-installed unconditionally here — without it, it
-  /// would be silently lost whenever `injectedJavaScript` or
-  /// `injectedJavaScriptBeforeContentLoaded` changes (both drive this
-  /// method via `didSet`).
+  /// Rebuild once after each prop batch, before loading a changed source.
+  /// Keep the bridge and history shim when either user script changes.
   private func reinstallUserScripts() {
+    userScriptsNeedUpdating = false
     guard mountedSettings?.javaScript == true,
       let controller = webView?.configuration.userContentController else { return }
     controller.removeAllUserScripts()
@@ -709,6 +708,7 @@ final class HybridNitroWebView:
   }
 
   func dispatchMessage(_ event: NitroWebViewMessageEvent) {
+    guard let onMessage else { return }
     let payload = WebViewMessageEvent(
       nativeEvent: WebViewMessageNativeEvent(
         data: event.data,
@@ -717,7 +717,7 @@ final class HybridNitroWebView:
         isMainFrame: event.isMainFrame
       )
     )
-    onMessage?(payload)
+    onMessage(payload)
   }
 
   /// A SPA route change (pushState/replaceState/popstate) fired. There is no
