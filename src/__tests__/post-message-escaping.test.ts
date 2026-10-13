@@ -5,10 +5,45 @@ import vm from 'node:vm'
 import {
   buildPostMessageScript,
   encodeJsStringLiteral,
+  patchAndroidPostMessage,
 } from '../bridgeScript.ts'
 
 const LS = ' '
 const PS = ' '
+
+test('Android NUL fallback preserves the native receiver and leaves ordinary messages direct', () => {
+  const native: string[] = []
+  const delivered: string[] = []
+  const prototype = Object.freeze({
+    postMessage(this: object, data: string) {
+      assert.equal(this, ref)
+      native.push(data)
+    },
+  })
+  const ref = Object.assign(Object.create(prototype), {
+    injectJavaScript(this: object, code: string) {
+      assert.equal(this, ref)
+      vm.runInNewContext(code, {
+        document: {
+          dispatchEvent: (event: { data: string }) =>
+            delivered.push(event.data),
+        },
+        MessageEvent: function (_: string, event: { data: string }) {
+          return event
+        },
+      })
+    },
+  })
+  patchAndroidPostMessage(ref)
+  const patched = ref.postMessage
+  patchAndroidPostMessage(ref)
+  assert.equal(ref.postMessage, patched)
+  ref.postMessage('ordinary')
+  ref.postMessage('a\0b\n"\\\u2028😀')
+  ref.postMessage('')
+  assert.deepEqual(native, ['ordinary', ''])
+  assert.deepEqual(delivered, ['a\0b\n"\\\u2028😀'])
+})
 
 const HOSTILE: string[] = [
   '',

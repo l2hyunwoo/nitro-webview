@@ -24,9 +24,16 @@ describe('JavaScript bridge', () => {
       const ref = await loaded(observation)
       for (const payload of payloads) ref.postMessage(payload)
       await waitFor(() => expect(observation.messages.length).toBe(payloads.length), WAIT)
-      expect(observation.messages.map(message => JSON.parse(message))).toEqual(
-        payloads.map(data => ({ type: 'string', data }))
-      )
+      observation.messages.forEach((message, index) => {
+        const actual = JSON.parse(message)
+        const expected = payloads[index]!
+        expect(actual.type).toBe('string')
+        if (actual.data !== expected) {
+          let offset = 0
+          while (offset < expected.length && actual.data[offset] === expected[offset]) offset++
+          throw new Error(`Payload ${index}: lengths ${actual.data.length}/${expected.length}; first mismatch at ${offset}: ${actual.data.charCodeAt(offset)}/${expected.charCodeAt(offset)}`)
+        }
+      })
       expect(observation.errors).toEqual([])
     } finally {
       cleanup()

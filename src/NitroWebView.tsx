@@ -1,4 +1,5 @@
 import React, { forwardRef, useMemo } from 'react'
+import { Platform } from 'react-native'
 import {
   callback,
   getHostComponent,
@@ -14,6 +15,7 @@ import type {
 } from './specs/NitroWebView.nitro'
 import type { OnShouldStartLoadWithRequest } from './originWhitelist'
 import { createShouldStartLoadBridge } from './shouldStartLoadBridge'
+import { patchAndroidPostMessage } from './bridgeScript'
 
 /** Public callbacks may settle asynchronously; the component bridges their result. */
 export interface NitroWebViewProps extends Omit<
@@ -56,6 +58,16 @@ export const NitroWebView = forwardRef<
   ref
 ) {
   const handler = onShouldStartLoadWithRequest?.f
+  const nativeHybridRef = useMemo(
+    () =>
+      Platform.OS !== 'android' || hybridRef == null
+        ? hybridRef
+        : callback((value: NitroWebViewType) => {
+            patchAndroidPostMessage(value)
+            hybridRef.f?.(value)
+          }),
+    [hybridRef]
+  )
   const nativeCallback = useMemo(
     () =>
       handler === undefined
@@ -67,7 +79,7 @@ export const NitroWebView = forwardRef<
     <NativeNitroWebView
       {...props}
       ref={ref}
-      hybridRef={hybridRef}
+      hybridRef={nativeHybridRef}
       onMessage={onMessage ?? emptyCallback}
       onShouldStartLoadWithRequest={nativeCallback}
     />

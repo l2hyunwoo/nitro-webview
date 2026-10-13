@@ -108,6 +108,26 @@ export function buildPostMessageScript(
   return `${target}.dispatchEvent(new MessageEvent('message',{data:${data}}));`
 }
 
+const patchedAndroidRefs = new WeakSet<object>()
+
+/** Preserve embedded NUL across fbjni's null-terminated string conversion. */
+export function patchAndroidPostMessage(ref: {
+  postMessage(data: string): void
+  injectJavaScript(code: string): void
+}): void {
+  if (patchedAndroidRefs.has(ref)) return
+  const postMessage = ref.postMessage.bind(ref)
+  Object.defineProperty(ref, 'postMessage', {
+    value(data: string) {
+      // shortcut: fbjni truncates NUL; remove when JNI string conversion preserves length.
+      if (data.includes('\0'))
+        ref.injectJavaScript(buildPostMessageScript('android', data))
+      else postMessage(data)
+    },
+  })
+  patchedAndroidRefs.add(ref)
+}
+
 /** Internal Android blob-download protocol. Only a pending native request can claim an envelope. */
 export const BLOB_ENVELOPE_KEY: '__nitro_blob__' = '__nitro_blob__'
 export const MAX_BLOB_DOWNLOAD_BYTES = 8 * 1024 * 1024
