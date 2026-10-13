@@ -134,6 +134,70 @@ The remaining [react-native-harness](https://github.com/callstackincubator/react
 load, message, or HTTP-error callbacks. Use the AppRegistry regression suite for
 that coverage.
 
+## Performance comparison with React Native WebView
+
+The opt-in Harness suite compares Nitro WebView with the example's pinned
+`react-native-webview` version. Build and install the example again after adding
+this native dependency. Use the Debug build commands in the E2E section above.
+The performance suite uses inline HTML and needs no fixture server.
+Stop other Metro processes before starting Harness.
+
+Run from `example/` with a booted target:
+
+```sh
+# Use the exact serial and API level of your Android emulator.
+ANDROID_SERIAL=emulator-5554 ANDROID_API=35 yarn test:performance:android
+
+# These values select the simulator by name and runtime version.
+SIM_DEVICE='Nitro WebView 0.2' SIM_OS=26.5 yarn test:performance:ios
+
+# Protocol tests run on the host without a device.
+yarn test --runInBand src/__tests__/performanceProtocol.test.ts
+```
+
+Each implementation mounts alone at 320 × 320. Both use the same inline page,
+settings, and message protocol. The first pair warms both implementations and is
+discarded. Six measured pairs alternate implementation order.
+Each mount measures 64-byte, 1-KiB, and 64-KiB ASCII payloads.
+Each size has five warmup round trips, 30 recorded round trips, one warmup burst,
+and one recorded burst of 128 responses.
+
+The round-trip timer starts immediately before RN calls `postMessage` and ends
+when RN receives the page response. Request serialization precedes the timer.
+Burst timing includes the outbound request and delivery of all 128 responses.
+Every response must have the expected request ID, index, and exact payload.
+Missing responses time out. Duplicate, reordered, and invalid responses fail the
+run. Validation contributes processing overhead between messages for both implementations.
+
+`renderToReadyMs` measures Harness render dispatch through receipt of the page's
+ready message after script injection. It includes React mounting and bridge work.
+It does not measure first paint, cold app startup, or isolated native view creation.
+Only six mount and burst samples per implementation are collected. Repeat complete
+runs before interpreting their tail percentiles or claiming an improvement.
+Raw round trips are also grouped by mount to preserve each paired run.
+
+The suite writes `webview-performance.json` into the app's document directory.
+It records raw samples, p50/p95 summaries, library versions, OS, Hermes, Fabric,
+and the actual `__DEV__` value. Failure reports have `complete: false` and no
+success summary. A new run removes the previous report before measurements begin.
+To copy the report to the host, run from `example/`:
+
+```sh
+mkdir -p artifacts
+adb -s emulator-5554 exec-out run-as com.example cat files/webview-performance.json \
+  > artifacts/android-performance.json
+
+SIM_UDID='<simulator-udid>'
+APP_DATA=$(xcrun simctl get_app_container "$SIM_UDID" org.reactjs.native.example.example data)
+cp "$APP_DATA/Documents/webview-performance.json" artifacts/ios-performance.json
+```
+
+Harness 1.3.0 serves development bundles through Metro. These measurements are
+exploratory comparisons under Harness overhead. They are not Release benchmarks.
+Use matching physical devices and a separately verified Release measurement path
+before publishing performance claims. CPU, frame timing, memory, and sustained
+rate-controlled traffic are outside this initial suite.
+
 ## Android renderer recovery
 
 Use the normal example app and select **Android renderer recovery verification**.

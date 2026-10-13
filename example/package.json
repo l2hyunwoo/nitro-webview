@@ -10,7 +10,9 @@
     "test": "jest",
     "test:e2e": "react-native-harness",
     "test:e2e:ios": "react-native-harness --harnessRunner ios",
-    "test:e2e:android": "react-native-harness --harnessRunner android"
+    "test:e2e:android": "react-native-harness --harnessRunner android",
+    "test:performance:android": "react-native-harness --config jest.performance.config.js --harnessRunner android",
+    "test:performance:ios": "react-native-harness --config jest.performance.config.js --harnessRunner ios"
   },
   "dependencies": {
     "@dr.pogodin/react-native-fs": "^2.38.2",
@@ -18,7 +20,8 @@
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-nitro-modules": "0.35.9",
-    "react-native-safe-area-context": "5.10.1"
+    "react-native-safe-area-context": "5.10.1",
+    "react-native-webview": "16.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
