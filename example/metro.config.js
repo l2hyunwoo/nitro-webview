@@ -12,6 +12,19 @@ const config = {
   watchFolders: [root],
 
   resolver: {
+    // Harness removes blockList; linked library peers must still use the app's copies.
+    resolveRequest(context, moduleName, platform) {
+      const shared = [
+        'react',
+        'react-native',
+        'react-native-nitro-modules',
+      ].some(name => moduleName === name || moduleName.startsWith(`${name}/`))
+      return context.resolveRequest(
+        shared ? { ...context, disableHierarchicalLookup: true } : context,
+        moduleName,
+        platform
+      )
+    },
     blockList: [
       new RegExp(`${root}/node_modules/.*`),
       new RegExp(`${root}/android/build/.*`),

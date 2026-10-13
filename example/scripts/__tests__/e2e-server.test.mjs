@@ -71,6 +71,19 @@ test('harness fixture serves success, 404, scroll, cache and exact download byte
       Buffer.byteLength(DOWNLOAD_TEXT)
     )
     assert.equal(await download.text(), DOWNLOAD_TEXT)
+    const echoed = await fetch(`${base}/headers`, {
+      method: 'POST',
+      headers: { 'X-Request': 'one' },
+      body: '</script>\nhello',
+    })
+    const echoHtml = await echoed.text()
+    assert.ok(echoHtml.includes('\\u003c/script>'))
+    const observed = JSON.parse(
+      echoHtml.match(/window\.observedRequest=(.*);<\/script>/)[1]
+    )
+    assert.equal(observed.headers['x-request'], 'one')
+    assert.equal(observed.method, 'POST')
+    assert.equal(observed.body, '</script>\nhello')
   } finally {
     await new Promise(resolve => server.close(resolve))
   }

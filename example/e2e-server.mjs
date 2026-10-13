@@ -27,6 +27,28 @@ const PAGE = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewp
 export function createE2EServer() {
   return http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://localhost').pathname
+    if (url === '/headers') {
+      let body = ''
+      req.setEncoding('utf8')
+      req.on('data', chunk => {
+        body += chunk
+      })
+      req.on('end', () => {
+        const request = JSON.stringify({
+          headers: req.headers,
+          method: req.method,
+          body,
+        }).replace(/</g, '\\u003c')
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+        })
+        res.end(
+          `<!doctype html><script>window.observedRequest=${request};</script>`
+        )
+      })
+      return
+    }
     if (url === '/download') {
       res.writeHead(200, {
         'content-type': 'text/plain; charset=utf-8',

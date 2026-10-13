@@ -5,10 +5,53 @@ import vm from 'node:vm'
 import {
   buildPostMessageScript,
   encodeJsStringLiteral,
+  patchAndroidPostMessage,
 } from '../bridgeScript.ts'
 
 const LS = ' '
 const PS = ' '
+
+test('Android postMessage escapes every payload before JNI and preserves the native receiver', () => {
+  const native: string[] = []
+  const delivered: string[] = []
+  const prototype = Object.freeze({
+    postMessage(this: object, data: string) {
+      assert.equal(this, ref)
+      native.push(data)
+    },
+  })
+  const ref = Object.assign(Object.create(prototype), {
+    injectJavaScript(this: object, code: string) {
+      assert.equal(this, ref)
+      vm.runInNewContext(code, {
+        document: {
+          dispatchEvent: (event: { data: string }) =>
+            delivered.push(event.data),
+        },
+        MessageEvent: function (_: string, event: { data: string }) {
+          return event
+        },
+      })
+    },
+  })
+  patchAndroidPostMessage(ref)
+  const patched = ref.postMessage
+  patchAndroidPostMessage(ref)
+  assert.equal(ref.postMessage, patched)
+  const payloads = [
+    '',
+    'ordinary',
+    'a\0b\n"\\\u2028😀',
+    '\0leading',
+    'x'.repeat(65536),
+    'x'.repeat(65536) + '\0',
+    '\u2028\u2029',
+    '\ud800',
+  ]
+  for (const payload of payloads) ref.postMessage(payload)
+  assert.deepEqual(native, [])
+  assert.deepEqual(delivered, payloads)
+})
 
 const HOSTILE: string[] = [
   '',

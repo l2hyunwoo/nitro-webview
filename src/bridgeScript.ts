@@ -108,6 +108,22 @@ export function buildPostMessageScript(
   return `${target}.dispatchEvent(new MessageEvent('message',{data:${data}}));`
 }
 
+const patchedAndroidRefs = new WeakSet<object>()
+
+/** Escape before JNI to preserve NUL and avoid string encoding on the UI thread. */
+export function patchAndroidPostMessage(ref: {
+  postMessage(data: string): void
+  injectJavaScript(code: string): void
+}): void {
+  if (patchedAndroidRefs.has(ref)) return
+  Object.defineProperty(ref, 'postMessage', {
+    value(data: string) {
+      ref.injectJavaScript(buildPostMessageScript('android', data))
+    },
+  })
+  patchedAndroidRefs.add(ref)
+}
+
 /** Internal Android blob-download protocol. Only a pending native request can claim an envelope. */
 export const BLOB_ENVELOPE_KEY: '__nitro_blob__' = '__nitro_blob__'
 export const MAX_BLOB_DOWNLOAD_BYTES = 8 * 1024 * 1024

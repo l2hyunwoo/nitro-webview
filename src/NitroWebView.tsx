@@ -1,4 +1,5 @@
 import React, { forwardRef, useMemo } from 'react'
+import { Platform } from 'react-native'
 import {
   callback,
   getHostComponent,
@@ -14,6 +15,7 @@ import type {
 } from './specs/NitroWebView.nitro'
 import type { OnShouldStartLoadWithRequest } from './originWhitelist'
 import { createShouldStartLoadBridge } from './shouldStartLoadBridge'
+import { patchAndroidPostMessage } from './bridgeScript'
 
 /** Public callbacks may settle asynchronously; the component bridges their result. */
 export interface NitroWebViewProps extends Omit<
@@ -33,6 +35,9 @@ const NativeNitroWebView = getHostComponent<
   NitroWebViewMethods
 >('NitroWebView', () => NitroWebViewConfig)
 
+// Nitro's optional callback converter still requires the object envelope when clearing it.
+const emptyCallback = { f: undefined }
+
 type ComponentProps = Omit<
   React.ComponentPropsWithoutRef<
     ReactNativeView<NitroWebViewProps, NitroWebViewMethods>
@@ -49,22 +54,33 @@ export const NitroWebView = forwardRef<
   React.ComponentRef<typeof NativeNitroWebView>,
   ComponentProps
 >(function NitroWebView(
-  { onShouldStartLoadWithRequest, hybridRef, ...props },
+  { onShouldStartLoadWithRequest, onMessage, hybridRef, ...props },
   ref
 ) {
   const handler = onShouldStartLoadWithRequest?.f
+  const nativeHybridRef = useMemo(
+    () =>
+      Platform.OS !== 'android' || hybridRef == null
+        ? hybridRef
+        : callback((value: NitroWebViewType) => {
+            patchAndroidPostMessage(value)
+            hybridRef.f?.(value)
+          }),
+    [hybridRef]
+  )
   const nativeCallback = useMemo(
     () =>
-      callback(
-        handler === undefined ? undefined : createShouldStartLoadBridge(handler)
-      ),
+      handler === undefined
+        ? emptyCallback
+        : callback(createShouldStartLoadBridge(handler)),
     [handler]
   )
   return (
     <NativeNitroWebView
       {...props}
       ref={ref}
-      hybridRef={hybridRef}
+      hybridRef={nativeHybridRef}
+      onMessage={onMessage ?? emptyCallback}
       onShouldStartLoadWithRequest={nativeCallback}
     />
   )

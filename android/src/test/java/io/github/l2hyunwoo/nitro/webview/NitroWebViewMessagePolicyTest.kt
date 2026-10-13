@@ -7,6 +7,22 @@ import org.junit.Test
 
 class NitroWebViewMessagePolicyTest {
   @Test
+  fun `compiled policy snapshots its input and fails closed until replaced`() {
+    val values = arrayOf("HTTPS://Trusted.Test:443/")
+    val cached = NitroWebViewMessagePolicy.compile(values, true)
+    values[0] = "https://other.test"
+    assertTrue(cached.allows("https://trusted.test"))
+    assertFalse(cached.allows("https://other.test"))
+    val updated = NitroWebViewMessagePolicy.compile(values, true)
+    assertFalse(updated.allows("https://trusted.test"))
+    assertTrue(updated.allows("https://other.test"))
+    val invalid = NitroWebViewMessagePolicy.compile(arrayOf("https://trusted.test", "*"), true)
+    assertNotNull(invalid.error)
+    assertFalse(invalid.allows("https://trusted.test"))
+    assertFalse(NitroWebViewMessagePolicy.compile(emptyArray(), true).allows("https://trusted.test"))
+  }
+
+  @Test
   fun `omitted policy preserves legacy delivery while opt in requires native identity`() {
     assertTrue(NitroWebViewMessagePolicy.allows(null, null, false))
     assertFalse(NitroWebViewMessagePolicy.allows(arrayOf("https://trusted.test"), null, false))

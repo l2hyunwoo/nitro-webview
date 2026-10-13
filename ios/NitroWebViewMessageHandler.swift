@@ -83,7 +83,10 @@ final class NitroWebViewMessageHandler: NSObject {
 
   /// Weak to avoid retain cycles with the HybridView that owns the handler.
   weak var dispatcher: NitroWebViewMessageDispatcher?
-  var allowedOrigins: [String]?
+  private(set) var policy = NitroWebViewMessagePolicy.Compiled(nil)
+  var allowedOrigins: [String]? {
+    didSet { policy = NitroWebViewMessagePolicy.Compiled(allowedOrigins) }
+  }
 
   init(dispatcher: NitroWebViewMessageDispatcher? = nil) {
     self.dispatcher = dispatcher
@@ -97,11 +100,12 @@ final class NitroWebViewMessageHandler: NSObject {
   /// messages before/after the dispatcher is wired and we should not crash
   /// the app over a benign race.
   func handle(message: PostMessageScriptMessage) {
-    guard NitroWebViewMessagePolicy.allows(allowedOrigins, senderOrigin: message.senderOrigin) else { return }
+    let origin = message.senderOrigin
+    guard policy.allows(origin) else { return }
     let data = Self.stringifyBody(message.body)
     let url = message.postMessageWebView?.currentURL?.absoluteString ?? ""
     let event = NitroWebViewMessageEvent(data: data, url: url,
-      sourceOrigin: message.senderOrigin, isMainFrame: message.senderIsMainFrame)
+      sourceOrigin: origin, isMainFrame: message.senderIsMainFrame)
     dispatcher?.dispatchMessage(event)
   }
 

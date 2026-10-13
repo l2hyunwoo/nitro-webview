@@ -24,6 +24,33 @@ private struct StubScriptMessage: PostMessageScriptMessage {
 }
 
 final class NitroWebViewMessageHandlerTests: XCTestCase {
+  func test_senderOriginIsReadOnceAndPolicyChangesTakeEffect() {
+    final class Message: PostMessageScriptMessage {
+      let body: Any = "message"
+      let postMessageWebView: PostMessageWebView? = nil
+      var reads = 0
+      var senderOrigin: String? { reads += 1; return "https://trusted.test" }
+    }
+    let spy = SpyMessageDispatcher()
+    let handler = NitroWebViewMessageHandler(dispatcher: spy)
+    handler.allowedOrigins = ["HTTPS://Trusted.Test:443/"]
+    let message = Message()
+    handler.handle(message: message)
+    XCTAssertEqual(message.reads, 1)
+    XCTAssertEqual(spy.events.count, 1)
+    handler.allowedOrigins = ["https://other.test"]
+    handler.handle(message: message)
+    XCTAssertEqual(message.reads, 2)
+    XCTAssertEqual(spy.events.count, 1)
+    handler.allowedOrigins = ["https://trusted.test", "*"]
+    handler.handle(message: message)
+    XCTAssertNotNil(handler.policy.error)
+    XCTAssertEqual(spy.events.count, 1)
+    handler.allowedOrigins = nil
+    handler.handle(message: message)
+    XCTAssertNil(handler.policy.error)
+    XCTAssertEqual(spy.events.count, 2)
+  }
 
   func test_policyUsesSenderOriginInsteadOfTopLevelURL() {
     let spy = SpyMessageDispatcher()
