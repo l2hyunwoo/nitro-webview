@@ -1,5 +1,7 @@
 export const PAYLOAD_BYTES = [64, 1024, 65536] as const;
-export const WARMUP = 5;
+export const WARMUP = 20;
+export const SETTLE_MS = 100;
+export const POST_MOUNT_SAMPLES = 10;
 export const SAMPLES = 30;
 export const BURST = 128;
 export const ROUNDS = 6;
@@ -16,6 +18,26 @@ export function summarize(samples: number[]) {
     count: sorted.length,
     p50: sorted[Math.ceil(sorted.length * 0.5) - 1],
     p95: sorted[Math.ceil(sorted.length * 0.95) - 1],
+  };
+}
+
+export function summarizeMeasurements(
+  mounts: {
+    postMountRoundTripMs: number[];
+    steadyStateRoundTripMs: number[];
+    messagesPerSecond: number;
+  }[],
+) {
+  return {
+    postMountRoundTripMs: summarize(
+      mounts.flatMap(mount => mount.postMountRoundTripMs),
+    ),
+    steadyStateRoundTripMs: summarize(
+      mounts.flatMap(mount => mount.steadyStateRoundTripMs),
+    ),
+    burstMessagesPerSecond: summarize(
+      mounts.map(mount => mount.messagesPerSecond),
+    ),
   };
 }
 

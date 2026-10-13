@@ -5,6 +5,7 @@ import {
   payload,
   request,
   summarize,
+  summarizeMeasurements,
   validateResponse,
 } from './performanceProtocol';
 
@@ -45,4 +46,26 @@ test('the actual page fixture echoes exact payloads and deduplicates a bubbled e
   expect(() => validateResponse(responses[0], 7, 0, 64)).toThrow();
   expect(() => validateResponse('invalid JSON', 7, 0, 1024)).toThrow();
   expect(Buffer.byteLength(payload(65536), 'utf8')).toBe(65536);
+});
+
+test('summaries keep post-mount and steady-state samples separate across views', () => {
+  expect(
+    summarizeMeasurements([
+      {
+        postMountRoundTripMs: [10, 20],
+        steadyStateRoundTripMs: [1, 2],
+        messagesPerSecond: 100,
+      },
+      {
+        postMountRoundTripMs: [30, 40],
+        steadyStateRoundTripMs: [3, 4],
+        messagesPerSecond: 200,
+      },
+    ]),
+  ).toEqual({
+    postMountRoundTripMs: { count: 4, p50: 20, p95: 40 },
+    steadyStateRoundTripMs: { count: 4, p50: 2, p95: 4 },
+    burstMessagesPerSecond: { count: 2, p50: 100, p95: 200 },
+  });
+  expect(() => summarizeMeasurements([])).toThrow();
 });

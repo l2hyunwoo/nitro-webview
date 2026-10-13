@@ -155,32 +155,49 @@ SIM_DEVICE='Nitro WebView 0.2' SIM_OS=26.5 yarn test:performance:ios
 yarn test --runInBand src/__tests__/performanceProtocol.test.ts
 ```
 
-Each implementation mounts alone at 320 × 320. Both use the same inline page,
-settings, and message protocol. The first pair warms both implementations and is
-discarded. Six measured pairs alternate implementation order.
-Each mount measures 64-byte, 1-KiB, and 64-KiB ASCII payloads.
-Each size has five warmup round trips, 30 recorded round trips, one warmup burst,
-and one recorded burst of 128 responses.
+Each payload size gets its own fresh 320 × 320 WebView. Both implementations
+use the same inline page, settings, and request/echo protocol. The first pair for
+each payload is discarded to warm the process. Six measured pairs alternate
+implementation order; payload order rotates across rounds.
+
+Each mounted view records two distinct phases:
+
+1. **Post-mount:** the first 10 verified round trips after Harness render and the
+   page's ready message, without warmup or a settling delay. This is initial
+   message delivery on a fresh view, not cold app startup or view-creation time.
+2. **Steady-state:** on that same view, wait 100 ms after the post-mount phase,
+   perform 20 additional warmup round trips, then record 30 round trips. The term
+   describes this fixed settling protocol; it does not assert adaptive convergence.
+
+At each of 64 B, 1 KiB, and 64 KiB, each implementation has 60 post-mount and
+180 steady-state samples per complete run. Both phases retain all recorded
+samples. Warmup responses are also checked for correctness. After the steady-state
+round trips, one warmup burst and one measured burst each return 128 responses.
+Burst throughput is reported only for this settled phase.
 
 The round-trip timer starts immediately before RN calls `postMessage` and ends
 when RN receives the page response. Request serialization precedes the timer.
-Burst timing includes the outbound request and delivery of all 128 responses.
-Every response must have the expected request ID, index, and exact payload.
-Missing responses time out. Duplicate, reordered, and invalid responses fail the
-run. Validation contributes processing overhead between messages for both implementations.
+Timing includes framework dispatch and scheduling. Burst timing includes the
+outbound request and delivery of all 128 responses. Every response must have the
+expected request ID, index, and exact payload. Missing responses time out;
+duplicate, reordered, and invalid responses fail the run. Validation contributes
+processing overhead between messages for both implementations.
 
 `renderToReadyMs` measures Harness render dispatch through receipt of the page's
-ready message after script injection. It includes React mounting and bridge work.
-It does not measure first paint, cold app startup, or isolated native view creation.
-Only six mount and burst samples per implementation are collected. Repeat complete
-runs before interpreting their tail percentiles or claiming an improvement.
-Raw round trips are also grouped by mount to preserve each paired run.
+ready message after script injection. It does not measure first paint, cold app
+startup, or isolated native view creation. Each raw mount also records
+`readyToFirstRequestMs`, the delay between page ready and its first request,
+so Harness render scheduling is visible. There are 18 measured views per
+implementation, with six views and six burst samples per payload size.
+Repeat complete runs before interpreting tail percentiles.
 
-The suite writes `webview-performance.json` into the app's document directory.
-It records raw samples, p50/p95 summaries, library versions, OS, Hermes, Fabric,
-and the actual `__DEV__` value. Failure reports have `complete: false` and no
-success summary. A new run removes the previous report before measurements begin.
-To copy the report to the host, run from `example/`:
+The suite writes schema version 2 of `webview-performance.json` into the app's
+document directory. Raw per-view arrays and summaries keep
+`postMountRoundTripMs` and `steadyStateRoundTripMs` separate. The report includes
+p50/p95, library versions, OS, Hermes, Fabric, and the actual `__DEV__` value.
+Failure reports have `complete: false` and no success summary. A new run removes
+the previous report before measurements begin. To copy a report to the host,
+run from `example/`:
 
 ```sh
 mkdir -p artifacts
@@ -196,7 +213,7 @@ Harness 1.3.0 serves development bundles through Metro. These measurements are
 exploratory comparisons under Harness overhead. They are not Release benchmarks.
 Use matching physical devices and a separately verified Release measurement path
 before publishing performance claims. CPU, frame timing, memory, and sustained
-rate-controlled traffic are outside this initial suite.
+rate-controlled traffic are outside this suite.
 
 ## Android renderer recovery
 

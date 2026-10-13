@@ -12,34 +12,34 @@ import {
   BURST,
   PAGE_SCRIPT,
   PAYLOAD_BYTES,
+  POST_MOUNT_SAMPLES,
+  SETTLE_MS,
   ROUNDS,
   SAMPLES,
   SOURCE,
   WARMUP,
   request,
   summarize,
+  summarizeMeasurements,
   validateResponse,
 } from './performanceProtocol';
 
 declare const performance: { now(): number };
 
 type Implementation = 'nitro' | 'react-native-webview';
-type Sample = {
-  implementation: Implementation;
-  round: number;
-  bytes: number;
-  roundTripMs: number[];
-  burstMs: number;
-  messagesPerSecond: number;
-};
 
 const resultPath = `${RNFS.DocumentDirectoryPath}/webview-performance.json`;
 const pause = () => new Promise<void>(resolve => setTimeout(resolve, 100));
 
-async function measure(implementation: Implementation, round: number) {
+async function measure(
+  implementation: Implementation,
+  round: number,
+  bytes: number,
+) {
   let ref: Pick<NitroWebViewType, 'postMessage'> | null = null;
   let sequence = 0;
   let readyAt = 0;
+  let firstRequestAt = 0;
   let failure: Error | undefined;
   let pending:
     | {
@@ -89,7 +89,7 @@ async function measure(implementation: Implementation, round: number) {
     originWhitelist: ['http://*', 'https://*'],
     style: { flex: 1 },
   };
-  async function exchange(bytes: number, count = 1) {
+  async function exchange(count = 1) {
     if (failure) throw failure;
     const id = ++sequence;
     const data = request(id, bytes, count);
@@ -105,6 +105,7 @@ async function measure(implementation: Implementation, round: number) {
             resolve,
             reject,
           };
+          if (!firstRequestAt) firstRequestAt = pending.start;
           if (!ref) throw new Error('Native ref is missing');
           ref.postMessage(data);
         }),
@@ -149,28 +150,33 @@ async function measure(implementation: Implementation, round: number) {
       ]),
     );
     const renderToReadyMs = readyAt - start;
-    const samples: Sample[] = [];
-    for (const bytes of PAYLOAD_BYTES) {
-      for (let i = 0; i < WARMUP; i++) await exchange(bytes);
-      const roundTripMs: number[] = [];
-      for (let i = 0; i < SAMPLES; i++) roundTripMs.push(await exchange(bytes));
-      await exchange(bytes, BURST);
-      const burstMs = await exchange(bytes, BURST);
-      samples.push({
-        implementation,
-        round,
-        bytes,
-        roundTripMs,
-        burstMs,
-        messagesPerSecond: (BURST * 1000) / burstMs,
-      });
-    }
+    // Each payload gets a fresh view; no warmup hides its post-mount samples.
+    const postMountRoundTripMs: number[] = [];
+    for (let i = 0; i < POST_MOUNT_SAMPLES; i++)
+      postMountRoundTripMs.push(await exchange());
+    await new Promise<void>(resolve => setTimeout(resolve, SETTLE_MS));
+    for (let i = 0; i < WARMUP; i++) await exchange();
+    const steadyStateRoundTripMs: number[] = [];
+    for (let i = 0; i < SAMPLES; i++)
+      steadyStateRoundTripMs.push(await exchange());
+    await exchange(BURST);
+    const burstMs = await exchange(BURST);
     await pause();
     if (failure) throw failure;
-    return { implementation, round, renderToReadyMs, samples };
+    return {
+      implementation,
+      round,
+      bytes,
+      renderToReadyMs,
+      readyToFirstRequestMs: firstRequestAt - readyAt,
+      postMountRoundTripMs,
+      steadyStateRoundTripMs,
+      burstMs,
+      messagesPerSecond: (BURST * 1000) / burstMs,
+    };
   } catch (error) {
     throw new Error(
-      `${implementation} round=${round} sequence=${sequence} ready=${!!readyAt}: ${String(error)}`,
+      `${implementation} round=${round} bytes=${bytes} sequence=${sequence} ready=${!!readyAt}: ${String(error)}`,
     );
   } finally {
     cleanup();
@@ -178,13 +184,13 @@ async function measure(implementation: Implementation, round: number) {
   }
 }
 
-test('compares native WebView message paths with identical verified payloads', async () => {
+test('separates post-mount and steady-state latency with verified payloads', async () => {
   // Remove stale success evidence before starting a run that can fail.
   if (await RNFS.exists(resultPath)) await RNFS.unlink(resultPath);
   const mounts: Awaited<ReturnType<typeof measure>>[] = [];
   const startedAt = new Date().toISOString();
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     complete: false,
     startedAt,
     environment: {
@@ -201,9 +207,15 @@ test('compares native WebView message paths with identical verified payloads', a
     protocol: {
       payloadBytes: PAYLOAD_BYTES,
       warmupPerSize: WARMUP,
-      samplesPerSizePerMount: SAMPLES,
+      postMountSamplesPerMount: POST_MOUNT_SAMPLES,
+      settlingDelayMs: SETTLE_MS,
+      steadyStateSamplesPerMount: SAMPLES,
       burstCount: BURST,
       pairedRounds: ROUNDS,
+      postMountMetric:
+        'first verified round trips after Harness render and page ready; fresh view per payload; no warmup',
+      steadyStateMetric:
+        'same view after post-mount samples, settling delay and warmup; fixed protocol, not adaptive convergence',
       mountMetric:
         'harness-render-to-page-ready; first pair discarded; not cold startup or first paint',
       burstMetric:
@@ -218,12 +230,22 @@ test('compares native WebView message paths with identical verified payloads', a
         round % 2 === 0
           ? ['nitro', 'react-native-webview']
           : ['react-native-webview', 'nitro'];
-      for (const implementation of order) {
-        const mount = await measure(implementation, round);
-        if (round >= 0) mounts.push(mount);
+      // Rotate payload order too; all payloads still receive fresh views.
+      const offset = round < 0 ? 0 : round % PAYLOAD_BYTES.length;
+      const sizes = [
+        ...PAYLOAD_BYTES.slice(offset),
+        ...PAYLOAD_BYTES.slice(0, offset),
+      ];
+      for (const bytes of sizes) {
+        for (const implementation of order) {
+          const mount = await measure(implementation, round, bytes);
+          expect(mount.postMountRoundTripMs.length).toBe(POST_MOUNT_SAMPLES);
+          expect(mount.steadyStateRoundTripMs.length).toBe(SAMPLES);
+          if (round >= 0) mounts.push(mount);
+        }
       }
     }
-    expect(mounts.length).toBe(ROUNDS * 2);
+    expect(mounts.length).toBe(ROUNDS * 2 * PAYLOAD_BYTES.length);
     const summary = (['nitro', 'react-native-webview'] as const).map(
       implementation => {
         const own = mounts.filter(
@@ -233,18 +255,9 @@ test('compares native WebView message paths with identical verified payloads', a
           implementation,
           renderToReadyMs: summarize(own.map(mount => mount.renderToReadyMs)),
           messages: PAYLOAD_BYTES.map(bytes => {
-            const samples = own
-              .flatMap(mount => mount.samples)
-              .filter(sample => sample.bytes === bytes);
-            return {
-              bytes,
-              roundTripMs: summarize(
-                samples.flatMap(sample => sample.roundTripMs),
-              ),
-              burstMessagesPerSecond: summarize(
-                samples.map(sample => sample.messagesPerSecond),
-              ),
-            };
+            const samples = own.filter(mount => mount.bytes === bytes);
+            expect(samples.length).toBe(ROUNDS);
+            return { bytes, ...summarizeMeasurements(samples) };
           }),
         };
       },
