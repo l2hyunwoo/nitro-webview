@@ -134,6 +134,87 @@ The remaining [react-native-harness](https://github.com/callstackincubator/react
 load, message, or HTTP-error callbacks. Use the AppRegistry regression suite for
 that coverage.
 
+## Performance comparison with React Native WebView
+
+The opt-in Harness suite compares Nitro WebView with the example's pinned
+`react-native-webview` version. Build and install the example again after adding
+this native dependency. Use the Debug build commands in the E2E section above.
+The performance suite uses inline HTML and needs no fixture server.
+Stop other Metro processes before starting Harness.
+
+Run from `example/` with a booted target:
+
+```sh
+# Use the exact serial and API level of your Android emulator.
+ANDROID_SERIAL=emulator-5554 ANDROID_API=35 yarn test:performance:android
+
+# These values select the simulator by name and runtime version.
+SIM_DEVICE='Nitro WebView 0.2' SIM_OS=26.5 yarn test:performance:ios
+
+# Protocol tests run on the host without a device.
+yarn test --runInBand src/__tests__/performanceProtocol.test.ts
+```
+
+Each payload size gets its own fresh 320 × 320 WebView. Both implementations
+use the same inline page, settings, and request/echo protocol. The first pair for
+each payload is discarded to warm the process. Six measured pairs alternate
+implementation order; payload order rotates across rounds.
+
+Each mounted view records two distinct phases:
+
+1. **Post-mount:** the first 10 verified round trips after Harness render and the
+   page's ready message, without warmup or a settling delay. This is initial
+   message delivery on a fresh view, not cold app startup or view-creation time.
+2. **Steady-state:** on that same view, wait 100 ms after the post-mount phase,
+   perform 20 additional warmup round trips, then record 30 round trips. The term
+   describes this fixed settling protocol; it does not assert adaptive convergence.
+
+At each of 64 B, 1 KiB, and 64 KiB, each implementation has 60 post-mount and
+180 steady-state samples per complete run. Both phases retain all recorded
+samples. Warmup responses are also checked for correctness. After the steady-state
+round trips, one warmup burst and one measured burst each return 128 responses.
+Burst throughput is reported only for this settled phase.
+
+The round-trip timer starts immediately before RN calls `postMessage` and ends
+when RN receives the page response. Request serialization precedes the timer.
+Timing includes framework dispatch and scheduling. Burst timing includes the
+outbound request and delivery of all 128 responses. Every response must have the
+expected request ID, index, and exact payload. Missing responses time out;
+duplicate, reordered, and invalid responses fail the run. Validation contributes
+processing overhead between messages for both implementations.
+
+`renderToReadyMs` measures Harness render dispatch through receipt of the page's
+ready message after script injection. It does not measure first paint, cold app
+startup, or isolated native view creation. Each raw mount also records
+`readyToFirstRequestMs`, the delay between page ready and its first request,
+so Harness render scheduling is visible. There are 18 measured views per
+implementation, with six views and six burst samples per payload size.
+Repeat complete runs before interpreting tail percentiles.
+
+The suite writes schema version 2 of `webview-performance.json` into the app's
+document directory. Raw per-view arrays and summaries keep
+`postMountRoundTripMs` and `steadyStateRoundTripMs` separate. The report includes
+p50/p95, library versions, OS, Hermes, Fabric, and the actual `__DEV__` value.
+Failure reports have `complete: false` and no success summary. A new run removes
+the previous report before measurements begin. To copy a report to the host,
+run from `example/`:
+
+```sh
+mkdir -p artifacts
+adb -s emulator-5554 exec-out run-as com.example cat files/webview-performance.json \
+  > artifacts/android-performance.json
+
+SIM_UDID='<simulator-udid>'
+APP_DATA=$(xcrun simctl get_app_container "$SIM_UDID" org.reactjs.native.example.example data)
+cp "$APP_DATA/Documents/webview-performance.json" artifacts/ios-performance.json
+```
+
+Harness 1.3.0 serves development bundles through Metro. These measurements are
+exploratory comparisons under Harness overhead. They are not Release benchmarks.
+Use matching physical devices and a separately verified Release measurement path
+before publishing performance claims. CPU, frame timing, memory, and sustained
+rate-controlled traffic are outside this suite.
+
 ## Android renderer recovery
 
 Use the normal example app and select **Android renderer recovery verification**.

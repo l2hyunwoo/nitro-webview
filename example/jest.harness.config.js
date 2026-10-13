@@ -3,6 +3,7 @@
 module.exports = {
   preset: 'react-native-harness',
   testMatch: ['**/__tests__/**/*.harness.(ts|tsx)'],
+  testPathIgnorePatterns: ['/node_modules/', '\\.performance\\.harness\\.tsx$'],
   // Device runs one test suite at a time.
   maxWorkers: 1,
   // A case awaits several independent native operations, each bounded to 10s.
