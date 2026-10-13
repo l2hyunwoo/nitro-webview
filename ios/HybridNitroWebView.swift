@@ -516,7 +516,11 @@ final class HybridNitroWebView:
   func postMessage(data: String) throws {
     NitroWebViewMainThread.run { [weak self] in
       guard let self, !self.isDropped, self.mountedSettings?.javaScript == true else { return }
-      self.webView?.evaluateJavaScript(NitroWebViewPostMessage.buildStatement(data), completionHandler: nil)
+      // Pass data separately so WebKit need not parse the payload as JavaScript source.
+      self.webView?.callAsyncJavaScript(
+        "window.dispatchEvent(new MessageEvent('message',{data:message}));",
+        arguments: ["message": data], in: nil, in: .page, completionHandler: nil
+      )
     }
   }
 

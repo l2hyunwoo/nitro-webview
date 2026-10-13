@@ -66,10 +66,6 @@ let package = Package(
         // standalone and is re-exposed on the hybrid class via
         // `parseContentDispositionFilename(_:)`.
         "NitroWebViewContentDispositionParser.swift",
-        // Native→web message-delivery statement builder + JS-source-string
-        // escaping. Standalone for the same reason — re-exposed on the
-        // hybrid via `HybridNitroWebView.postMessageScript(_:)`.
-        "NitroWebViewPostMessage.swift",
         "NitroWebViewDownloadFiles.swift",
       ]
     ),
@@ -209,17 +205,6 @@ let package = Package(
       name: "HybridNitroWebViewCachePolicyTests",
       dependencies: ["NitroWebViewSource"],
       path: "iosTests/Tests/HybridNitroWebViewCachePolicyTests"
-    ),
-    .testTarget(
-      // Exercises the native→web `postMessage` statement builder +
-      // JS-source-string escaping in `NitroWebViewPostMessage` (which backs
-      // `HybridNitroWebView.postMessageScript(_:)`). Asserts the emitted
-      // statement is valid JS, escapes U+2028/U+2029, and carries the
-      // payload verbatim — the Swift mirror of the TS oracle in
-      // `src/__tests__/post-message-escaping.test.ts`.
-      name: "HybridNitroWebViewPostMessageTests",
-      dependencies: ["NitroWebViewSource"],
-      path: "iosTests/Tests/HybridNitroWebViewPostMessageTests"
     ),
     .testTarget(
       // Exercises `HybridNitroWebView.httpError(from:)` — the 4xx/5xx
