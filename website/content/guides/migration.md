@@ -15,6 +15,18 @@ Nitro WebView shares familiar WebView concepts, but migration requires API and b
 
 Only documented props are implemented. There is no automatic equivalent for every react-native-webview prop. Check [props](../reference/props.md) and [platform support](../reference/platforms.md).
 
+## From 0.2.0 to 0.2.1 {#from-0-2-0-to-0-2-1}
+
+Rebuild both native apps after upgrading. Public method signatures and dependency ranges are unchanged.
+Equal source values now preserve the loaded page. Source-header changes still load;
+changing `defaultHeaders` alone does not navigate. Clearing message/navigation callbacks preserves the page.
+Android before-content scripts run in the main frame and update once per prop batch.
+Message-origin policies retain their checks while reusing compiled allowlists.
+
+iOS passes messages as WebKit function arguments. Android escapes the delivery statement before JNI,
+preserving embedded NUL and avoiding escaping on the UI thread. Native code also changed:
+a Metro reload or OTA JavaScript update is insufficient.
+
 ## From 0.1.0 to 0.2.0 {#from-0-1-to-the-0-2-candidate}
 
 These changes apply to `0.2.0`. Rebuild your native app with the matching JavaScript package and generated bindings.

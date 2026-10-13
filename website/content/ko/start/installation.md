@@ -2,13 +2,13 @@
 
 라이브러리와 Nitro 런타임을 설치한 뒤 네이티브 앱을 다시 빌드합니다.
 
-::: info 버전 0.2.0
-이 문서는 `0.2.0`을 설명합니다. 설치한 패키지 버전과 문서를 맞추고 업그레이드 전에 [마이그레이션](../guides/migration.md)을 확인하세요.
+::: info 버전 0.2.1
+이 문서는 `0.2.1`을 설명합니다. 설치한 패키지 버전과 문서를 맞추고 업그레이드 전에 [마이그레이션](../guides/migration.md)을 확인하세요.
 :::
 
 ## 요구 사항 {#requirements}
 
-개발 기준은 New Architecture를 사용하는 React Native **0.85.3**, React **19.2.3**, Nitro Modules **0.35.9**입니다. 0.2.0의 peer 범위는 RN `~0.85.3`, React `19.2.3`, Nitro `^0.35.9`입니다.
+개발 기준은 New Architecture를 사용하는 React Native **0.85.3**, React **19.2.3**, Nitro Modules **0.35.9**입니다. 0.2.1의 peer 범위는 RN `~0.85.3`, React `19.2.3`, Nitro `^0.35.9`입니다.
 
 React Native 0.85.3의 최소 배포 버전은 Android API **24**, iOS **15.1**입니다. 모든 OS·기기 조합을 검증했다는 뜻은 아닙니다. [플랫폼 지원](../reference/platforms.md)을 확인하세요.
 
@@ -16,10 +16,10 @@ React Native 0.85.3의 최소 배포 버전은 Android API **24**, iOS **15.1**�
 
 ::: code-group
 ```sh [npm]
-npm install nitro-webview@0.2.0 react-native-nitro-modules
+npm install nitro-webview@0.2.1 react-native-nitro-modules
 ```
 ```sh [yarn]
-yarn add nitro-webview@0.2.0 react-native-nitro-modules
+yarn add nitro-webview@0.2.1 react-native-nitro-modules
 ```
 :::
 

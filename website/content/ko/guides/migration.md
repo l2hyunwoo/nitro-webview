@@ -15,6 +15,18 @@
 
 문서에 있는 prop만 구현합니다. react-native-webview의 모든 prop에 대응하는 기능이 있는 것은 아닙니다. [Props](../reference/props.md)와 [플랫폼 지원](../reference/platforms.md)을 확인하세요.
 
+## 0.2.0에서 0.2.1로 전환 {#from-0-2-0-to-0-2-1}
+
+업그레이드 후 Android/iOS 네이티브 앱을 다시 빌드하세요. 공개 메서드 시그니처와 의존성 범위는 같습니다.
+source 값이 같으면 페이지를 유지합니다. source 헤더 변경 시 로드하는 기존 동작은 유지하며,
+`defaultHeaders`만 바뀌면 탐색하지 않습니다. 메시지·탐색 콜백을 제거해도 페이지를 유지합니다.
+Android 초기 스크립트는 main frame에서 실행하며 prop 배치당 한 번 갱신합니다.
+메시지 origin 검사는 유지하고 컴파일한 허용 목록을 재사용합니다.
+
+iOS는 메시지를 WebKit 함수 인자로 전달합니다. Android는 JNI 호출 전에 전달 스크립트를 이스케이프해
+NUL을 보존하고 UI 스레드의 치환 작업을 줄입니다. 네이티브 코드도 바뀌므로
+Metro 새로고침이나 JavaScript OTA 업데이트만으로 업그레이드할 수 없습니다.
+
 ## 0.1.0에서 0.2.0으로 전환 {#from-0-1-to-the-0-2-candidate}
 
 `0.2.0`에 적용되는 변경사항입니다. JavaScript 패키지·생성 바인딩과 맞는 네이티브 앱을 다시 빌드하세요.
