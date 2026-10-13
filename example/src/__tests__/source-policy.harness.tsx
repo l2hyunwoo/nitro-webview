@@ -44,7 +44,7 @@ async function mount(props: Props) {
   }
 }
 
-const quiet = () => new Promise(resolve => setTimeout(resolve, 250))
+const quiet = () => new Promise<void>(resolve => setTimeout(resolve, 250))
 
 test('equal HTML source values preserve page state while HTML and base URL changes load', async () => {
   try {
