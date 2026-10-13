@@ -11,7 +11,7 @@ import {
 const LS = ' '
 const PS = ' '
 
-test('Android NUL fallback preserves the native receiver and leaves ordinary messages direct', () => {
+test('Android postMessage escapes every payload before JNI and preserves the native receiver', () => {
   const native: string[] = []
   const delivered: string[] = []
   const prototype = Object.freeze({
@@ -38,11 +38,19 @@ test('Android NUL fallback preserves the native receiver and leaves ordinary mes
   const patched = ref.postMessage
   patchAndroidPostMessage(ref)
   assert.equal(ref.postMessage, patched)
-  ref.postMessage('ordinary')
-  ref.postMessage('a\0b\n"\\\u2028😀')
-  ref.postMessage('')
-  assert.deepEqual(native, ['ordinary', ''])
-  assert.deepEqual(delivered, ['a\0b\n"\\\u2028😀'])
+  const payloads = [
+    '',
+    'ordinary',
+    'a\0b\n"\\\u2028😀',
+    '\0leading',
+    'x'.repeat(65536),
+    'x'.repeat(65536) + '\0',
+    '\u2028\u2029',
+    '\ud800',
+  ]
+  for (const payload of payloads) ref.postMessage(payload)
+  assert.deepEqual(native, [])
+  assert.deepEqual(delivered, payloads)
 })
 
 const HOSTILE: string[] = [

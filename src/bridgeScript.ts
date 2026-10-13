@@ -110,19 +110,15 @@ export function buildPostMessageScript(
 
 const patchedAndroidRefs = new WeakSet<object>()
 
-/** Preserve embedded NUL across fbjni's null-terminated string conversion. */
+/** Escape before JNI to preserve NUL and avoid string encoding on the UI thread. */
 export function patchAndroidPostMessage(ref: {
   postMessage(data: string): void
   injectJavaScript(code: string): void
 }): void {
   if (patchedAndroidRefs.has(ref)) return
-  const postMessage = ref.postMessage.bind(ref)
   Object.defineProperty(ref, 'postMessage', {
     value(data: string) {
-      // shortcut: fbjni truncates NUL; remove when JNI string conversion preserves length.
-      if (data.includes('\0'))
-        ref.injectJavaScript(buildPostMessageScript('android', data))
-      else postMessage(data)
+      ref.injectJavaScript(buildPostMessageScript('android', data))
     },
   })
   patchedAndroidRefs.add(ref)
