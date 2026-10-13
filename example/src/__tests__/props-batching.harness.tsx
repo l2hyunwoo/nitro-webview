@@ -69,7 +69,7 @@ test('keeps the page bridge usable when the message callback is removed and rest
   let ref: NitroWebViewType | null = null;
   let loads = 0;
   const messages: string[] = [];
-  const sources = [page('enabled'), page('disabled'), page('restored')];
+  const source = page('stable');
   const onLoadEnd = callback(() => {
     loads++;
   });
@@ -80,9 +80,10 @@ test('keeps the page bridge usable when the message callback is removed and rest
     ref = value;
   });
   const element = (phase: 0 | 1 | 2) => (
-    <View style={{ width: 320, height: 320 }}>
+    <View collapsable={false} style={{ width: 320, height: 320 }}>
       <NitroWebView
-        source={sources[phase]!}
+        style={{ flex: 1 }}
+        source={source}
         onLoadEnd={onLoadEnd}
         hybridRef={hybridRef}
         onMessage={phase === 1 ? undefined : receive}
@@ -92,8 +93,14 @@ test('keeps the page bridge usable when the message callback is removed and rest
   try {
     const mounted = await render(element(0), { timeout: 10000 });
     await waitFor(() => expect(loads).toBe(1), WAIT);
+    await waitFor(async () => {
+      expect(
+        JSON.parse(await bounded(ref!.evaluateJavaScript('document.title'))),
+      ).toBe('stable');
+    }, WAIT);
+    await bounded(ref!.evaluateJavaScript('window.marker = 42'));
     await mounted.rerender(element(1));
-    await waitFor(() => expect(loads).toBe(2), WAIT);
+
     expect(
       JSON.parse(
         await bounded(
@@ -102,16 +109,19 @@ test('keeps the page bridge usable when the message callback is removed and rest
           ),
         ),
       ),
-    ).toBe('disabled');
+    ).toBe('stable');
     expect(messages).toEqual([]);
     await mounted.rerender(element(2));
-    await waitFor(() => expect(loads).toBe(3), WAIT);
     await bounded(
       ref!.evaluateJavaScript(
         'window.ReactNativeWebView.postMessage("restored"); true',
       ),
     );
     await waitFor(() => expect(messages).toEqual(['restored']), WAIT);
+    expect(
+      JSON.parse(await bounded(ref!.evaluateJavaScript('window.marker'))),
+    ).toBe(42);
+    expect(loads).toBe(1);
   } finally {
     cleanup();
   }

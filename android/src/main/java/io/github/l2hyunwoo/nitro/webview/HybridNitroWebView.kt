@@ -204,6 +204,8 @@ class HybridNitroWebView(
   private val reactContext: ReactContext = context.reactApplicationContext
 
   private var sourceNeedsLoading = false
+  private var appliedSource: WebViewSource? = null
+  private var userScriptsNeedUpdating = false
   private var configurationErrorReported = false
 
   override var source: WebViewSource = WebViewSource.create(UriSource("about:blank", null, null, null))
@@ -298,9 +300,13 @@ class HybridNitroWebView(
         return@postIfAvailable
       }
       configurationErrorReported = false
+      if (userScriptsNeedUpdating) {
+        userScriptsNeedUpdating = false
+        applyDocumentStartScript()
+      }
       if (sourceNeedsLoading) {
         sourceNeedsLoading = false
-        applySource(source)
+        if (source != appliedSource) applySource(source)
       }
     }
   }
@@ -365,7 +371,7 @@ class HybridNitroWebView(
   override var injectedJavaScriptBeforeContentLoaded: String? = null
     set(value) {
       field = value
-      postIfAvailable { applyDocumentStartScript() }
+      userScriptsNeedUpdating = true
     }
 
   /**
@@ -594,7 +600,7 @@ class HybridNitroWebView(
     documentStartScriptHandler =
       WebViewCompat.addDocumentStartJavaScript(
         view,
-        "(function(){\n$script\n})();",
+        "if (window.top === window) { (function(){\n$script\n})(); }",
         setOf("*"),
       )
   }
@@ -755,6 +761,7 @@ class HybridNitroWebView(
           // call can be verified in unit tests via the UrlLoader seam.
           try {
             applyUriSource(uriSource, defaultHeaders, viewLoader)
+            appliedSource = source
           } catch (error: IllegalArgumentException) {
             onError?.invoke(
               NitroWebViewErrorEvent(
@@ -775,6 +782,7 @@ class HybridNitroWebView(
               baseUrlString = html.baseUrl,
             )
           sourceHandler.applyHtmlPayload(payload, htmlLoaderAdapter)
+          appliedSource = source
         },
       )
     }

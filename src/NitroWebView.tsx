@@ -33,6 +33,9 @@ const NativeNitroWebView = getHostComponent<
   NitroWebViewMethods
 >('NitroWebView', () => NitroWebViewConfig)
 
+// Nitro's optional callback converter still requires the object envelope when clearing it.
+const emptyCallback = { f: undefined }
+
 type ComponentProps = Omit<
   React.ComponentPropsWithoutRef<
     ReactNativeView<NitroWebViewProps, NitroWebViewMethods>
@@ -49,15 +52,15 @@ export const NitroWebView = forwardRef<
   React.ComponentRef<typeof NativeNitroWebView>,
   ComponentProps
 >(function NitroWebView(
-  { onShouldStartLoadWithRequest, hybridRef, ...props },
+  { onShouldStartLoadWithRequest, onMessage, hybridRef, ...props },
   ref
 ) {
   const handler = onShouldStartLoadWithRequest?.f
   const nativeCallback = useMemo(
     () =>
-      callback(
-        handler === undefined ? undefined : createShouldStartLoadBridge(handler)
-      ),
+      handler === undefined
+        ? emptyCallback
+        : callback(createShouldStartLoadBridge(handler)),
     [handler]
   )
   return (
@@ -65,6 +68,7 @@ export const NitroWebView = forwardRef<
       {...props}
       ref={ref}
       hybridRef={hybridRef}
+      onMessage={onMessage ?? emptyCallback}
       onShouldStartLoadWithRequest={nativeCallback}
     />
   )

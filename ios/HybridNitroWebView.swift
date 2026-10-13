@@ -97,6 +97,7 @@ final class HybridNitroWebView:
     if webView == nil { createWebView() }
     if userScriptsNeedUpdating { reinstallUserScripts() }
     if sourceHandler.consumePendingLoad() {
+      if let appliedSource, Self.sourcesEqual(appliedSource, source) { return }
       applySource(source)
     }
   }
@@ -332,8 +333,20 @@ final class HybridNitroWebView:
     historyHandler.dispatcher = nil
   }
 
+  private var appliedSource: WebViewSource?
   var source: WebViewSource = .first(UriSource(uri: "about:blank", headers: nil, method: nil, body: nil)) {
     didSet { sourceHandler.sourceNeedsLoading = true }
+  }
+
+  private static func sourcesEqual(_ lhs: WebViewSource, _ rhs: WebViewSource) -> Bool {
+    switch (lhs, rhs) {
+    case (.first(let a), .first(let b)):
+      return a.uri == b.uri && a.headers == b.headers && a.method == b.method && a.body == b.body
+    case (.second(let a), .second(let b)):
+      return a.html == b.html && a.baseUrl == b.baseUrl
+    default:
+      return false
+    }
   }
 
   /// Default HTTP headers applied to every main-frame navigation initiated
@@ -627,6 +640,7 @@ final class HybridNitroWebView:
           headers: Self.mergeHeaders(defaults: defaultHeaders, perRequest: uri.headers),
           cachePolicy: Self.cachePolicy(forCacheEnabled: cacheEnabled)
         )
+        appliedSource = source
         webView.load(request)
       } catch {
         emitError(error as NSError, fallbackUrl: uri.uri)
@@ -636,6 +650,7 @@ final class HybridNitroWebView:
         html: html.html,
         baseUrlString: html.baseUrl
       )
+      appliedSource = source
       sourceHandler.applyHtmlPayload(payload, to: webView)
     }
   }
