@@ -1,5 +1,5 @@
 import React, { forwardRef, useMemo } from 'react'
-import { Platform, type ViewProps } from 'react-native'
+import { Platform, type HostInstance, type ViewProps } from 'react-native'
 import {
   callback,
   getHostComponent,
@@ -64,11 +64,12 @@ type ComponentProps = NitroWebViewProps &
     hybridRef?: CallbackProp<(ref: NitroWebViewType) => void>
   }
 
+// Explicit type: RN 0.88's inferred ref type points at a private module and breaks declaration emit.
 /** React component for the Nitro-backed WebView. */
-export const NitroWebView = forwardRef<
-  React.ComponentRef<typeof NativeNitroWebView>,
-  ComponentProps
->(function NitroWebView(
+export const NitroWebView: React.ForwardRefExoticComponent<
+  React.PropsWithoutRef<ComponentProps> & React.RefAttributes<HostInstance>
+  // eslint-disable-next-line @typescript-eslint/no-shadow -- keeps the DevTools name
+> = forwardRef<HostInstance, ComponentProps>(function NitroWebView(
   {
     onShouldStartLoadWithRequest,
     onMessage,
