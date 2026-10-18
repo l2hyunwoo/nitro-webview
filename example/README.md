@@ -35,8 +35,8 @@ For playback fixture details, see [media fixture](src/fixtures/README.md).
 Run `yarn check:codegen` to generate bindings and reject changes under `nitrogen/generated`.
 Run `yarn test:package` to build declarations, inspect an actual npm tarball, and compile package-root imports in an isolated consumer.
 The package check installs the tarball with lifecycle scripts disabled. It does not perform native builds.
-CI checks Nitro Modules `0.35.9` and `0.35.10` with at most two package/typecheck jobs.
-The native release gate uses the example’s pinned `0.35.9` runtime; package/typecheck success does not verify native compatibility.
+CI checks the lower and upper peer bounds (React `19.3.0`/`19.3.1`, React Native `0.88.0`, Nitro Modules `0.37.1`) with at most two package/typecheck jobs.
+The native release gate uses the example’s pinned `0.37.1` runtime; package/typecheck success does not verify native compatibility.
 
 The example's `link:..` dependency supports local development. Metro also resolves an installed tarball through its normal package entry.
 It does not replace `nitro-webview` with a fixed repository source path.

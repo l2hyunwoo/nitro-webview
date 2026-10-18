@@ -123,13 +123,13 @@ jobs:
       matrix:
         include:
           - label: lower
-            react: 19.2.3
-            rn: 0.85.3
-            nitro: 0.35.9
+            react: 19.3.0
+            rn: 0.88.0
+            nitro: 0.37.1
           - label: upper
-            react: 19.2.3
-            rn: 0.85.3
-            nitro: 0.35.10
+            react: 19.3.1
+            rn: 0.88.0
+            nitro: 0.37.1
     env:
       PACKAGE_REACT_VERSION: ${{ matrix.react }}
       PACKAGE_RN_VERSION: ${{ matrix.rn }}
