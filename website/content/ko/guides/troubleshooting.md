@@ -8,7 +8,7 @@
 
 ## 렌더링 중 이벤트 콜백 오류 {#an-event-callback-fails-at-render-time}
 
-0.2.1에서는 이벤트·`hybridRef`·탐색 콜백을 `nitro-webview` 또는 `react-native-nitro-modules`의 `callback`으로 감싸세요. 다음 릴리스는 일반 함수를 내부에서 감싸고 기존 wrapper도 받습니다. 핸들러가 함수 또는 `undefined`인지 확인하세요.
+0.2.1에서는 이벤트·`hybridRef`·탐색 콜백을 `nitro-webview` 또는 `react-native-nitro-modules`의 `callback`으로 감싸세요. 0.2.2는 일반 함수를 내부에서 감싸고 기존 wrapper도 받습니다. 핸들러가 함수 또는 `undefined`인지 확인하세요.
 
 ## 취소하려던 탐색이 로드됨 {#a-navigation-unexpectedly-loads}
 

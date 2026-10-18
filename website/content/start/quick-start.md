@@ -4,7 +4,7 @@ Render a page, receive its messages, and capture the native controls.
 
 ## Render a page
 
-Give the WebView a size and a `source`. The examples below use plain callbacks, available in the next release. On version 0.2.1, wrap event and `hybridRef` callbacks with `callback`; that form remains supported.
+Give the WebView a size and a `source`. The examples below use plain callbacks, available in version 0.2.2. On version 0.2.1, wrap event and `hybridRef` callbacks with `callback`; that form remains supported.
 
 ```tsx
 import { NitroWebView } from 'nitro-webview'

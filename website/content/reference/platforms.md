@@ -4,7 +4,7 @@ Nitro WebView supports Android and iOS native views. There is no web, macOS, Win
 
 ## Development baseline
 
-Version 0.2.1 uses React Native 0.85.3 / React 19.2.3 with the New Architecture. Its runtime and generator are pinned to Nitro 0.35.9 for development. The 0.2.1 peer ranges are RN `~0.85.3`, React `19.2.3`, and Nitro `^0.35.9`.
+Version 0.2.2 uses React Native 0.85.3 / React 19.2.3 with the New Architecture. Its runtime and generator are pinned to Nitro 0.35.9 for development. The 0.2.2 peer ranges are RN `~0.85.3`, React `19.2.3`, and Nitro `^0.35.9`.
 
 RN 0.85.3 sets the app deployment minimums to Android API 24 and iOS 15.1. An API minimum is not a device-validation result. Future versions inside a peer range still need validation.
 

@@ -7,15 +7,15 @@ Nitro WebView shares familiar WebView concepts, but migration requires API and b
 | Existing pattern | Nitro WebView |
 | --- | --- |
 | `WebView` import | Named `NitroWebView` export |
-| Raw event functions | Plain functions in the next release; `callback(handler)` on 0.2.1 |
-| WebView methods on React `ref` | `hybridRef={handler}` in the next release; `hybridRef={callback(handler)}` on 0.2.1 |
+| Raw event functions | Plain functions in version 0.2.2; `callback(handler)` on 0.2.1 |
+| WebView methods on React `ref` | `hybridRef={handler}` in version 0.2.2; `hybridRef={callback(handler)}` on 0.2.1 |
 | `originWhitelist` prop | `createOriginWhitelistGuard` in the navigation callback |
 | Synchronous interception assumptions | Public `boolean \| Promise<boolean>` with platform-specific timing |
 | Page `ReactNativeWebView.postMessage` | Same string contract |
 
 Only documented props are implemented. There is no automatic equivalent for every react-native-webview prop. Check [props](../reference/props.md) and [platform support](../reference/platforms.md).
 
-## Plain callbacks (unreleased)
+## From 0.2.1 to 0.2.2 {#from-0-2-1-to-0-2-2}
 
 Event props and `hybridRef` accept plain functions. Existing `callback(fn)` values remain supported, including asynchronous navigation handlers. Remove a handler by passing `undefined`. The component handles the native callback envelope; the native event payloads and navigation timing are unchanged. Normal React `ref` still exposes the host view, not WebView methods.
 

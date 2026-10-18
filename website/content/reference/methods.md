@@ -1,6 +1,6 @@
 # Methods
 
-Call these methods on the `NitroWebViewType` received through `hybridRef={handler}`. Plain handlers are available in the next release; version 0.2.1 requires `hybridRef={callback(handler)}`, which remains supported.
+Call these methods on the `NitroWebViewType` received through `hybridRef={handler}`. Plain handlers are available in version 0.2.2; version 0.2.1 requires `hybridRef={callback(handler)}`, which remains supported.
 
 | Method | Return | Behavior |
 | --- | --- | --- |

@@ -1,6 +1,6 @@
 # Props
 
-`NitroWebView` accepts React Native view layout props and the WebView props below. The next release accepts plain functions for event props and `hybridRef`; existing `callback(fn)` wrappers remain supported. Version 0.2.1 requires wrappers.
+`NitroWebView` accepts React Native view layout props and the WebView props below. Version 0.2.2 accepts plain functions for event props and `hybridRef`; existing `callback(fn)` wrappers remain supported. Version 0.2.1 requires wrappers.
 
 ## Content and settings
 

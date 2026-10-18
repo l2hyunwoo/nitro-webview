@@ -8,7 +8,7 @@ Install both packages, install iOS pods, and rebuild the native app. Confirm the
 
 ## An event callback fails at render time
 
-Version 0.2.1 requires `callback` from `nitro-webview` or `react-native-nitro-modules` for events, `hybridRef`, and navigation callbacks. The next release wraps plain functions internally and also accepts existing wrappers. Confirm that each handler is a function or `undefined`.
+Version 0.2.1 requires `callback` from `nitro-webview` or `react-native-nitro-modules` for events, `hybridRef`, and navigation callbacks. Version 0.2.2 wraps plain functions internally and also accepts existing wrappers. Confirm that each handler is a function or `undefined`.
 
 ## A navigation unexpectedly loads
 

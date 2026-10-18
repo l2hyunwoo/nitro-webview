@@ -7,15 +7,15 @@
 | 기존 패턴 | Nitro WebView |
 | --- | --- |
 | `WebView` import | Named export인 `NitroWebView` |
-| 일반 이벤트 함수 | 다음 릴리스는 일반 함수, 0.2.1은 `callback(handler)` |
-| React `ref`의 WebView 메서드 | 다음 릴리스는 `hybridRef={handler}`, 0.2.1은 `hybridRef={callback(handler)}` |
+| 일반 이벤트 함수 | 0.2.2는 일반 함수, 0.2.1은 `callback(handler)` |
+| React `ref`의 WebView 메서드 | 0.2.2는 `hybridRef={handler}`, 0.2.1은 `hybridRef={callback(handler)}` |
 | `originWhitelist` prop | 탐색 콜백에 `createOriginWhitelistGuard` 적용 |
 | 동기 가로채기 가정 | 공개 `boolean \| Promise<boolean>`과 플랫폼별 대기 동작 |
 | 페이지의 `ReactNativeWebView.postMessage` | 같은 문자열 계약 |
 
 문서에 있는 prop만 구현합니다. react-native-webview의 모든 prop에 대응하는 기능이 있는 것은 아닙니다. [Props](../reference/props.md)와 [플랫폼 지원](../reference/platforms.md)을 확인하세요.
 
-## 일반 함수 콜백 (미출시) {#plain-callbacks-unreleased}
+## 0.2.1에서 0.2.2로 전환 {#from-0-2-1-to-0-2-2}
 
 이벤트 prop과 `hybridRef`에 일반 함수를 전달할 수 있습니다. 기존 `callback(fn)`과 비동기 탐색 핸들러도 계속 지원합니다. 핸들러를 제거하려면 `undefined`를 전달하세요. 컴포넌트가 네이티브 콜백 형식을 처리하며, 이벤트 payload와 탐색 대기 동작은 같습니다. 일반 React `ref`는 WebView 메서드가 아닌 host view를 제공합니다.
 

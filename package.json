@@ -1,6 +1,6 @@
 {
   "name": "nitro-webview",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "nitro-webview",
   "main": "lib/index",
   "module": "lib/index",

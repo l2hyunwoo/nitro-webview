@@ -4,7 +4,7 @@
 
 ## 페이지 렌더링 {#render-a-page}
 
-WebView의 크기와 `source`를 지정합니다. 아래 예제는 다음 릴리스부터 지원하는 일반 함수를 사용합니다. 0.2.1에서는 이벤트와 `hybridRef` 콜백을 `callback`으로 감싸세요. 기존 wrapper도 계속 지원합니다.
+WebView의 크기와 `source`를 지정합니다. 아래 예제는 0.2.2부터 지원하는 일반 함수를 사용합니다. 0.2.1에서는 이벤트와 `hybridRef` 콜백을 `callback`으로 감싸세요. 기존 wrapper도 계속 지원합니다.
 
 ```tsx
 import { NitroWebView } from 'nitro-webview'

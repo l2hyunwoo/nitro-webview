@@ -2,13 +2,13 @@
 
 Install the library and its Nitro runtime, then rebuild your native app.
 
-::: info Version 0.2.1
-These pages describe `0.2.1`. Match them to your installed package version and review [migration](../guides/migration.md) before upgrading.
+::: info Version 0.2.2
+These pages describe `0.2.2`. Match them to your installed package version and review [migration](../guides/migration.md) before upgrading.
 :::
 
 ## Requirements
 
-The development baseline uses React Native **0.85.3**, React **19.2.3**, and Nitro Modules **0.35.9**, with the New Architecture enabled. The 0.2.1 peer ranges are RN `~0.85.3`, React `19.2.3`, and Nitro `^0.35.9`.
+The development baseline uses React Native **0.85.3**, React **19.2.3**, and Nitro Modules **0.35.9**, with the New Architecture enabled. The 0.2.2 peer ranges are RN `~0.85.3`, React `19.2.3`, and Nitro `^0.35.9`.
 
 React Native 0.85.3 requires Android API **24+** and iOS **15.1+**. These are deployment requirements, not a claim that every OS/device combination was tested. See [platform support](../reference/platforms.md).
 
@@ -16,10 +16,10 @@ React Native 0.85.3 requires Android API **24+** and iOS **15.1+**. These are de
 
 ::: code-group
 ```sh [npm]
-npm install nitro-webview@0.2.1 react-native-nitro-modules
+npm install nitro-webview@0.2.2 react-native-nitro-modules
 ```
 ```sh [yarn]
-yarn add nitro-webview@0.2.1 react-native-nitro-modules
+yarn add nitro-webview@0.2.2 react-native-nitro-modules
 ```
 :::
 

@@ -1,6 +1,6 @@
 # Events
 
-The next release accepts plain event handlers and existing `callback(fn)` wrappers. Version 0.2.1 requires wrappers. Most payloads use `event.nativeEvent`; `onNavigationStateChange` receives the state directly.
+Version 0.2.2 accepts plain event handlers and existing `callback(fn)` wrappers. Version 0.2.1 requires wrappers. Most payloads use `event.nativeEvent`; `onNavigationStateChange` receives the state directly.
 
 ## Load lifecycle
 
