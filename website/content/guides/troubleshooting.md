@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with the native binary, the callback wrapper, and the mounted view's lifecycle.
+Start with the installed package version, native binary, and mounted view's lifecycle.
 
 ## Native view or bindings are missing
 
@@ -8,7 +8,7 @@ Install both packages, install iOS pods, and rebuild the native app. Confirm the
 
 ## An event callback fails at render time
 
-Wrap it with `callback` from `nitro-webview` or `react-native-nitro-modules`. This includes `hybridRef` and navigation callbacks.
+Version 0.2.1 requires `callback` from `nitro-webview` or `react-native-nitro-modules` for events, `hybridRef`, and navigation callbacks. The next release wraps plain functions internally and also accepts existing wrappers. Confirm that each handler is a function or `undefined`.
 
 ## A navigation unexpectedly loads
 

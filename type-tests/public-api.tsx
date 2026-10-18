@@ -85,6 +85,56 @@ export const publicProps: NitroWebViewProps[] = [
 
 export const publicJSX = [
   <NitroWebView
+    key="plain"
+    {...publicProps[0]!}
+    ref={nativeRef}
+    hybridRef={(ref) => {
+      publicHybridRef(ref)
+    }}
+    onLoadStart={(event) => {
+      event.nativeEvent.url satisfies string
+    }}
+    onLoad={(event) => {
+      event.nativeEvent.loading satisfies boolean
+    }}
+    onLoadProgress={(event) => {
+      event.nativeEvent.progress satisfies number
+    }}
+    onLoadEnd={(event) => {
+      event.nativeEvent.title satisfies string
+    }}
+    onNavigationStateChange={(state) => {
+      state.canGoBack satisfies boolean
+    }}
+    onMessage={(event) => {
+      event.nativeEvent.data satisfies string
+    }}
+    onError={(event) => {
+      event.nativeEvent.description satisfies string
+    }}
+    onHttpError={(event) => {
+      event.nativeEvent.statusCode satisfies number
+    }}
+    onFileDownload={(event) => {
+      event.nativeEvent satisfies FileDownload
+    }}
+    onOpenWindow={(event) => {
+      event.nativeEvent.url satisfies string
+    }}
+    onRenderProcessGone={(event) => {
+      event.nativeEvent satisfies NitroWebViewRenderProcessGoneNativeEvent
+    }}
+    onScroll={(event) => {
+      event.nativeEvent satisfies NitroWebViewScrollNativeEvent
+    }}
+    onShouldStartLoadWithRequest={async (request) =>
+      request.isTopFrame !== false
+    }
+    onLayout={(event) => {
+      event.nativeEvent.layout.width satisfies number
+    }}
+  />,
+  <NitroWebView
     key="sync"
     ref={nativeRef}
     hybridRef={callback((ref: NitroWebViewType) => ref.reload())}
@@ -124,6 +174,47 @@ export const publicJSX = [
     )}
   />,
 ]
+
+export const wrappedPublicProps: NitroWebViewProps = {
+  source: { uri: 'https://example.com' },
+  onMessage: callback((event) => {
+    event.nativeEvent.data satisfies string
+  }),
+  onShouldStartLoadWithRequest: callback(asyncDecision),
+}
+export const spreadWrappedProps = <NitroWebView {...wrappedPublicProps} />
+export const unsetCallbacks = (
+  <NitroWebView
+    {...publicProps[0]!}
+    onMessage={undefined}
+    hybridRef={undefined}
+  />
+)
+export const wrongCallback = (
+  <NitroWebView
+    {...publicProps[0]!}
+    // @ts-expect-error - A plain callback must receive the documented event.
+    onMessage={(event: number) => {
+      event.toFixed()
+    }}
+  />
+)
+export const wrongWrappedCallback = (
+  <NitroWebView
+    {...publicProps[0]!}
+    // @ts-expect-error - Wrapping must not erase the event type.
+    onMessage={callback((event: number) => {
+      event.toFixed()
+    })}
+  />
+)
+export const wrongDecision = (
+  <NitroWebView
+    {...publicProps[0]!}
+    // @ts-expect-error - Navigation decisions must resolve to booleans.
+    onShouldStartLoadWithRequest={async () => 'allow'}
+  />
+)
 
 export type PublicPayloads = [
   ShouldStartLoadRequest,

@@ -1,6 +1,6 @@
 # Props
 
-`NitroWebView`는 React Native 뷰의 레이아웃 prop과 아래 WebView prop을 받습니다. 모든 이벤트·hybrid ref 콜백을 `callback()`으로 감싸세요.
+`NitroWebView`는 React Native 뷰의 레이아웃 prop과 아래 WebView prop을 받습니다. 다음 릴리스부터 이벤트와 `hybridRef`에 일반 함수를 전달할 수 있습니다. 기존 `callback(fn)`도 지원합니다. 0.2.1에서는 wrapper가 필요합니다.
 
 ## 콘텐츠와 설정 {#content-and-settings}
 

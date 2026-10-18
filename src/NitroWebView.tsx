@@ -1,12 +1,11 @@
 import React, { forwardRef, useMemo } from 'react'
-import { Platform } from 'react-native'
+import { Platform, type ViewProps } from 'react-native'
 import {
   callback,
   getHostComponent,
   type HybridView,
   type HybridViewProps,
   type NitroViewWrappedCallback,
-  type ReactNativeView,
 } from 'react-native-nitro-modules'
 import NitroWebViewConfig from '../nitrogen/generated/shared/json/NitroWebViewConfig.json'
 import type {
@@ -17,12 +16,21 @@ import type { OnShouldStartLoadWithRequest } from './originWhitelist'
 import { createShouldStartLoadBridge } from './shouldStartLoadBridge'
 import { patchAndroidPostMessage } from './bridgeScript'
 
-/** Public callbacks may settle asynchronously; the component bridges their result. */
-export interface NitroWebViewProps extends Omit<
-  NativeNitroWebViewProps,
-  'onShouldStartLoadWithRequest'
+type EventHandler = (...args: never[]) => unknown
+type CallbackProp<T extends EventHandler> =
+  | T
+  | NitroViewWrappedCallback<T | undefined>
+type PublicCallbacks<Props> = {
+  [K in keyof Props]: NonNullable<Props[K]> extends EventHandler
+    ? CallbackProp<NonNullable<Props[K]>>
+    : Props[K]
+}
+
+/** Event handlers accept plain functions or existing Nitro callback wrappers. */
+export interface NitroWebViewProps extends PublicCallbacks<
+  Omit<NativeNitroWebViewProps, 'onShouldStartLoadWithRequest'>
 > {
-  onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest
+  onShouldStartLoadWithRequest?: CallbackProp<OnShouldStartLoadWithRequest>
 }
 
 /** Imperative methods and Nitro lifecycle API; set view props through React. */
@@ -38,35 +46,63 @@ const NativeNitroWebView = getHostComponent<
 // Nitro's optional callback converter still requires the object envelope when clearing it.
 const emptyCallback = { f: undefined }
 
-type ComponentProps = Omit<
-  React.ComponentPropsWithoutRef<
-    ReactNativeView<NitroWebViewProps, NitroWebViewMethods>
-  >,
-  'hybridRef'
-> & {
-  hybridRef?: NitroViewWrappedCallback<
-    ((ref: NitroWebViewType) => void) | undefined
-  >
+function unwrapCallback<T extends EventHandler>(
+  value: CallbackProp<T> | undefined
+): T | undefined {
+  return typeof value === 'function' ? value : value?.f
 }
+
+function useNativeCallback<T extends EventHandler>(
+  value: CallbackProp<T> | undefined
+) {
+  const handler = unwrapCallback(value)
+  return useMemo(() => callback(handler) ?? emptyCallback, [handler])
+}
+
+type ComponentProps = NitroWebViewProps &
+  ViewProps & {
+    hybridRef?: CallbackProp<(ref: NitroWebViewType) => void>
+  }
 
 /** React component for the Nitro-backed WebView. */
 export const NitroWebView = forwardRef<
   React.ComponentRef<typeof NativeNitroWebView>,
   ComponentProps
 >(function NitroWebView(
-  { onShouldStartLoadWithRequest, onMessage, hybridRef, ...props },
+  {
+    onShouldStartLoadWithRequest,
+    onMessage,
+    onLoadStart,
+    onLoad,
+    onLoadProgress,
+    onLoadEnd,
+    onNavigationStateChange,
+    onError,
+    onHttpError,
+    onOpenWindow,
+    onFileDownload,
+    onRenderProcessGone,
+    onScroll,
+    hybridRef,
+    ...props
+  },
   ref
 ) {
-  const handler = onShouldStartLoadWithRequest?.f
+  const handler = unwrapCallback(onShouldStartLoadWithRequest)
+  const refHandler = unwrapCallback(hybridRef)
   const nativeHybridRef = useMemo(
     () =>
-      Platform.OS !== 'android' || hybridRef == null
-        ? hybridRef
-        : callback((value: NitroWebViewType) => {
-            patchAndroidPostMessage(value)
-            hybridRef.f?.(value)
-          }),
-    [hybridRef]
+      refHandler === undefined
+        ? emptyCallback
+        : callback(
+            Platform.OS === 'android'
+              ? (value: NitroWebViewType) => {
+                  patchAndroidPostMessage(value)
+                  refHandler(value)
+                }
+              : refHandler
+          ),
+    [refHandler]
   )
   const nativeCallback = useMemo(
     () =>
@@ -80,7 +116,18 @@ export const NitroWebView = forwardRef<
       {...props}
       ref={ref}
       hybridRef={nativeHybridRef}
-      onMessage={onMessage ?? emptyCallback}
+      onMessage={useNativeCallback(onMessage)}
+      onLoadStart={useNativeCallback(onLoadStart)}
+      onLoad={useNativeCallback(onLoad)}
+      onLoadProgress={useNativeCallback(onLoadProgress)}
+      onLoadEnd={useNativeCallback(onLoadEnd)}
+      onNavigationStateChange={useNativeCallback(onNavigationStateChange)}
+      onError={useNativeCallback(onError)}
+      onHttpError={useNativeCallback(onHttpError)}
+      onOpenWindow={useNativeCallback(onOpenWindow)}
+      onFileDownload={useNativeCallback(onFileDownload)}
+      onRenderProcessGone={useNativeCallback(onRenderProcessGone)}
+      onScroll={useNativeCallback(onScroll)}
       onShouldStartLoadWithRequest={nativeCallback}
     />
   )
