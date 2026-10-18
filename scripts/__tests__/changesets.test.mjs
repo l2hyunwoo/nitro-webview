@@ -27,8 +27,9 @@ const notes = release.jobs['create-github-release'].steps.find(
 function fixture(t) {
   const cwd = mkdtempSync(join(tmpdir(), 'nitro-changesets-'))
   t.after(() => rmSync(cwd, { recursive: true, force: true }))
+  const env = { ...process.env, CI: 'true', GITHUB_OUTPUT: join(cwd, 'output') }
   const run = (command, args) =>
-    execFileSync(command, args, { cwd, encoding: 'utf8' })
+    execFileSync(command, args, { cwd, env, encoding: 'utf8' })
   mkdirSync(join(cwd, '.changeset'))
   writeFileSync(
     join(cwd, '.changeset/config.json'),
@@ -54,7 +55,8 @@ function fixture(t) {
       2
     ) + '\n'
   )
-  run('yarn', ['install'])
+  // The new fixture needs a lockfile before CI's immutable installs can run.
+  run('yarn', ['install', '--no-immutable'])
   run('git', ['init', '-b', 'main'])
   run('git', ['config', 'user.name', 'Release test'])
   run('git', ['config', 'user.email', 'release@example.com'])
@@ -63,7 +65,6 @@ function fixture(t) {
     run('git', ['commit', '-m', 'Test fixture'])
   }
   commit()
-  const env = { ...process.env, GITHUB_OUTPUT: join(cwd, 'output') }
   return { cwd, run, commit, env }
 }
 
