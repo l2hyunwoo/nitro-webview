@@ -256,9 +256,8 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: example/ios/Pods
+          # No restore-keys: a Pods/ dir from another lock pins stale local podspecs (e.g. hermes-engine) and fails pod install.
           key: pods-e2e-${{ runner.os }}-${{ hashFiles('example/ios/Podfile.lock') }}
-          restore-keys: |
-            pods-e2e-${{ runner.os }}-
 
       - name: Show selected Xcode
         run: xcodebuild -version
