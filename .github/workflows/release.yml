@@ -487,6 +487,7 @@ jobs:
       - name: Confirm npm registry publication
         if: inputs.dry_run != 'true'
         env:
+          NPM_CONFIG_USERCONFIG: /dev/null
           RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
         run: |
           set -euo pipefail
