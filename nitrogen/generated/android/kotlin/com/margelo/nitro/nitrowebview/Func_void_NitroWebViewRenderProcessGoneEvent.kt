@@ -10,7 +10,6 @@ package com.margelo.nitro.nitrowebview
 import androidx.annotation.Keep
 import com.facebook.jni.HybridData
 import com.facebook.proguard.annotations.DoNotStrip
-import dalvik.annotation.optimization.FastNative
 
 
 /**
@@ -59,7 +58,6 @@ class Func_void_NitroWebViewRenderProcessGoneEvent_cxx: Func_void_NitroWebViewRe
   override fun invoke(event: NitroWebViewRenderProcessGoneEvent): Unit
     = invoke_cxx(event)
 
-  @FastNative
   private external fun invoke_cxx(event: NitroWebViewRenderProcessGoneEvent): Unit
 }
 

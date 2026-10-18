@@ -20,7 +20,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "FileDownloadEvent" and the the Kotlin data class "FileDownloadEvent".
+   * The C++ JNI bridge between the C++ struct "FileDownloadEvent" and the Kotlin data class "FileDownloadEvent".
    */
   struct JFileDownloadEvent final: public jni::JavaClass<JFileDownloadEvent> {
   public:

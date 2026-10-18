@@ -20,7 +20,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "ShouldStartLoadRequest" and the the Kotlin data class "ShouldStartLoadRequest".
+   * The C++ JNI bridge between the C++ struct "ShouldStartLoadRequest" and the Kotlin data class "ShouldStartLoadRequest".
    */
   struct JShouldStartLoadRequest final: public jni::JavaClass<JShouldStartLoadRequest> {
   public:

@@ -21,7 +21,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "UriSource" and the the Kotlin data class "UriSource".
+   * The C++ JNI bridge between the C++ struct "UriSource" and the Kotlin data class "UriSource".
    */
   struct JUriSource final: public jni::JavaClass<JUriSource> {
   public:

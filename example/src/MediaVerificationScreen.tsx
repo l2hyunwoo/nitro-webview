@@ -3,9 +3,8 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { callback, NitroWebView } from 'nitro-webview'
 
 // Original synthetic test signal, not a recording of a successful test.
-const videoUri = Image.resolveAssetSource(
-  require('./fixtures/media-test.mp4')
-).uri
+const videoUri =
+  Image.resolveAssetSource(require('./fixtures/media-test.mp4'))?.uri ?? ''
 
 export function MediaVerificationScreen() {
   const [mode, setMode] = useState<'inline' | 'gesture' | 'fullscreen'>(

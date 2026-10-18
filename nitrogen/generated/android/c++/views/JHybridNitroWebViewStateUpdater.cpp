@@ -15,173 +15,224 @@ namespace margelo::nitro::nitrowebview::views {
 using namespace facebook;
 using ConcreteStateData = react::ConcreteState<HybridNitroWebViewState>;
 
-void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass> /* class */,
-                                           jni::alias_ref<JHybridNitroWebViewSpec::JavaPart> javaView,
-                                           jni::alias_ref<JStateWrapper::javaobject> stateWrapperInterface) {
-  std::shared_ptr<JHybridNitroWebViewSpec> hybridView = javaView->getJHybridNitroWebViewSpec();
-
-  // Get concrete StateWrapperImpl from passed StateWrapper interface object
-  jobject rawStateWrapper = stateWrapperInterface.get();
-  if (!stateWrapperInterface->isInstanceOf(react::StateWrapperImpl::javaClassStatic())) [[unlikely]] {
-      throw std::runtime_error("StateWrapper is not a StateWrapperImpl");
+std::shared_ptr<const HybridNitroWebViewProps> JHybridNitroWebViewStateUpdater::getPropsFromStateWrapper(
+    jni::alias_ref<JStateWrapper::javaobject> stateWrapper) {
+  if (stateWrapper.get() == nullptr) {
+    return nullptr;
   }
-  auto stateWrapper = jni::alias_ref<react::StateWrapperImpl::javaobject>{
-            static_cast<react::StateWrapperImpl::javaobject>(rawStateWrapper)};
-  std::shared_ptr<const react::State> state = stateWrapper->cthis()->getState();
+  // Get concrete StateWrapperImpl from passed StateWrapper interface object
+  jobject rawStateWrapper = stateWrapper.get();
+  if (!stateWrapper->isInstanceOf(react::StateWrapperImpl::javaClassStatic())) [[unlikely]] {
+    throw std::runtime_error("StateWrapper is not a StateWrapperImpl");
+  }
+  auto stateWrapperImpl = jni::alias_ref<react::StateWrapperImpl::javaobject>{
+    static_cast<react::StateWrapperImpl::javaobject>(rawStateWrapper)
+  };
+  std::shared_ptr<const react::State> state = stateWrapperImpl->cthis()->getState();
+  if (state == nullptr) {
+    return nullptr;
+  }
   auto concreteState = std::static_pointer_cast<const ConcreteStateData>(state);
   const HybridNitroWebViewState& data = concreteState->getData();
-  const std::shared_ptr<HybridNitroWebViewProps>& props = data.getProps();
+  const std::shared_ptr<const HybridNitroWebViewProps>& props = data.getProps();
   if (props == nullptr) [[unlikely]] {
-    // Props aren't set yet!
     throw std::runtime_error("HybridNitroWebViewState's data doesn't contain any props!");
   }
+  return props;
+}
 
-  // Update all props if they are dirty
-  if (props->allowedMessageOrigins.isDirty) {
-    hybridView->setAllowedMessageOrigins(props->allowedMessageOrigins.value);
-    props->allowedMessageOrigins.isDirty = false;
+void JHybridNitroWebViewStateUpdater::updateViewProps(jni::alias_ref<jni::JClass> /* class */,
+                                           jni::alias_ref<JHybridNitroWebViewSpec::JavaPart> javaView,
+                                           jni::alias_ref<JStateWrapper::javaobject> newState,
+                                           jni::alias_ref<JStateWrapper::javaobject> oldState) {
+  std::shared_ptr<JHybridNitroWebViewSpec> hybridView = javaView->getJHybridNitroWebViewSpec();
+  std::shared_ptr<const HybridNitroWebViewProps> newProps = getPropsFromStateWrapper(newState);
+  std::shared_ptr<const HybridNitroWebViewProps> oldProps = getPropsFromStateWrapper(oldState);
+  if (newProps == nullptr) [[unlikely]] {
+    throw std::runtime_error("Current StateWrapper doesn't contain any props!");
   }
-  if (props->mediaCapturePermissionOrigins.isDirty) {
-    hybridView->setMediaCapturePermissionOrigins(props->mediaCapturePermissionOrigins.value);
-    props->mediaCapturePermissionOrigins.isDirty = false;
+
+  // Update only props that differ from the previous State snapshot.
+  if (oldProps == nullptr
+        ? newProps->allowedMessageOrigins.isProvided()
+        : !newProps->allowedMessageOrigins.hasSameValue(oldProps->allowedMessageOrigins)) {
+    hybridView->setAllowedMessageOrigins(newProps->allowedMessageOrigins.get());
   }
-  if (props->geolocationPermissionOrigins.isDirty) {
-    hybridView->setGeolocationPermissionOrigins(props->geolocationPermissionOrigins.value);
-    props->geolocationPermissionOrigins.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->mediaCapturePermissionOrigins.isProvided()
+        : !newProps->mediaCapturePermissionOrigins.hasSameValue(oldProps->mediaCapturePermissionOrigins)) {
+    hybridView->setMediaCapturePermissionOrigins(newProps->mediaCapturePermissionOrigins.get());
   }
-  if (props->source.isDirty) {
-    hybridView->setSource(props->source.value);
-    props->source.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->geolocationPermissionOrigins.isProvided()
+        : !newProps->geolocationPermissionOrigins.hasSameValue(oldProps->geolocationPermissionOrigins)) {
+    hybridView->setGeolocationPermissionOrigins(newProps->geolocationPermissionOrigins.get());
   }
-  if (props->defaultHeaders.isDirty) {
-    hybridView->setDefaultHeaders(props->defaultHeaders.value);
-    props->defaultHeaders.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->source.isProvided()
+        : !newProps->source.hasSameValue(oldProps->source)) {
+    hybridView->setSource(newProps->source.get());
   }
-  if (props->userAgent.isDirty) {
-    hybridView->setUserAgent(props->userAgent.value);
-    props->userAgent.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->defaultHeaders.isProvided()
+        : !newProps->defaultHeaders.hasSameValue(oldProps->defaultHeaders)) {
+    hybridView->setDefaultHeaders(newProps->defaultHeaders.get());
   }
-  if (props->javaScriptEnabled.isDirty) {
-    hybridView->setJavaScriptEnabled(props->javaScriptEnabled.value);
-    props->javaScriptEnabled.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->userAgent.isProvided()
+        : !newProps->userAgent.hasSameValue(oldProps->userAgent)) {
+    hybridView->setUserAgent(newProps->userAgent.get());
   }
-  if (props->domStorageEnabled.isDirty) {
-    hybridView->setDomStorageEnabled(props->domStorageEnabled.value);
-    props->domStorageEnabled.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->javaScriptEnabled.isProvided()
+        : !newProps->javaScriptEnabled.hasSameValue(oldProps->javaScriptEnabled)) {
+    hybridView->setJavaScriptEnabled(newProps->javaScriptEnabled.get());
   }
-  if (props->cacheEnabled.isDirty) {
-    hybridView->setCacheEnabled(props->cacheEnabled.value);
-    props->cacheEnabled.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->domStorageEnabled.isProvided()
+        : !newProps->domStorageEnabled.hasSameValue(oldProps->domStorageEnabled)) {
+    hybridView->setDomStorageEnabled(newProps->domStorageEnabled.get());
   }
-  if (props->incognito.isDirty) {
-    hybridView->setIncognito(props->incognito.value);
-    props->incognito.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->cacheEnabled.isProvided()
+        : !newProps->cacheEnabled.hasSameValue(oldProps->cacheEnabled)) {
+    hybridView->setCacheEnabled(newProps->cacheEnabled.get());
   }
-  if (props->scrollEnabled.isDirty) {
-    hybridView->setScrollEnabled(props->scrollEnabled.value);
-    props->scrollEnabled.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->incognito.isProvided()
+        : !newProps->incognito.hasSameValue(oldProps->incognito)) {
+    hybridView->setIncognito(newProps->incognito.get());
   }
-  if (props->bounces.isDirty) {
-    hybridView->setBounces(props->bounces.value);
-    props->bounces.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->scrollEnabled.isProvided()
+        : !newProps->scrollEnabled.hasSameValue(oldProps->scrollEnabled)) {
+    hybridView->setScrollEnabled(newProps->scrollEnabled.get());
   }
-  if (props->scalesPageToFit.isDirty) {
-    hybridView->setScalesPageToFit(props->scalesPageToFit.value);
-    props->scalesPageToFit.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->bounces.isProvided()
+        : !newProps->bounces.hasSameValue(oldProps->bounces)) {
+    hybridView->setBounces(newProps->bounces.get());
   }
-  if (props->mediaPlaybackRequiresUserAction.isDirty) {
-    hybridView->setMediaPlaybackRequiresUserAction(props->mediaPlaybackRequiresUserAction.value);
-    props->mediaPlaybackRequiresUserAction.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->scalesPageToFit.isProvided()
+        : !newProps->scalesPageToFit.hasSameValue(oldProps->scalesPageToFit)) {
+    hybridView->setScalesPageToFit(newProps->scalesPageToFit.get());
   }
-  if (props->allowsInlineMediaPlayback.isDirty) {
-    hybridView->setAllowsInlineMediaPlayback(props->allowsInlineMediaPlayback.value);
-    props->allowsInlineMediaPlayback.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->mediaPlaybackRequiresUserAction.isProvided()
+        : !newProps->mediaPlaybackRequiresUserAction.hasSameValue(oldProps->mediaPlaybackRequiresUserAction)) {
+    hybridView->setMediaPlaybackRequiresUserAction(newProps->mediaPlaybackRequiresUserAction.get());
   }
-  if (props->allowsBackForwardNavigationGestures.isDirty) {
-    hybridView->setAllowsBackForwardNavigationGestures(props->allowsBackForwardNavigationGestures.value);
-    props->allowsBackForwardNavigationGestures.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->allowsInlineMediaPlayback.isProvided()
+        : !newProps->allowsInlineMediaPlayback.hasSameValue(oldProps->allowsInlineMediaPlayback)) {
+    hybridView->setAllowsInlineMediaPlayback(newProps->allowsInlineMediaPlayback.get());
   }
-  if (props->thirdPartyCookiesEnabled.isDirty) {
-    hybridView->setThirdPartyCookiesEnabled(props->thirdPartyCookiesEnabled.value);
-    props->thirdPartyCookiesEnabled.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->allowsBackForwardNavigationGestures.isProvided()
+        : !newProps->allowsBackForwardNavigationGestures.hasSameValue(oldProps->allowsBackForwardNavigationGestures)) {
+    hybridView->setAllowsBackForwardNavigationGestures(newProps->allowsBackForwardNavigationGestures.get());
   }
-  if (props->sharedCookiesEnabled.isDirty) {
-    hybridView->setSharedCookiesEnabled(props->sharedCookiesEnabled.value);
-    props->sharedCookiesEnabled.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->thirdPartyCookiesEnabled.isProvided()
+        : !newProps->thirdPartyCookiesEnabled.hasSameValue(oldProps->thirdPartyCookiesEnabled)) {
+    hybridView->setThirdPartyCookiesEnabled(newProps->thirdPartyCookiesEnabled.get());
   }
-  if (props->injectedJavaScript.isDirty) {
-    hybridView->setInjectedJavaScript(props->injectedJavaScript.value);
-    props->injectedJavaScript.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->sharedCookiesEnabled.isProvided()
+        : !newProps->sharedCookiesEnabled.hasSameValue(oldProps->sharedCookiesEnabled)) {
+    hybridView->setSharedCookiesEnabled(newProps->sharedCookiesEnabled.get());
   }
-  if (props->injectedJavaScriptBeforeContentLoaded.isDirty) {
-    hybridView->setInjectedJavaScriptBeforeContentLoaded(props->injectedJavaScriptBeforeContentLoaded.value);
-    props->injectedJavaScriptBeforeContentLoaded.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->injectedJavaScript.isProvided()
+        : !newProps->injectedJavaScript.hasSameValue(oldProps->injectedJavaScript)) {
+    hybridView->setInjectedJavaScript(newProps->injectedJavaScript.get());
   }
-  if (props->onLoadStart.isDirty) {
-    hybridView->setOnLoadStart(props->onLoadStart.value);
-    props->onLoadStart.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->injectedJavaScriptBeforeContentLoaded.isProvided()
+        : !newProps->injectedJavaScriptBeforeContentLoaded.hasSameValue(oldProps->injectedJavaScriptBeforeContentLoaded)) {
+    hybridView->setInjectedJavaScriptBeforeContentLoaded(newProps->injectedJavaScriptBeforeContentLoaded.get());
   }
-  if (props->onLoad.isDirty) {
-    hybridView->setOnLoad(props->onLoad.value);
-    props->onLoad.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onLoadStart.isProvided()
+        : !newProps->onLoadStart.hasSameValue(oldProps->onLoadStart)) {
+    hybridView->setOnLoadStart(newProps->onLoadStart.get());
   }
-  if (props->onLoadProgress.isDirty) {
-    hybridView->setOnLoadProgress(props->onLoadProgress.value);
-    props->onLoadProgress.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onLoad.isProvided()
+        : !newProps->onLoad.hasSameValue(oldProps->onLoad)) {
+    hybridView->setOnLoad(newProps->onLoad.get());
   }
-  if (props->onLoadEnd.isDirty) {
-    hybridView->setOnLoadEnd(props->onLoadEnd.value);
-    props->onLoadEnd.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onLoadProgress.isProvided()
+        : !newProps->onLoadProgress.hasSameValue(oldProps->onLoadProgress)) {
+    hybridView->setOnLoadProgress(newProps->onLoadProgress.get());
   }
-  if (props->onNavigationStateChange.isDirty) {
-    hybridView->setOnNavigationStateChange(props->onNavigationStateChange.value);
-    props->onNavigationStateChange.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onLoadEnd.isProvided()
+        : !newProps->onLoadEnd.hasSameValue(oldProps->onLoadEnd)) {
+    hybridView->setOnLoadEnd(newProps->onLoadEnd.get());
   }
-  if (props->onMessage.isDirty) {
-    hybridView->setOnMessage(props->onMessage.value);
-    props->onMessage.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onNavigationStateChange.isProvided()
+        : !newProps->onNavigationStateChange.hasSameValue(oldProps->onNavigationStateChange)) {
+    hybridView->setOnNavigationStateChange(newProps->onNavigationStateChange.get());
   }
-  if (props->onError.isDirty) {
-    hybridView->setOnError(props->onError.value);
-    props->onError.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onMessage.isProvided()
+        : !newProps->onMessage.hasSameValue(oldProps->onMessage)) {
+    hybridView->setOnMessage(newProps->onMessage.get());
   }
-  if (props->onShouldStartLoadWithRequest.isDirty) {
-    hybridView->setOnShouldStartLoadWithRequest(props->onShouldStartLoadWithRequest.value);
-    props->onShouldStartLoadWithRequest.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onError.isProvided()
+        : !newProps->onError.hasSameValue(oldProps->onError)) {
+    hybridView->setOnError(newProps->onError.get());
   }
-  if (props->interceptSubframeNavigation.isDirty) {
-    hybridView->setInterceptSubframeNavigation(props->interceptSubframeNavigation.value);
-    props->interceptSubframeNavigation.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onShouldStartLoadWithRequest.isProvided()
+        : !newProps->onShouldStartLoadWithRequest.hasSameValue(oldProps->onShouldStartLoadWithRequest)) {
+    hybridView->setOnShouldStartLoadWithRequest(newProps->onShouldStartLoadWithRequest.get());
   }
-  if (props->onOpenWindow.isDirty) {
-    hybridView->setOnOpenWindow(props->onOpenWindow.value);
-    props->onOpenWindow.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->interceptSubframeNavigation.isProvided()
+        : !newProps->interceptSubframeNavigation.hasSameValue(oldProps->interceptSubframeNavigation)) {
+    hybridView->setInterceptSubframeNavigation(newProps->interceptSubframeNavigation.get());
   }
-  if (props->onFileDownload.isDirty) {
-    hybridView->setOnFileDownload(props->onFileDownload.value);
-    props->onFileDownload.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onOpenWindow.isProvided()
+        : !newProps->onOpenWindow.hasSameValue(oldProps->onOpenWindow)) {
+    hybridView->setOnOpenWindow(newProps->onOpenWindow.get());
   }
-  if (props->onHttpError.isDirty) {
-    hybridView->setOnHttpError(props->onHttpError.value);
-    props->onHttpError.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onFileDownload.isProvided()
+        : !newProps->onFileDownload.hasSameValue(oldProps->onFileDownload)) {
+    hybridView->setOnFileDownload(newProps->onFileDownload.get());
   }
-  if (props->onRenderProcessGone.isDirty) {
-    hybridView->setOnRenderProcessGone(props->onRenderProcessGone.value);
-    props->onRenderProcessGone.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onHttpError.isProvided()
+        : !newProps->onHttpError.hasSameValue(oldProps->onHttpError)) {
+    hybridView->setOnHttpError(newProps->onHttpError.get());
   }
-  if (props->onScroll.isDirty) {
-    hybridView->setOnScroll(props->onScroll.value);
-    props->onScroll.isDirty = false;
+  if (oldProps == nullptr
+        ? newProps->onRenderProcessGone.isProvided()
+        : !newProps->onRenderProcessGone.hasSameValue(oldProps->onRenderProcessGone)) {
+    hybridView->setOnRenderProcessGone(newProps->onRenderProcessGone.get());
+  }
+  if (oldProps == nullptr
+        ? newProps->onScroll.isProvided()
+        : !newProps->onScroll.hasSameValue(oldProps->onScroll)) {
+    hybridView->setOnScroll(newProps->onScroll.get());
   }
 
   // Update hybridRef if it changed
-  if (props->hybridRef.isDirty) {
+  if (oldProps == nullptr
+        ? newProps->hybridRef.isProvided()
+        : !newProps->hybridRef.hasSameValue(oldProps->hybridRef)) {
     // hybridRef changed - call it with new this
-    const auto& maybeFunc = props->hybridRef.value;
+    const auto& maybeFunc = newProps->hybridRef.get();
     if (maybeFunc.has_value()) {
       maybeFunc.value()(hybridView);
     }
-    props->hybridRef.isDirty = false;
   }
 }
 

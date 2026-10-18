@@ -10,6 +10,7 @@ package com.margelo.nitro.nitrowebview
 import androidx.annotation.Keep
 import com.facebook.jni.HybridData
 import com.facebook.proguard.annotations.DoNotStrip
+import dalvik.annotation.optimization.FastNative
 import com.margelo.nitro.core.Promise
 import com.margelo.nitro.core.HybridObject
 import com.margelo.nitro.views.HybridView
@@ -398,6 +399,7 @@ abstract class HybridNitroWebViewSpec: HybridView() {
   @Keep
   protected open class CxxPart(javaPart: HybridNitroWebViewSpec): HybridObject.CxxPart(javaPart) {
     // C++ JHybridNitroWebViewSpec::CxxPart::initHybrid(...)
+    @FastNative
     external override fun initHybrid(): HybridData
   }
   override fun createCxxPart(): CxxPart {

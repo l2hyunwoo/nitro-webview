@@ -15,7 +15,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ enum "WebViewNavigationType" and the the Kotlin enum "WebViewNavigationType".
+   * The C++ JNI bridge between the C++ enum "WebViewNavigationType" and the Kotlin enum "WebViewNavigationType".
    */
   struct JWebViewNavigationType final: public jni::JavaClass<JWebViewNavigationType> {
   public:

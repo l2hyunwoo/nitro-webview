@@ -19,7 +19,10 @@ def isNewArchitectureEnabled() {
 }
 
 apply plugin: "com.android.library"
-apply plugin: 'org.jetbrains.kotlin.android'
+// Apps with AGP built-in Kotlin already provide the `kotlin` extension; applying the plugin again fails.
+if (project.extensions.findByName('kotlin') == null) {
+  apply plugin: 'org.jetbrains.kotlin.android'
+}
 apply from: '../nitrogen/generated/android/NitroWebview+autolinking.gradle'
 apply from: "./fix-prefab.gradle"
 

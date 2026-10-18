@@ -18,7 +18,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "Cookie" and the the Kotlin data class "Cookie".
+   * The C++ JNI bridge between the C++ struct "Cookie" and the Kotlin data class "Cookie".
    */
   struct JCookie final: public jni::JavaClass<JCookie> {
   public:

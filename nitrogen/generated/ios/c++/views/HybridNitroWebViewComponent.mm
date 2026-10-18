@@ -37,6 +37,7 @@ using namespace margelo::nitro::nitrowebview::views;
 
 @implementation HybridNitroWebViewComponent {
   std::shared_ptr<HybridNitroWebViewSpecSwift> _hybridView;
+  BOOL _didDropView;
 }
 
 + (void) load {
@@ -50,6 +51,7 @@ using namespace margelo::nitro::nitrowebview::views;
 
 - (instancetype) init {
   if (self = [super init]) {
+    _props = HybridNitroWebViewShadowNode::defaultSharedProps();
     std::shared_ptr<HybridNitroWebViewSpec> hybridView = NitroWebview::NitroWebviewAutolinking::createNitroWebView();
     _hybridView = std::dynamic_pointer_cast<HybridNitroWebViewSpecSwift>(hybridView);
     [self updateView];
@@ -69,200 +71,253 @@ using namespace margelo::nitro::nitrowebview::views;
   [self setContentView:view];
 }
 
+- (void) notifyOnDropView {
+  // A recycled component can later be invalidated. Notify only once per mount.
+  if (_didDropView) {
+    return;
+  }
+  NitroWebview::HybridNitroWebViewSpec_cxx& swiftPart = _hybridView->getSwiftPart();
+  swiftPart.onDropView();
+  _didDropView = YES;
+}
+
 - (void) updateProps:(const std::shared_ptr<const react::Props>&)props
             oldProps:(const std::shared_ptr<const react::Props>&)oldProps {
+  // A props update marks a newly mounted or still-active component.
+  _didDropView = NO;
+
   // 1. Downcast props
-  const auto& newViewPropsConst = *std::static_pointer_cast<HybridNitroWebViewProps const>(props);
-  auto& newViewProps = const_cast<HybridNitroWebViewProps&>(newViewPropsConst);
+  const auto& newViewProps = *std::static_pointer_cast<const HybridNitroWebViewProps>(props);
+  const auto* oldViewProps = static_cast<const HybridNitroWebViewProps*>(oldProps.get());
   NitroWebview::HybridNitroWebViewSpec_cxx& swiftPart = _hybridView->getSwiftPart();
 
-  // 2. Update each prop individually
-  swiftPart.beforeUpdate();
+  // 2. Update only props that differ from the previous Props snapshot.
+  const bool hasTransactionPropChanges = oldViewProps == nullptr
+      ? newViewProps.hasAnyProvidedProps()
+      : !newViewProps.hasSameProps(*oldViewProps);
+  if (hasTransactionPropChanges) {
+    swiftPart.beforeUpdate();
 
-  // allowedMessageOrigins: optional
-  if (newViewProps.allowedMessageOrigins.isDirty) {
-    swiftPart.setAllowedMessageOrigins(newViewProps.allowedMessageOrigins.value);
-    newViewProps.allowedMessageOrigins.isDirty = false;
-  }
-  // mediaCapturePermissionOrigins: optional
-  if (newViewProps.mediaCapturePermissionOrigins.isDirty) {
-    swiftPart.setMediaCapturePermissionOrigins(newViewProps.mediaCapturePermissionOrigins.value);
-    newViewProps.mediaCapturePermissionOrigins.isDirty = false;
-  }
-  // geolocationPermissionOrigins: optional
-  if (newViewProps.geolocationPermissionOrigins.isDirty) {
-    swiftPart.setGeolocationPermissionOrigins(newViewProps.geolocationPermissionOrigins.value);
-    newViewProps.geolocationPermissionOrigins.isDirty = false;
-  }
-  // source: variant
-  if (newViewProps.source.isDirty) {
-    swiftPart.setSource(newViewProps.source.value);
-    newViewProps.source.isDirty = false;
-  }
-  // defaultHeaders: optional
-  if (newViewProps.defaultHeaders.isDirty) {
-    swiftPart.setDefaultHeaders(newViewProps.defaultHeaders.value);
-    newViewProps.defaultHeaders.isDirty = false;
-  }
-  // userAgent: optional
-  if (newViewProps.userAgent.isDirty) {
-    swiftPart.setUserAgent(newViewProps.userAgent.value);
-    newViewProps.userAgent.isDirty = false;
-  }
-  // javaScriptEnabled: optional
-  if (newViewProps.javaScriptEnabled.isDirty) {
-    swiftPart.setJavaScriptEnabled(newViewProps.javaScriptEnabled.value);
-    newViewProps.javaScriptEnabled.isDirty = false;
-  }
-  // domStorageEnabled: optional
-  if (newViewProps.domStorageEnabled.isDirty) {
-    swiftPart.setDomStorageEnabled(newViewProps.domStorageEnabled.value);
-    newViewProps.domStorageEnabled.isDirty = false;
-  }
-  // cacheEnabled: optional
-  if (newViewProps.cacheEnabled.isDirty) {
-    swiftPart.setCacheEnabled(newViewProps.cacheEnabled.value);
-    newViewProps.cacheEnabled.isDirty = false;
-  }
-  // incognito: optional
-  if (newViewProps.incognito.isDirty) {
-    swiftPart.setIncognito(newViewProps.incognito.value);
-    newViewProps.incognito.isDirty = false;
-  }
-  // scrollEnabled: optional
-  if (newViewProps.scrollEnabled.isDirty) {
-    swiftPart.setScrollEnabled(newViewProps.scrollEnabled.value);
-    newViewProps.scrollEnabled.isDirty = false;
-  }
-  // bounces: optional
-  if (newViewProps.bounces.isDirty) {
-    swiftPart.setBounces(newViewProps.bounces.value);
-    newViewProps.bounces.isDirty = false;
-  }
-  // scalesPageToFit: optional
-  if (newViewProps.scalesPageToFit.isDirty) {
-    swiftPart.setScalesPageToFit(newViewProps.scalesPageToFit.value);
-    newViewProps.scalesPageToFit.isDirty = false;
-  }
-  // mediaPlaybackRequiresUserAction: optional
-  if (newViewProps.mediaPlaybackRequiresUserAction.isDirty) {
-    swiftPart.setMediaPlaybackRequiresUserAction(newViewProps.mediaPlaybackRequiresUserAction.value);
-    newViewProps.mediaPlaybackRequiresUserAction.isDirty = false;
-  }
-  // allowsInlineMediaPlayback: optional
-  if (newViewProps.allowsInlineMediaPlayback.isDirty) {
-    swiftPart.setAllowsInlineMediaPlayback(newViewProps.allowsInlineMediaPlayback.value);
-    newViewProps.allowsInlineMediaPlayback.isDirty = false;
-  }
-  // allowsBackForwardNavigationGestures: optional
-  if (newViewProps.allowsBackForwardNavigationGestures.isDirty) {
-    swiftPart.setAllowsBackForwardNavigationGestures(newViewProps.allowsBackForwardNavigationGestures.value);
-    newViewProps.allowsBackForwardNavigationGestures.isDirty = false;
-  }
-  // thirdPartyCookiesEnabled: optional
-  if (newViewProps.thirdPartyCookiesEnabled.isDirty) {
-    swiftPart.setThirdPartyCookiesEnabled(newViewProps.thirdPartyCookiesEnabled.value);
-    newViewProps.thirdPartyCookiesEnabled.isDirty = false;
-  }
-  // sharedCookiesEnabled: optional
-  if (newViewProps.sharedCookiesEnabled.isDirty) {
-    swiftPart.setSharedCookiesEnabled(newViewProps.sharedCookiesEnabled.value);
-    newViewProps.sharedCookiesEnabled.isDirty = false;
-  }
-  // injectedJavaScript: optional
-  if (newViewProps.injectedJavaScript.isDirty) {
-    swiftPart.setInjectedJavaScript(newViewProps.injectedJavaScript.value);
-    newViewProps.injectedJavaScript.isDirty = false;
-  }
-  // injectedJavaScriptBeforeContentLoaded: optional
-  if (newViewProps.injectedJavaScriptBeforeContentLoaded.isDirty) {
-    swiftPart.setInjectedJavaScriptBeforeContentLoaded(newViewProps.injectedJavaScriptBeforeContentLoaded.value);
-    newViewProps.injectedJavaScriptBeforeContentLoaded.isDirty = false;
-  }
-  // onLoadStart: optional
-  if (newViewProps.onLoadStart.isDirty) {
-    swiftPart.setOnLoadStart(newViewProps.onLoadStart.value);
-    newViewProps.onLoadStart.isDirty = false;
-  }
-  // onLoad: optional
-  if (newViewProps.onLoad.isDirty) {
-    swiftPart.setOnLoad(newViewProps.onLoad.value);
-    newViewProps.onLoad.isDirty = false;
-  }
-  // onLoadProgress: optional
-  if (newViewProps.onLoadProgress.isDirty) {
-    swiftPart.setOnLoadProgress(newViewProps.onLoadProgress.value);
-    newViewProps.onLoadProgress.isDirty = false;
-  }
-  // onLoadEnd: optional
-  if (newViewProps.onLoadEnd.isDirty) {
-    swiftPart.setOnLoadEnd(newViewProps.onLoadEnd.value);
-    newViewProps.onLoadEnd.isDirty = false;
-  }
-  // onNavigationStateChange: optional
-  if (newViewProps.onNavigationStateChange.isDirty) {
-    swiftPart.setOnNavigationStateChange(newViewProps.onNavigationStateChange.value);
-    newViewProps.onNavigationStateChange.isDirty = false;
-  }
-  // onMessage: optional
-  if (newViewProps.onMessage.isDirty) {
-    swiftPart.setOnMessage(newViewProps.onMessage.value);
-    newViewProps.onMessage.isDirty = false;
-  }
-  // onError: optional
-  if (newViewProps.onError.isDirty) {
-    swiftPart.setOnError(newViewProps.onError.value);
-    newViewProps.onError.isDirty = false;
-  }
-  // onShouldStartLoadWithRequest: optional
-  if (newViewProps.onShouldStartLoadWithRequest.isDirty) {
-    swiftPart.setOnShouldStartLoadWithRequest(newViewProps.onShouldStartLoadWithRequest.value);
-    newViewProps.onShouldStartLoadWithRequest.isDirty = false;
-  }
-  // interceptSubframeNavigation: optional
-  if (newViewProps.interceptSubframeNavigation.isDirty) {
-    swiftPart.setInterceptSubframeNavigation(newViewProps.interceptSubframeNavigation.value);
-    newViewProps.interceptSubframeNavigation.isDirty = false;
-  }
-  // onOpenWindow: optional
-  if (newViewProps.onOpenWindow.isDirty) {
-    swiftPart.setOnOpenWindow(newViewProps.onOpenWindow.value);
-    newViewProps.onOpenWindow.isDirty = false;
-  }
-  // onFileDownload: optional
-  if (newViewProps.onFileDownload.isDirty) {
-    swiftPart.setOnFileDownload(newViewProps.onFileDownload.value);
-    newViewProps.onFileDownload.isDirty = false;
-  }
-  // onHttpError: optional
-  if (newViewProps.onHttpError.isDirty) {
-    swiftPart.setOnHttpError(newViewProps.onHttpError.value);
-    newViewProps.onHttpError.isDirty = false;
-  }
-  // onRenderProcessGone: optional
-  if (newViewProps.onRenderProcessGone.isDirty) {
-    swiftPart.setOnRenderProcessGone(newViewProps.onRenderProcessGone.value);
-    newViewProps.onRenderProcessGone.isDirty = false;
-  }
-  // onScroll: optional
-  if (newViewProps.onScroll.isDirty) {
-    swiftPart.setOnScroll(newViewProps.onScroll.value);
-    newViewProps.onScroll.isDirty = false;
-  }
-
-  swiftPart.afterUpdate();
-
-  // 3. Update hybridRef if it changed
-  if (newViewProps.hybridRef.isDirty) {
-    // hybridRef changed - call it with new this
-    const auto& maybeFunc = newViewProps.hybridRef.value;
-    if (maybeFunc.has_value()) {
-      maybeFunc.value()(_hybridView);
+    // allowedMessageOrigins: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.allowedMessageOrigins.isProvided()
+          : !newViewProps.allowedMessageOrigins.hasSameValue(oldViewProps->allowedMessageOrigins)) {
+      swiftPart.setAllowedMessageOrigins(newViewProps.allowedMessageOrigins.get());
     }
-    newViewProps.hybridRef.isDirty = false;
+    // mediaCapturePermissionOrigins: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.mediaCapturePermissionOrigins.isProvided()
+          : !newViewProps.mediaCapturePermissionOrigins.hasSameValue(oldViewProps->mediaCapturePermissionOrigins)) {
+      swiftPart.setMediaCapturePermissionOrigins(newViewProps.mediaCapturePermissionOrigins.get());
+    }
+    // geolocationPermissionOrigins: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.geolocationPermissionOrigins.isProvided()
+          : !newViewProps.geolocationPermissionOrigins.hasSameValue(oldViewProps->geolocationPermissionOrigins)) {
+      swiftPart.setGeolocationPermissionOrigins(newViewProps.geolocationPermissionOrigins.get());
+    }
+    // source: variant
+    if (oldViewProps == nullptr
+          ? newViewProps.source.isProvided()
+          : !newViewProps.source.hasSameValue(oldViewProps->source)) {
+      swiftPart.setSource(newViewProps.source.get());
+    }
+    // defaultHeaders: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.defaultHeaders.isProvided()
+          : !newViewProps.defaultHeaders.hasSameValue(oldViewProps->defaultHeaders)) {
+      swiftPart.setDefaultHeaders(newViewProps.defaultHeaders.get());
+    }
+    // userAgent: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.userAgent.isProvided()
+          : !newViewProps.userAgent.hasSameValue(oldViewProps->userAgent)) {
+      swiftPart.setUserAgent(newViewProps.userAgent.get());
+    }
+    // javaScriptEnabled: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.javaScriptEnabled.isProvided()
+          : !newViewProps.javaScriptEnabled.hasSameValue(oldViewProps->javaScriptEnabled)) {
+      swiftPart.setJavaScriptEnabled(newViewProps.javaScriptEnabled.get());
+    }
+    // domStorageEnabled: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.domStorageEnabled.isProvided()
+          : !newViewProps.domStorageEnabled.hasSameValue(oldViewProps->domStorageEnabled)) {
+      swiftPart.setDomStorageEnabled(newViewProps.domStorageEnabled.get());
+    }
+    // cacheEnabled: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.cacheEnabled.isProvided()
+          : !newViewProps.cacheEnabled.hasSameValue(oldViewProps->cacheEnabled)) {
+      swiftPart.setCacheEnabled(newViewProps.cacheEnabled.get());
+    }
+    // incognito: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.incognito.isProvided()
+          : !newViewProps.incognito.hasSameValue(oldViewProps->incognito)) {
+      swiftPart.setIncognito(newViewProps.incognito.get());
+    }
+    // scrollEnabled: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.scrollEnabled.isProvided()
+          : !newViewProps.scrollEnabled.hasSameValue(oldViewProps->scrollEnabled)) {
+      swiftPart.setScrollEnabled(newViewProps.scrollEnabled.get());
+    }
+    // bounces: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.bounces.isProvided()
+          : !newViewProps.bounces.hasSameValue(oldViewProps->bounces)) {
+      swiftPart.setBounces(newViewProps.bounces.get());
+    }
+    // scalesPageToFit: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.scalesPageToFit.isProvided()
+          : !newViewProps.scalesPageToFit.hasSameValue(oldViewProps->scalesPageToFit)) {
+      swiftPart.setScalesPageToFit(newViewProps.scalesPageToFit.get());
+    }
+    // mediaPlaybackRequiresUserAction: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.mediaPlaybackRequiresUserAction.isProvided()
+          : !newViewProps.mediaPlaybackRequiresUserAction.hasSameValue(oldViewProps->mediaPlaybackRequiresUserAction)) {
+      swiftPart.setMediaPlaybackRequiresUserAction(newViewProps.mediaPlaybackRequiresUserAction.get());
+    }
+    // allowsInlineMediaPlayback: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.allowsInlineMediaPlayback.isProvided()
+          : !newViewProps.allowsInlineMediaPlayback.hasSameValue(oldViewProps->allowsInlineMediaPlayback)) {
+      swiftPart.setAllowsInlineMediaPlayback(newViewProps.allowsInlineMediaPlayback.get());
+    }
+    // allowsBackForwardNavigationGestures: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.allowsBackForwardNavigationGestures.isProvided()
+          : !newViewProps.allowsBackForwardNavigationGestures.hasSameValue(oldViewProps->allowsBackForwardNavigationGestures)) {
+      swiftPart.setAllowsBackForwardNavigationGestures(newViewProps.allowsBackForwardNavigationGestures.get());
+    }
+    // thirdPartyCookiesEnabled: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.thirdPartyCookiesEnabled.isProvided()
+          : !newViewProps.thirdPartyCookiesEnabled.hasSameValue(oldViewProps->thirdPartyCookiesEnabled)) {
+      swiftPart.setThirdPartyCookiesEnabled(newViewProps.thirdPartyCookiesEnabled.get());
+    }
+    // sharedCookiesEnabled: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.sharedCookiesEnabled.isProvided()
+          : !newViewProps.sharedCookiesEnabled.hasSameValue(oldViewProps->sharedCookiesEnabled)) {
+      swiftPart.setSharedCookiesEnabled(newViewProps.sharedCookiesEnabled.get());
+    }
+    // injectedJavaScript: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.injectedJavaScript.isProvided()
+          : !newViewProps.injectedJavaScript.hasSameValue(oldViewProps->injectedJavaScript)) {
+      swiftPart.setInjectedJavaScript(newViewProps.injectedJavaScript.get());
+    }
+    // injectedJavaScriptBeforeContentLoaded: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.injectedJavaScriptBeforeContentLoaded.isProvided()
+          : !newViewProps.injectedJavaScriptBeforeContentLoaded.hasSameValue(oldViewProps->injectedJavaScriptBeforeContentLoaded)) {
+      swiftPart.setInjectedJavaScriptBeforeContentLoaded(newViewProps.injectedJavaScriptBeforeContentLoaded.get());
+    }
+    // onLoadStart: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onLoadStart.isProvided()
+          : !newViewProps.onLoadStart.hasSameValue(oldViewProps->onLoadStart)) {
+      swiftPart.setOnLoadStart(newViewProps.onLoadStart.get());
+    }
+    // onLoad: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onLoad.isProvided()
+          : !newViewProps.onLoad.hasSameValue(oldViewProps->onLoad)) {
+      swiftPart.setOnLoad(newViewProps.onLoad.get());
+    }
+    // onLoadProgress: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onLoadProgress.isProvided()
+          : !newViewProps.onLoadProgress.hasSameValue(oldViewProps->onLoadProgress)) {
+      swiftPart.setOnLoadProgress(newViewProps.onLoadProgress.get());
+    }
+    // onLoadEnd: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onLoadEnd.isProvided()
+          : !newViewProps.onLoadEnd.hasSameValue(oldViewProps->onLoadEnd)) {
+      swiftPart.setOnLoadEnd(newViewProps.onLoadEnd.get());
+    }
+    // onNavigationStateChange: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onNavigationStateChange.isProvided()
+          : !newViewProps.onNavigationStateChange.hasSameValue(oldViewProps->onNavigationStateChange)) {
+      swiftPart.setOnNavigationStateChange(newViewProps.onNavigationStateChange.get());
+    }
+    // onMessage: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onMessage.isProvided()
+          : !newViewProps.onMessage.hasSameValue(oldViewProps->onMessage)) {
+      swiftPart.setOnMessage(newViewProps.onMessage.get());
+    }
+    // onError: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onError.isProvided()
+          : !newViewProps.onError.hasSameValue(oldViewProps->onError)) {
+      swiftPart.setOnError(newViewProps.onError.get());
+    }
+    // onShouldStartLoadWithRequest: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onShouldStartLoadWithRequest.isProvided()
+          : !newViewProps.onShouldStartLoadWithRequest.hasSameValue(oldViewProps->onShouldStartLoadWithRequest)) {
+      swiftPart.setOnShouldStartLoadWithRequest(newViewProps.onShouldStartLoadWithRequest.get());
+    }
+    // interceptSubframeNavigation: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.interceptSubframeNavigation.isProvided()
+          : !newViewProps.interceptSubframeNavigation.hasSameValue(oldViewProps->interceptSubframeNavigation)) {
+      swiftPart.setInterceptSubframeNavigation(newViewProps.interceptSubframeNavigation.get());
+    }
+    // onOpenWindow: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onOpenWindow.isProvided()
+          : !newViewProps.onOpenWindow.hasSameValue(oldViewProps->onOpenWindow)) {
+      swiftPart.setOnOpenWindow(newViewProps.onOpenWindow.get());
+    }
+    // onFileDownload: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onFileDownload.isProvided()
+          : !newViewProps.onFileDownload.hasSameValue(oldViewProps->onFileDownload)) {
+      swiftPart.setOnFileDownload(newViewProps.onFileDownload.get());
+    }
+    // onHttpError: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onHttpError.isProvided()
+          : !newViewProps.onHttpError.hasSameValue(oldViewProps->onHttpError)) {
+      swiftPart.setOnHttpError(newViewProps.onHttpError.get());
+    }
+    // onRenderProcessGone: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onRenderProcessGone.isProvided()
+          : !newViewProps.onRenderProcessGone.hasSameValue(oldViewProps->onRenderProcessGone)) {
+      swiftPart.setOnRenderProcessGone(newViewProps.onRenderProcessGone.get());
+    }
+    // onScroll: optional
+    if (oldViewProps == nullptr
+          ? newViewProps.onScroll.isProvided()
+          : !newViewProps.onScroll.hasSameValue(oldViewProps->onScroll)) {
+      swiftPart.setOnScroll(newViewProps.onScroll.get());
+    }
+
+    // Update hybridRef if it changed
+    if (oldViewProps == nullptr
+          ? newViewProps.hybridRef.isProvided()
+          : !newViewProps.hybridRef.hasSameValue(oldViewProps->hybridRef)) {
+      // hybridRef changed - call it with new this
+      const auto& maybeFunc = newViewProps.hybridRef.get();
+      if (maybeFunc.has_value()) {
+        maybeFunc.value()(_hybridView);
+      }
+    }
+
+    swiftPart.afterUpdate();
   }
 
-  // 4. Continue in base class
+  // 3. Continue in base class
   [super updateProps:props oldProps:oldProps];
 }
 
@@ -271,6 +326,7 @@ using namespace margelo::nitro::nitrowebview::views;
 }
 
 - (void)prepareForRecycle {
+  [self notifyOnDropView];
   [super prepareForRecycle];
   NitroWebview::HybridNitroWebViewSpec_cxx& swiftPart = _hybridView->getSwiftPart();
   swiftPart.maybePrepareForRecycle();
@@ -278,8 +334,7 @@ using namespace margelo::nitro::nitrowebview::views;
 
 #ifdef ENABLE_RCT_COMPONENT_VIEW_INVALIDATE
 - (void)invalidate {
-  NitroWebview::HybridNitroWebViewSpec_cxx& swiftPart = _hybridView->getSwiftPart();
-  swiftPart.onDropView();
+  [self notifyOnDropView];
   [super invalidate];
 }
 #endif
