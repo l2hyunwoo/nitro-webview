@@ -65,28 +65,44 @@ test('updates both injection scripts before loading a source in the same prop ba
   }
 });
 
-test('keeps the page bridge usable when the message callback is removed and restored', async () => {
+test('switches plain and wrapped callbacks without reloading, then removes and restores them', async () => {
   let ref: NitroWebViewType | null = null;
   let loads = 0;
   const messages: string[] = [];
   const source = page('stable');
-  const onLoadEnd = callback(() => {
+  const onLoadEnd = () => {
     loads++;
-  });
-  const receive = callback((event: { nativeEvent: { data: string } }) => {
-    messages.push(event.nativeEvent.data);
-  });
-  const hybridRef = callback((value: NitroWebViewType) => {
+  };
+  const receive = (event: { nativeEvent: { data: string } }) => {
+    messages.push(`first:${event.nativeEvent.data}`);
+  };
+  const replacement = (event: { nativeEvent: { data: string } }) => {
+    messages.push(`second:${event.nativeEvent.data}`);
+  };
+  const hybridRef = (value: NitroWebViewType) => {
     ref = value;
-  });
-  const element = (phase: 0 | 1 | 2) => (
+  };
+  const handlers = [
+    receive,
+    callback(receive),
+    callback(replacement),
+    undefined,
+    replacement,
+  ];
+  const element = (phase: number) => (
     <View collapsable={false} style={{ width: 320, height: 320 }}>
       <NitroWebView
         style={{ flex: 1 }}
         source={source}
         onLoadEnd={onLoadEnd}
-        hybridRef={hybridRef}
-        onMessage={phase === 1 ? undefined : receive}
+        hybridRef={
+          phase === 3
+            ? undefined
+            : phase % 2 === 0
+              ? hybridRef
+              : callback(hybridRef)
+        }
+        onMessage={handlers[phase]}
       />
     </View>
   );
@@ -99,25 +115,22 @@ test('keeps the page bridge usable when the message callback is removed and rest
       ).toBe('stable');
     }, WAIT);
     await bounded(ref!.evaluateJavaScript('window.marker = 42'));
-    await mounted.rerender(element(1));
-
-    expect(
-      JSON.parse(
-        await bounded(
-          ref!.evaluateJavaScript(
-            'window.ReactNativeWebView.postMessage("unhandled"); document.title',
+    const expected: string[] = [];
+    for (let phase = 0; phase < handlers.length; phase++) {
+      await mounted.rerender(element(phase));
+      expect(
+        JSON.parse(
+          await bounded(
+            ref!.evaluateJavaScript(
+              `window.ReactNativeWebView.postMessage("phase-${phase}"); document.title`,
+            ),
           ),
         ),
-      ),
-    ).toBe('stable');
-    expect(messages).toEqual([]);
-    await mounted.rerender(element(2));
-    await bounded(
-      ref!.evaluateJavaScript(
-        'window.ReactNativeWebView.postMessage("restored"); true',
-      ),
-    );
-    await waitFor(() => expect(messages).toEqual(['restored']), WAIT);
+      ).toBe('stable');
+      if (phase !== 3)
+        expected.push(`${phase < 2 ? 'first' : 'second'}:phase-${phase}`);
+      await waitFor(() => expect(messages).toEqual(expected), WAIT);
+    }
     expect(
       JSON.parse(await bounded(ref!.evaluateJavaScript('window.marker'))),
     ).toBe(42);

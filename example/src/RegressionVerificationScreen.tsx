@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { callback, NitroWebView, wrapWithOriginWhitelist } from 'nitro-webview';
+import { NitroWebView, wrapWithOriginWhitelist } from 'nitro-webview';
 import type {
   FileDownloadEvent,
   OpenWindowEvent,
@@ -2287,73 +2287,69 @@ export function RegressionVerificationScreen({
               style={styles.webview}
               {...view.settings}
               source={view.source}
-              hybridRef={callback((nativeRef: NitroWebViewMethods) => {
+              hybridRef={(nativeRef: NitroWebViewMethods) => {
                 view.ref = nativeRef;
-              })}
-              onLoadProgress={callback(() => {})}
-              onScroll={callback(() => {})}
-              onLoadStart={callback((event: WebViewLoadEvent) => {
+              }}
+              onLoadProgress={() => {}}
+              onScroll={() => {}}
+              onLoadStart={(event: WebViewLoadEvent) => {
                 view.events.push('start');
                 view.timeline.push({
                   at: Date.now(),
                   event: 'start',
                   url: event.nativeEvent.url,
                 });
-              })}
-              onLoad={callback((event: WebViewLoadEvent) => {
+              }}
+              onLoad={(event: WebViewLoadEvent) => {
                 view.events.push('load');
                 view.timeline.push({
                   at: Date.now(),
                   event: 'load',
                   url: event.nativeEvent.url,
                 });
-              })}
-              onLoadEnd={callback((event: WebViewLoadEvent) => {
+              }}
+              onLoadEnd={(event: WebViewLoadEvent) => {
                 view.events.push('end');
                 view.timeline.push({
                   at: Date.now(),
                   event: 'end',
                   url: event.nativeEvent.url,
                 });
-              })}
-              onError={callback((event: NitroWebViewErrorEvent) => {
+              }}
+              onError={(event: NitroWebViewErrorEvent) => {
                 view.errors.push(event.nativeEvent);
-              })}
-              onHttpError={callback(
-                (event: { nativeEvent: { statusCode: number } }) => {
-                  view.httpStatuses.push(event.nativeEvent.statusCode);
-                },
-              )}
-              onMessage={callback((event: WebViewMessageEvent) => {
+              }}
+              onHttpError={(event: { nativeEvent: { statusCode: number } }) => {
+                view.httpStatuses.push(event.nativeEvent.statusCode);
+              }}
+              onMessage={(event: WebViewMessageEvent) => {
                 view.messages.push(event.nativeEvent.data);
                 view.messageEvents.push(event.nativeEvent);
-              })}
-              onFileDownload={callback((event: FileDownloadEvent) => {
+              }}
+              onFileDownload={(event: FileDownloadEvent) => {
                 view.downloads.push(event.nativeEvent);
-              })}
-              onOpenWindow={callback((event: OpenWindowEvent) => {
+              }}
+              onOpenWindow={(event: OpenWindowEvent) => {
                 view.windows.push(event.nativeEvent.url);
-              })}
-              onRenderProcessGone={callback(
-                (event: NitroWebViewRenderProcessGoneEvent) => {
-                  view.rendererEvents.push(event.nativeEvent);
-                  view.timeline.push({
-                    at: Date.now(),
-                    event: 'renderer-gone',
-                  });
-                  if (view.rendererEvents.length === 1 && view.evaluationProbe)
-                    view.evaluationProbe.pendingAtRendererExit =
-                      view.evaluationProbe.settledAt === undefined;
-                },
-              )}
-              onNavigationStateChange={callback(
-                (state: WebViewNavigationState) => {
-                  view.states.push(state);
-                },
-              )}
+              }}
+              onRenderProcessGone={(
+                event: NitroWebViewRenderProcessGoneEvent,
+              ) => {
+                view.rendererEvents.push(event.nativeEvent);
+                view.timeline.push({
+                  at: Date.now(),
+                  event: 'renderer-gone',
+                });
+                if (view.rendererEvents.length === 1 && view.evaluationProbe)
+                  view.evaluationProbe.pendingAtRendererExit =
+                    view.evaluationProbe.settledAt === undefined;
+              }}
+              onNavigationStateChange={(state: WebViewNavigationState) => {
+                view.states.push(state);
+              }}
               onShouldStartLoadWithRequest={
                 view.decide
-                  ? callback((request: ShouldStartLoadRequest) => {
+                  ? (request: ShouldStartLoadRequest) => {
                       view.decisions.push(request.url);
                       const timing: DecisionTiming = {
                         url: request.url,
@@ -2378,7 +2374,7 @@ export function RegressionVerificationScreen({
                       } catch (error) {
                         return failed(error);
                       }
-                    })
+                    }
                   : undefined
               }
             />
