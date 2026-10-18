@@ -17,7 +17,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "WebViewPoint" and the the Kotlin data class "WebViewPoint".
+   * The C++ JNI bridge between the C++ struct "WebViewPoint" and the Kotlin data class "WebViewPoint".
    */
   struct JWebViewPoint final: public jni::JavaClass<JWebViewPoint> {
   public:

@@ -7,14 +7,15 @@
 
 #pragma once
 
-#include <optional>
-#include <NitroModules/NitroDefines.hpp>
-#include <NitroModules/NitroHash.hpp>
-#include <NitroModules/CachedProp.hpp>
-#include <react/renderer/core/ConcreteComponentDescriptor.h>
-#include <react/renderer/core/PropsParserContext.h>
+#include <NitroModules/ReactProp.hpp>
+#include <NitroModules/ViewComponentDescriptor.hpp>
+#include <NitroModules/ViewPropsHolderState.hpp>
 #include <react/renderer/components/view/ConcreteViewShadowNode.h>
 #include <react/renderer/components/view/ViewProps.h>
+#include <react/renderer/core/PropsParserContext.h>
+#include <react/renderer/core/RawProps.h>
+
+#include <string>
 
 #include <string>
 #include <vector>
@@ -59,41 +60,119 @@ namespace margelo::nitro::nitrowebview::views {
                             const react::RawProps& rawProps);
 
   public:
-    CachedProp<std::optional<std::vector<std::string>>> allowedMessageOrigins;
-    CachedProp<std::optional<std::vector<std::string>>> mediaCapturePermissionOrigins;
-    CachedProp<std::optional<std::vector<std::string>>> geolocationPermissionOrigins;
-    CachedProp<std::variant<UriSource, HtmlSource>> source;
-    CachedProp<std::optional<std::unordered_map<std::string, std::string>>> defaultHeaders;
-    CachedProp<std::optional<std::string>> userAgent;
-    CachedProp<std::optional<bool>> javaScriptEnabled;
-    CachedProp<std::optional<bool>> domStorageEnabled;
-    CachedProp<std::optional<bool>> cacheEnabled;
-    CachedProp<std::optional<bool>> incognito;
-    CachedProp<std::optional<bool>> scrollEnabled;
-    CachedProp<std::optional<bool>> bounces;
-    CachedProp<std::optional<bool>> scalesPageToFit;
-    CachedProp<std::optional<bool>> mediaPlaybackRequiresUserAction;
-    CachedProp<std::optional<bool>> allowsInlineMediaPlayback;
-    CachedProp<std::optional<bool>> allowsBackForwardNavigationGestures;
-    CachedProp<std::optional<bool>> thirdPartyCookiesEnabled;
-    CachedProp<std::optional<bool>> sharedCookiesEnabled;
-    CachedProp<std::optional<std::string>> injectedJavaScript;
-    CachedProp<std::optional<std::string>> injectedJavaScriptBeforeContentLoaded;
-    CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
-    CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoad;
-    CachedProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>> onLoadProgress;
-    CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;
-    CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;
-    CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
-    CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
-    CachedProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>> onShouldStartLoadWithRequest;
-    CachedProp<std::optional<bool>> interceptSubframeNavigation;
-    CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>> onOpenWindow;
-    CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;
-    CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>> onHttpError;
-    CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>> onRenderProcessGone;
-    CachedProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>> onScroll;
-    CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> hybridRef;
+    nitro::ReactProp<std::optional<std::vector<std::string>>> allowedMessageOrigins;
+    nitro::ReactProp<std::optional<std::vector<std::string>>> mediaCapturePermissionOrigins;
+    nitro::ReactProp<std::optional<std::vector<std::string>>> geolocationPermissionOrigins;
+    nitro::ReactProp<std::variant<UriSource, HtmlSource>> source;
+    nitro::ReactProp<std::optional<std::unordered_map<std::string, std::string>>> defaultHeaders;
+    nitro::ReactProp<std::optional<std::string>> userAgent;
+    nitro::ReactProp<std::optional<bool>> javaScriptEnabled;
+    nitro::ReactProp<std::optional<bool>> domStorageEnabled;
+    nitro::ReactProp<std::optional<bool>> cacheEnabled;
+    nitro::ReactProp<std::optional<bool>> incognito;
+    nitro::ReactProp<std::optional<bool>> scrollEnabled;
+    nitro::ReactProp<std::optional<bool>> bounces;
+    nitro::ReactProp<std::optional<bool>> scalesPageToFit;
+    nitro::ReactProp<std::optional<bool>> mediaPlaybackRequiresUserAction;
+    nitro::ReactProp<std::optional<bool>> allowsInlineMediaPlayback;
+    nitro::ReactProp<std::optional<bool>> allowsBackForwardNavigationGestures;
+    nitro::ReactProp<std::optional<bool>> thirdPartyCookiesEnabled;
+    nitro::ReactProp<std::optional<bool>> sharedCookiesEnabled;
+    nitro::ReactProp<std::optional<std::string>> injectedJavaScript;
+    nitro::ReactProp<std::optional<std::string>> injectedJavaScriptBeforeContentLoaded;
+    nitro::ReactProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadStart;
+    nitro::ReactProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoad;
+    nitro::ReactProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>> onLoadProgress;
+    nitro::ReactProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> onLoadEnd;
+    nitro::ReactProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> onNavigationStateChange;
+    nitro::ReactProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> onMessage;
+    nitro::ReactProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> onError;
+    nitro::ReactProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>> onShouldStartLoadWithRequest;
+    nitro::ReactProp<std::optional<bool>> interceptSubframeNavigation;
+    nitro::ReactProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>> onOpenWindow;
+    nitro::ReactProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> onFileDownload;
+    nitro::ReactProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>> onHttpError;
+    nitro::ReactProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>> onRenderProcessGone;
+    nitro::ReactProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>> onScroll;
+    nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> hybridRef;
+
+    [[nodiscard]]
+    bool hasSameProps(const HybridNitroWebViewProps& other) const noexcept {
+      return allowedMessageOrigins.hasSameValue(other.allowedMessageOrigins) &&
+             mediaCapturePermissionOrigins.hasSameValue(other.mediaCapturePermissionOrigins) &&
+             geolocationPermissionOrigins.hasSameValue(other.geolocationPermissionOrigins) &&
+             source.hasSameValue(other.source) &&
+             defaultHeaders.hasSameValue(other.defaultHeaders) &&
+             userAgent.hasSameValue(other.userAgent) &&
+             javaScriptEnabled.hasSameValue(other.javaScriptEnabled) &&
+             domStorageEnabled.hasSameValue(other.domStorageEnabled) &&
+             cacheEnabled.hasSameValue(other.cacheEnabled) &&
+             incognito.hasSameValue(other.incognito) &&
+             scrollEnabled.hasSameValue(other.scrollEnabled) &&
+             bounces.hasSameValue(other.bounces) &&
+             scalesPageToFit.hasSameValue(other.scalesPageToFit) &&
+             mediaPlaybackRequiresUserAction.hasSameValue(other.mediaPlaybackRequiresUserAction) &&
+             allowsInlineMediaPlayback.hasSameValue(other.allowsInlineMediaPlayback) &&
+             allowsBackForwardNavigationGestures.hasSameValue(other.allowsBackForwardNavigationGestures) &&
+             thirdPartyCookiesEnabled.hasSameValue(other.thirdPartyCookiesEnabled) &&
+             sharedCookiesEnabled.hasSameValue(other.sharedCookiesEnabled) &&
+             injectedJavaScript.hasSameValue(other.injectedJavaScript) &&
+             injectedJavaScriptBeforeContentLoaded.hasSameValue(other.injectedJavaScriptBeforeContentLoaded) &&
+             onLoadStart.hasSameValue(other.onLoadStart) &&
+             onLoad.hasSameValue(other.onLoad) &&
+             onLoadProgress.hasSameValue(other.onLoadProgress) &&
+             onLoadEnd.hasSameValue(other.onLoadEnd) &&
+             onNavigationStateChange.hasSameValue(other.onNavigationStateChange) &&
+             onMessage.hasSameValue(other.onMessage) &&
+             onError.hasSameValue(other.onError) &&
+             onShouldStartLoadWithRequest.hasSameValue(other.onShouldStartLoadWithRequest) &&
+             interceptSubframeNavigation.hasSameValue(other.interceptSubframeNavigation) &&
+             onOpenWindow.hasSameValue(other.onOpenWindow) &&
+             onFileDownload.hasSameValue(other.onFileDownload) &&
+             onHttpError.hasSameValue(other.onHttpError) &&
+             onRenderProcessGone.hasSameValue(other.onRenderProcessGone) &&
+             onScroll.hasSameValue(other.onScroll) &&
+             hybridRef.hasSameValue(other.hybridRef);
+    }
+
+    [[nodiscard]]
+    bool hasAnyProvidedProps() const noexcept {
+      return allowedMessageOrigins.isProvided() ||
+             mediaCapturePermissionOrigins.isProvided() ||
+             geolocationPermissionOrigins.isProvided() ||
+             source.isProvided() ||
+             defaultHeaders.isProvided() ||
+             userAgent.isProvided() ||
+             javaScriptEnabled.isProvided() ||
+             domStorageEnabled.isProvided() ||
+             cacheEnabled.isProvided() ||
+             incognito.isProvided() ||
+             scrollEnabled.isProvided() ||
+             bounces.isProvided() ||
+             scalesPageToFit.isProvided() ||
+             mediaPlaybackRequiresUserAction.isProvided() ||
+             allowsInlineMediaPlayback.isProvided() ||
+             allowsBackForwardNavigationGestures.isProvided() ||
+             thirdPartyCookiesEnabled.isProvided() ||
+             sharedCookiesEnabled.isProvided() ||
+             injectedJavaScript.isProvided() ||
+             injectedJavaScriptBeforeContentLoaded.isProvided() ||
+             onLoadStart.isProvided() ||
+             onLoad.isProvided() ||
+             onLoadProgress.isProvided() ||
+             onLoadEnd.isProvided() ||
+             onNavigationStateChange.isProvided() ||
+             onMessage.isProvided() ||
+             onError.isProvided() ||
+             onShouldStartLoadWithRequest.isProvided() ||
+             interceptSubframeNavigation.isProvided() ||
+             onOpenWindow.isProvided() ||
+             onFileDownload.isProvided() ||
+             onHttpError.isProvided() ||
+             onRenderProcessGone.isProvided() ||
+             onScroll.isProvided() ||
+             hybridRef.isProvided();
+    }
 
   private:
     static bool filterObjectKeys(const std::string& propName);
@@ -102,32 +181,7 @@ namespace margelo::nitro::nitrowebview::views {
   /**
    * State for the "NitroWebView" View.
    */
-  class HybridNitroWebViewState final {
-  public:
-    HybridNitroWebViewState() = default;
-    explicit HybridNitroWebViewState(const std::shared_ptr<HybridNitroWebViewProps>& props):
-      _props(props) {}
-
-  public:
-    [[nodiscard]]
-    const std::shared_ptr<HybridNitroWebViewProps>& getProps() const {
-      return _props;
-    }
-
-  public:
-#ifdef ANDROID
-  HybridNitroWebViewState(const HybridNitroWebViewState& /* previousState */, folly::dynamic /* data */) {}
-  folly::dynamic getDynamic() const {
-    throw std::runtime_error("HybridNitroWebViewState does not support folly!");
-  }
-  react::MapBuffer getMapBuffer() const {
-    throw std::runtime_error("HybridNitroWebViewState does not support MapBuffer!");
-  };
-#endif
-
-  private:
-    std::shared_ptr<HybridNitroWebViewProps> _props;
-  };
+  using HybridNitroWebViewState = nitro::ViewPropsHolderState<HybridNitroWebViewProps>;
 
   /**
    * The Shadow Node for the "NitroWebView" View.
@@ -140,21 +194,7 @@ namespace margelo::nitro::nitrowebview::views {
   /**
    * The Component Descriptor for the "NitroWebView" View.
    */
-  class HybridNitroWebViewComponentDescriptor final: public react::ConcreteComponentDescriptor<HybridNitroWebViewShadowNode> {
-  public:
-    explicit HybridNitroWebViewComponentDescriptor(const react::ComponentDescriptorParameters& parameters);
-
-  public:
-    /**
-     * A faster path for cloning props - reuses the caching logic from `HybridNitroWebViewProps`.
-     */
-    std::shared_ptr<const react::Props> cloneProps(const react::PropsParserContext& context,
-                                                   const std::shared_ptr<const react::Props>& props,
-                                                   react::RawProps rawProps) const override;
-#ifdef ANDROID
-    void adopt(react::ShadowNode& shadowNode) const override;
-#endif
-  };
+  using HybridNitroWebViewComponentDescriptor = nitro::ViewComponentDescriptor<HybridNitroWebViewShadowNode>;
 
   /* The actual view for "NitroWebView" needs to be implemented in platform-specific code. */
 

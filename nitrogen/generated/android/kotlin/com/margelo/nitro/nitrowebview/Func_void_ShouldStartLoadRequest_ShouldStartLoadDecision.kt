@@ -10,7 +10,6 @@ package com.margelo.nitro.nitrowebview
 import androidx.annotation.Keep
 import com.facebook.jni.HybridData
 import com.facebook.proguard.annotations.DoNotStrip
-import dalvik.annotation.optimization.FastNative
 
 
 /**
@@ -59,7 +58,6 @@ class Func_void_ShouldStartLoadRequest_ShouldStartLoadDecision_cxx: Func_void_Sh
   override fun invoke(event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision): Unit
     = invoke_cxx(event,decision)
 
-  @FastNative
   private external fun invoke_cxx(event: ShouldStartLoadRequest, decision: ShouldStartLoadDecision): Unit
 }
 

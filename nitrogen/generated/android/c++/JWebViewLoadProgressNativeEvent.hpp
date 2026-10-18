@@ -17,7 +17,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "WebViewLoadProgressNativeEvent" and the the Kotlin data class "WebViewLoadProgressNativeEvent".
+   * The C++ JNI bridge between the C++ struct "WebViewLoadProgressNativeEvent" and the Kotlin data class "WebViewLoadProgressNativeEvent".
    */
   struct JWebViewLoadProgressNativeEvent final: public jni::JavaClass<JWebViewLoadProgressNativeEvent> {
   public:

@@ -20,7 +20,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "ShouldStartLoadDecision" and the the Kotlin data class "ShouldStartLoadDecision".
+   * The C++ JNI bridge between the C++ struct "ShouldStartLoadDecision" and the Kotlin data class "ShouldStartLoadDecision".
    */
   struct JShouldStartLoadDecision final: public jni::JavaClass<JShouldStartLoadDecision> {
   public:

@@ -18,7 +18,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "HtmlSource" and the the Kotlin data class "HtmlSource".
+   * The C++ JNI bridge between the C++ struct "HtmlSource" and the Kotlin data class "HtmlSource".
    */
   struct JHtmlSource final: public jni::JavaClass<JHtmlSource> {
   public:

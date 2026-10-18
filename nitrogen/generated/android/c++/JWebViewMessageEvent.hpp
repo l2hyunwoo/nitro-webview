@@ -20,7 +20,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "WebViewMessageEvent" and the the Kotlin data class "WebViewMessageEvent".
+   * The C++ JNI bridge between the C++ struct "WebViewMessageEvent" and the Kotlin data class "WebViewMessageEvent".
    */
   struct JWebViewMessageEvent final: public jni::JavaClass<JWebViewMessageEvent> {
   public:

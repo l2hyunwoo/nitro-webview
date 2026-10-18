@@ -7,18 +7,12 @@
 
 #include "HybridNitroWebViewComponent.hpp"
 
-#include <string>
-#include <exception>
-#include <utility>
-#include <NitroModules/NitroDefines.hpp>
-#include <NitroModules/JSIConverter.hpp>
-#include <NitroModules/PropNameIDCache.hpp>
-#include <react/renderer/core/RawValue.h>
-#include <react/renderer/core/ShadowNode.h>
-#include <react/renderer/core/ComponentDescriptor.h>
-#include <react/renderer/components/view/ViewProps.h>
+#include <NitroModules/NitroHash.hpp>
+#include <NitroModules/ReactProp.hpp>
 
 namespace margelo::nitro::nitrowebview::views {
+
+  using namespace facebook;
 
   extern const char HybridNitroWebViewComponentName[] = "NitroWebView";
 
@@ -26,356 +20,41 @@ namespace margelo::nitro::nitrowebview::views {
                                                    const HybridNitroWebViewProps& sourceProps,
                                                    const react::RawProps& rawProps):
     react::ViewProps(context, sourceProps, rawProps, filterObjectKeys),
-    allowedMessageOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("allowedMessageOrigins", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.allowedMessageOrigins;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::vector<std::string>>>::fromRawValue(*runtime, value, sourceProps.allowedMessageOrigins);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.allowedMessageOrigins: ") + exc.what());
-      }
-    }()),
-    mediaCapturePermissionOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("mediaCapturePermissionOrigins", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.mediaCapturePermissionOrigins;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::vector<std::string>>>::fromRawValue(*runtime, value, sourceProps.mediaCapturePermissionOrigins);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.mediaCapturePermissionOrigins: ") + exc.what());
-      }
-    }()),
-    geolocationPermissionOrigins([&]() -> CachedProp<std::optional<std::vector<std::string>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("geolocationPermissionOrigins", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.geolocationPermissionOrigins;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::vector<std::string>>>::fromRawValue(*runtime, value, sourceProps.geolocationPermissionOrigins);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.geolocationPermissionOrigins: ") + exc.what());
-      }
-    }()),
-    source([&]() -> CachedProp<std::variant<UriSource, HtmlSource>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("source", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.source;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::variant<UriSource, HtmlSource>>::fromRawValue(*runtime, value, sourceProps.source);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.source: ") + exc.what());
-      }
-    }()),
-    defaultHeaders([&]() -> CachedProp<std::optional<std::unordered_map<std::string, std::string>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("defaultHeaders", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.defaultHeaders;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::unordered_map<std::string, std::string>>>::fromRawValue(*runtime, value, sourceProps.defaultHeaders);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.defaultHeaders: ") + exc.what());
-      }
-    }()),
-    userAgent([&]() -> CachedProp<std::optional<std::string>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("userAgent", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.userAgent;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::string>>::fromRawValue(*runtime, value, sourceProps.userAgent);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.userAgent: ") + exc.what());
-      }
-    }()),
-    javaScriptEnabled([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("javaScriptEnabled", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.javaScriptEnabled;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.javaScriptEnabled);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.javaScriptEnabled: ") + exc.what());
-      }
-    }()),
-    domStorageEnabled([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("domStorageEnabled", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.domStorageEnabled;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.domStorageEnabled);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.domStorageEnabled: ") + exc.what());
-      }
-    }()),
-    cacheEnabled([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("cacheEnabled", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.cacheEnabled;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.cacheEnabled);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.cacheEnabled: ") + exc.what());
-      }
-    }()),
-    incognito([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("incognito", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.incognito;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.incognito);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.incognito: ") + exc.what());
-      }
-    }()),
-    scrollEnabled([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("scrollEnabled", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.scrollEnabled;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.scrollEnabled);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.scrollEnabled: ") + exc.what());
-      }
-    }()),
-    bounces([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("bounces", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.bounces;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.bounces);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.bounces: ") + exc.what());
-      }
-    }()),
-    scalesPageToFit([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("scalesPageToFit", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.scalesPageToFit;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.scalesPageToFit);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.scalesPageToFit: ") + exc.what());
-      }
-    }()),
-    mediaPlaybackRequiresUserAction([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("mediaPlaybackRequiresUserAction", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.mediaPlaybackRequiresUserAction;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.mediaPlaybackRequiresUserAction);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.mediaPlaybackRequiresUserAction: ") + exc.what());
-      }
-    }()),
-    allowsInlineMediaPlayback([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("allowsInlineMediaPlayback", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.allowsInlineMediaPlayback;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.allowsInlineMediaPlayback);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.allowsInlineMediaPlayback: ") + exc.what());
-      }
-    }()),
-    allowsBackForwardNavigationGestures([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("allowsBackForwardNavigationGestures", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.allowsBackForwardNavigationGestures;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.allowsBackForwardNavigationGestures);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.allowsBackForwardNavigationGestures: ") + exc.what());
-      }
-    }()),
-    thirdPartyCookiesEnabled([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("thirdPartyCookiesEnabled", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.thirdPartyCookiesEnabled;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.thirdPartyCookiesEnabled);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.thirdPartyCookiesEnabled: ") + exc.what());
-      }
-    }()),
-    sharedCookiesEnabled([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("sharedCookiesEnabled", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.sharedCookiesEnabled;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.sharedCookiesEnabled);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.sharedCookiesEnabled: ") + exc.what());
-      }
-    }()),
-    injectedJavaScript([&]() -> CachedProp<std::optional<std::string>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("injectedJavaScript", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.injectedJavaScript;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::string>>::fromRawValue(*runtime, value, sourceProps.injectedJavaScript);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.injectedJavaScript: ") + exc.what());
-      }
-    }()),
-    injectedJavaScriptBeforeContentLoaded([&]() -> CachedProp<std::optional<std::string>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("injectedJavaScriptBeforeContentLoaded", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.injectedJavaScriptBeforeContentLoaded;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::string>>::fromRawValue(*runtime, value, sourceProps.injectedJavaScriptBeforeContentLoaded);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.injectedJavaScriptBeforeContentLoaded: ") + exc.what());
-      }
-    }()),
-    onLoadStart([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onLoadStart", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onLoadStart;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onLoadStart);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onLoadStart: ") + exc.what());
-      }
-    }()),
-    onLoad([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onLoad", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onLoad;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onLoad);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onLoad: ") + exc.what());
-      }
-    }()),
-    onLoadProgress([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onLoadProgress", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onLoadProgress;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onLoadProgress);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onLoadProgress: ") + exc.what());
-      }
-    }()),
-    onLoadEnd([&]() -> CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onLoadEnd", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onLoadEnd;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onLoadEnd);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onLoadEnd: ") + exc.what());
-      }
-    }()),
-    onNavigationStateChange([&]() -> CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onNavigationStateChange", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onNavigationStateChange;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onNavigationStateChange);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onNavigationStateChange: ") + exc.what());
-      }
-    }()),
-    onMessage([&]() -> CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onMessage", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onMessage;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onMessage);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onMessage: ") + exc.what());
-      }
-    }()),
-    onError([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onError", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onError;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onError);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onError: ") + exc.what());
-      }
-    }()),
-    onShouldStartLoadWithRequest([&]() -> CachedProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onShouldStartLoadWithRequest", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onShouldStartLoadWithRequest;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onShouldStartLoadWithRequest);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onShouldStartLoadWithRequest: ") + exc.what());
-      }
-    }()),
-    interceptSubframeNavigation([&]() -> CachedProp<std::optional<bool>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("interceptSubframeNavigation", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.interceptSubframeNavigation;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<bool>>::fromRawValue(*runtime, value, sourceProps.interceptSubframeNavigation);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.interceptSubframeNavigation: ") + exc.what());
-      }
-    }()),
-    onOpenWindow([&]() -> CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onOpenWindow", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onOpenWindow;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onOpenWindow);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onOpenWindow: ") + exc.what());
-      }
-    }()),
-    onFileDownload([&]() -> CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onFileDownload", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onFileDownload;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onFileDownload);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onFileDownload: ") + exc.what());
-      }
-    }()),
-    onHttpError([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onHttpError", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onHttpError;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onHttpError);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onHttpError: ") + exc.what());
-      }
-    }()),
-    onRenderProcessGone([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onRenderProcessGone", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onRenderProcessGone;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onRenderProcessGone);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onRenderProcessGone: ") + exc.what());
-      }
-    }()),
-    onScroll([&]() -> CachedProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("onScroll", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.onScroll;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.onScroll);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.onScroll: ") + exc.what());
-      }
-    }()),
-    hybridRef([&]() -> CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>> {
-      try {
-        const react::RawValue* rawValue = rawProps.at("hybridRef", nullptr, nullptr);
-        if (rawValue == nullptr) return sourceProps.hybridRef;
-        const auto& [runtime, value] = (std::pair<jsi::Runtime*, jsi::Value>)*rawValue;
-        return CachedProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>>::fromRawValue(*runtime, value.asObject(*runtime).getProperty(*runtime, PropNameIDCache::get(*runtime, "f")), sourceProps.hybridRef);
-      } catch (const std::exception& exc) {
-        throw std::runtime_error(std::string("NitroWebView.hybridRef: ") + exc.what());
-      }
-    }()) { }
+    allowedMessageOrigins(nitro::ReactProp<std::optional<std::vector<std::string>>>::fromRawValue("NitroWebView", "allowedMessageOrigins", rawProps, sourceProps.allowedMessageOrigins)),
+    mediaCapturePermissionOrigins(nitro::ReactProp<std::optional<std::vector<std::string>>>::fromRawValue("NitroWebView", "mediaCapturePermissionOrigins", rawProps, sourceProps.mediaCapturePermissionOrigins)),
+    geolocationPermissionOrigins(nitro::ReactProp<std::optional<std::vector<std::string>>>::fromRawValue("NitroWebView", "geolocationPermissionOrigins", rawProps, sourceProps.geolocationPermissionOrigins)),
+    source(nitro::ReactProp<std::variant<UriSource, HtmlSource>>::fromRawValue("NitroWebView", "source", rawProps, sourceProps.source)),
+    defaultHeaders(nitro::ReactProp<std::optional<std::unordered_map<std::string, std::string>>>::fromRawValue("NitroWebView", "defaultHeaders", rawProps, sourceProps.defaultHeaders)),
+    userAgent(nitro::ReactProp<std::optional<std::string>>::fromRawValue("NitroWebView", "userAgent", rawProps, sourceProps.userAgent)),
+    javaScriptEnabled(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "javaScriptEnabled", rawProps, sourceProps.javaScriptEnabled)),
+    domStorageEnabled(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "domStorageEnabled", rawProps, sourceProps.domStorageEnabled)),
+    cacheEnabled(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "cacheEnabled", rawProps, sourceProps.cacheEnabled)),
+    incognito(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "incognito", rawProps, sourceProps.incognito)),
+    scrollEnabled(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "scrollEnabled", rawProps, sourceProps.scrollEnabled)),
+    bounces(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "bounces", rawProps, sourceProps.bounces)),
+    scalesPageToFit(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "scalesPageToFit", rawProps, sourceProps.scalesPageToFit)),
+    mediaPlaybackRequiresUserAction(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "mediaPlaybackRequiresUserAction", rawProps, sourceProps.mediaPlaybackRequiresUserAction)),
+    allowsInlineMediaPlayback(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "allowsInlineMediaPlayback", rawProps, sourceProps.allowsInlineMediaPlayback)),
+    allowsBackForwardNavigationGestures(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "allowsBackForwardNavigationGestures", rawProps, sourceProps.allowsBackForwardNavigationGestures)),
+    thirdPartyCookiesEnabled(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "thirdPartyCookiesEnabled", rawProps, sourceProps.thirdPartyCookiesEnabled)),
+    sharedCookiesEnabled(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "sharedCookiesEnabled", rawProps, sourceProps.sharedCookiesEnabled)),
+    injectedJavaScript(nitro::ReactProp<std::optional<std::string>>::fromRawValue("NitroWebView", "injectedJavaScript", rawProps, sourceProps.injectedJavaScript)),
+    injectedJavaScriptBeforeContentLoaded(nitro::ReactProp<std::optional<std::string>>::fromRawValue("NitroWebView", "injectedJavaScriptBeforeContentLoaded", rawProps, sourceProps.injectedJavaScriptBeforeContentLoaded)),
+    onLoadStart(nitro::ReactProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue("NitroWebView", "onLoadStart", rawProps, sourceProps.onLoadStart)),
+    onLoad(nitro::ReactProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue("NitroWebView", "onLoad", rawProps, sourceProps.onLoad)),
+    onLoadProgress(nitro::ReactProp<std::optional<std::function<void(const WebViewLoadProgressEvent& /* event */)>>>::fromRawValue("NitroWebView", "onLoadProgress", rawProps, sourceProps.onLoadProgress)),
+    onLoadEnd(nitro::ReactProp<std::optional<std::function<void(const WebViewLoadEvent& /* event */)>>>::fromRawValue("NitroWebView", "onLoadEnd", rawProps, sourceProps.onLoadEnd)),
+    onNavigationStateChange(nitro::ReactProp<std::optional<std::function<void(const WebViewNavigationState& /* state */)>>>::fromRawValue("NitroWebView", "onNavigationStateChange", rawProps, sourceProps.onNavigationStateChange)),
+    onMessage(nitro::ReactProp<std::optional<std::function<void(const WebViewMessageEvent& /* event */)>>>::fromRawValue("NitroWebView", "onMessage", rawProps, sourceProps.onMessage)),
+    onError(nitro::ReactProp<std::optional<std::function<void(const NitroWebViewErrorEvent& /* event */)>>>::fromRawValue("NitroWebView", "onError", rawProps, sourceProps.onError)),
+    onShouldStartLoadWithRequest(nitro::ReactProp<std::optional<std::function<void(const ShouldStartLoadRequest& /* event */, const ShouldStartLoadDecision& /* decision */)>>>::fromRawValue("NitroWebView", "onShouldStartLoadWithRequest", rawProps, sourceProps.onShouldStartLoadWithRequest)),
+    interceptSubframeNavigation(nitro::ReactProp<std::optional<bool>>::fromRawValue("NitroWebView", "interceptSubframeNavigation", rawProps, sourceProps.interceptSubframeNavigation)),
+    onOpenWindow(nitro::ReactProp<std::optional<std::function<void(const OpenWindowEvent& /* event */)>>>::fromRawValue("NitroWebView", "onOpenWindow", rawProps, sourceProps.onOpenWindow)),
+    onFileDownload(nitro::ReactProp<std::optional<std::function<void(const FileDownloadEvent& /* event */)>>>::fromRawValue("NitroWebView", "onFileDownload", rawProps, sourceProps.onFileDownload)),
+    onHttpError(nitro::ReactProp<std::optional<std::function<void(const NitroWebViewHttpErrorEvent& /* event */)>>>::fromRawValue("NitroWebView", "onHttpError", rawProps, sourceProps.onHttpError)),
+    onRenderProcessGone(nitro::ReactProp<std::optional<std::function<void(const NitroWebViewRenderProcessGoneEvent& /* event */)>>>::fromRawValue("NitroWebView", "onRenderProcessGone", rawProps, sourceProps.onRenderProcessGone)),
+    onScroll(nitro::ReactProp<std::optional<std::function<void(const NitroWebViewScrollEvent& /* event */)>>>::fromRawValue("NitroWebView", "onScroll", rawProps, sourceProps.onScroll)),
+    hybridRef(nitro::ReactProp<std::optional<std::function<void(const std::shared_ptr<HybridNitroWebViewSpec>& /* ref */)>>>::fromRawValue("NitroWebView", "hybridRef", rawProps, sourceProps.hybridRef)) { }
 
   bool HybridNitroWebViewProps::filterObjectKeys(const std::string& propName) {
     switch (hashString(propName)) {
@@ -417,30 +96,5 @@ namespace margelo::nitro::nitrowebview::views {
       default: return false;
     }
   }
-
-  HybridNitroWebViewComponentDescriptor::HybridNitroWebViewComponentDescriptor(const react::ComponentDescriptorParameters& parameters)
-    : ConcreteComponentDescriptor(parameters,
-                                  react::RawPropsParser(/* enableJsiParser */ true)) {}
-
-  std::shared_ptr<const react::Props> HybridNitroWebViewComponentDescriptor::cloneProps(const react::PropsParserContext& context,
-                                                                                        const std::shared_ptr<const react::Props>& props,
-                                                                                        react::RawProps rawProps) const {
-    // 1. Prepare raw props parser
-    rawProps.parse(rawPropsParser_);
-    // 2. Copy props with Nitro's cached copy constructor
-    return HybridNitroWebViewShadowNode::Props(context, /* & */ rawProps, props);
-  }
-
-#ifdef ANDROID
-  void HybridNitroWebViewComponentDescriptor::adopt(react::ShadowNode& shadowNode) const {
-    // This is called immediately after `ShadowNode` is created, cloned or in progress.
-    // On Android, we need to wrap props in our state, which gets routed through Java and later unwrapped in JNI/C++.
-    auto& concreteShadowNode = static_cast<HybridNitroWebViewShadowNode&>(shadowNode);
-    const std::shared_ptr<const HybridNitroWebViewProps>& constProps = concreteShadowNode.getConcreteSharedProps();
-    const std::shared_ptr<HybridNitroWebViewProps>& props = std::const_pointer_cast<HybridNitroWebViewProps>(constProps);
-    HybridNitroWebViewState state{props};
-    concreteShadowNode.setStateData(std::move(state));
-  }
-#endif
 
 } // namespace margelo::nitro::nitrowebview::views

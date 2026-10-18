@@ -15,7 +15,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ enum "WebViewSourceMethod" and the the Kotlin enum "WebViewSourceMethod".
+   * The C++ JNI bridge between the C++ enum "WebViewSourceMethod" and the Kotlin enum "WebViewSourceMethod".
    */
   struct JWebViewSourceMethod final: public jni::JavaClass<JWebViewSourceMethod> {
   public:

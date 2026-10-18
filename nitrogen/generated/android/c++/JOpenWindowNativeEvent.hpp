@@ -17,7 +17,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "OpenWindowNativeEvent" and the the Kotlin data class "OpenWindowNativeEvent".
+   * The C++ JNI bridge between the C++ struct "OpenWindowNativeEvent" and the Kotlin data class "OpenWindowNativeEvent".
    */
   struct JOpenWindowNativeEvent final: public jni::JavaClass<JOpenWindowNativeEvent> {
   public:

@@ -17,7 +17,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "WebViewNavigationState" and the the Kotlin data class "WebViewNavigationState".
+   * The C++ JNI bridge between the C++ struct "WebViewNavigationState" and the Kotlin data class "WebViewNavigationState".
    */
   struct JWebViewNavigationState final: public jni::JavaClass<JWebViewNavigationState> {
   public:

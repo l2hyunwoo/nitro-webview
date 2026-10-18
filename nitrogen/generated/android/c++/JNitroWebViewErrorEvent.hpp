@@ -19,7 +19,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "NitroWebViewErrorEvent" and the the Kotlin data class "NitroWebViewErrorEvent".
+   * The C++ JNI bridge between the C++ struct "NitroWebViewErrorEvent" and the Kotlin data class "NitroWebViewErrorEvent".
    */
   struct JNitroWebViewErrorEvent final: public jni::JavaClass<JNitroWebViewErrorEvent> {
   public:

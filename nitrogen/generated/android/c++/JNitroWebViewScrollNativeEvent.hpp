@@ -19,7 +19,7 @@ namespace margelo::nitro::nitrowebview {
   using namespace facebook;
 
   /**
-   * The C++ JNI bridge between the C++ struct "NitroWebViewScrollNativeEvent" and the the Kotlin data class "NitroWebViewScrollNativeEvent".
+   * The C++ JNI bridge between the C++ struct "NitroWebViewScrollNativeEvent" and the Kotlin data class "NitroWebViewScrollNativeEvent".
    */
   struct JNitroWebViewScrollNativeEvent final: public jni::JavaClass<JNitroWebViewScrollNativeEvent> {
   public:
