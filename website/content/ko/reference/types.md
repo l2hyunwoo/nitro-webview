@@ -9,8 +9,8 @@ Package root에서 내보낸 타입을 실제 소스에서 생성한 발췌입�
 ## NitroWebViewProps
 
 ```ts
-export interface NitroWebViewProps extends Omit<NativeNitroWebViewProps, 'onShouldStartLoadWithRequest'> {
-    onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest;
+export interface NitroWebViewProps extends PublicCallbacks<Omit<NativeNitroWebViewProps, 'onShouldStartLoadWithRequest'>> {
+    onShouldStartLoadWithRequest?: CallbackProp<OnShouldStartLoadWithRequest>;
 }
 ```
 
