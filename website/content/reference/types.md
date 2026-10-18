@@ -9,8 +9,8 @@ The public navigation callback returns `boolean | Promise<boolean>`. Read [props
 ## NitroWebViewProps
 
 ```ts
-export interface NitroWebViewProps extends Omit<NativeNitroWebViewProps, 'onShouldStartLoadWithRequest'> {
-    onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest;
+export interface NitroWebViewProps extends PublicCallbacks<Omit<NativeNitroWebViewProps, 'onShouldStartLoadWithRequest'>> {
+    onShouldStartLoadWithRequest?: CallbackProp<OnShouldStartLoadWithRequest>;
 }
 ```
 

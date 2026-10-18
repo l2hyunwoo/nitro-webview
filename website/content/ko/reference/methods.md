@@ -1,6 +1,6 @@
 # Methods
 
-`hybridRef={callback(...)}`으로 받은 `NitroWebViewType`에서 호출합니다.
+`hybridRef={handler}`로 받은 `NitroWebViewType`에서 호출합니다. 일반 함수는 다음 릴리스부터 지원합니다. 0.2.1에서는 `hybridRef={callback(handler)}`를 사용하며, 이 형태도 계속 지원합니다.
 
 | Method | Return | 동작 |
 | --- | --- | --- |

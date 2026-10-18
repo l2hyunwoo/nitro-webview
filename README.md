@@ -72,7 +72,7 @@ export default function Screen() {
 }
 ```
 
-Every event prop must be wrapped in `callback(...)` so Nitro can dispatch it on the right thread. Passing a raw function will throw at render time.
+Version 0.2.1 requires `callback(...)` for event props and `hybridRef`. The next release also accepts plain functions and wraps them internally. Existing `callback(...)` calls remain supported.
 
 ## Documentation
 
