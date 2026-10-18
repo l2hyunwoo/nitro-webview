@@ -7,13 +7,17 @@ Nitro WebView shares familiar WebView concepts, but migration requires API and b
 | Existing pattern | Nitro WebView |
 | --- | --- |
 | `WebView` import | Named `NitroWebView` export |
-| Raw event functions | `callback(handler)` wrappers |
-| WebView methods on React `ref` | `hybridRef={callback(...)}` |
+| Raw event functions | Plain functions in the next release; `callback(handler)` on 0.2.1 |
+| WebView methods on React `ref` | `hybridRef={handler}` in the next release; `hybridRef={callback(handler)}` on 0.2.1 |
 | `originWhitelist` prop | `createOriginWhitelistGuard` in the navigation callback |
 | Synchronous interception assumptions | Public `boolean \| Promise<boolean>` with platform-specific timing |
 | Page `ReactNativeWebView.postMessage` | Same string contract |
 
 Only documented props are implemented. There is no automatic equivalent for every react-native-webview prop. Check [props](../reference/props.md) and [platform support](../reference/platforms.md).
+
+## Plain callbacks (unreleased)
+
+Event props and `hybridRef` accept plain functions. Existing `callback(fn)` values remain supported, including asynchronous navigation handlers. Remove a handler by passing `undefined`. The component handles the native callback envelope; the native event payloads and navigation timing are unchanged. Normal React `ref` still exposes the host view, not WebView methods.
 
 ## From 0.2.0 to 0.2.1 {#from-0-2-0-to-0-2-1}
 
@@ -95,7 +99,7 @@ Cookie URL methods require valid HTTP(S) URLs.
 
 ### Navigation timing and public callbacks
 
-Public navigation callbacks accept `boolean | Promise<boolean>`. Continue to wrap component callbacks in `callback(...)`.
+In 0.2.0 and 0.2.1, public navigation callbacks accept `boolean | Promise<boolean>` and require `callback(...)` on component props.
 Rebuild the native app: the component now forwards settled results through an internal decision resolver.
 Set navigation callbacks through React props. Direct assignment through the hybrid ref bypasses this bridge and is rejected by the public types.
 Android waits against a nominal 250 ms budget. Timeout, rejection, and interruption retain the allow fallback.

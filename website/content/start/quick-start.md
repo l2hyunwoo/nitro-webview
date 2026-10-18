@@ -4,28 +4,28 @@ Render a page, receive its messages, and capture the native controls.
 
 ## Render a page
 
-Give the WebView a size and a `source`. Wrap every event callback and `hybridRef` callback with the exported `callback` helper.
+Give the WebView a size and a `source`. The examples below use plain callbacks, available in the next release. On version 0.2.1, wrap event and `hybridRef` callbacks with `callback`; that form remains supported.
 
 ```tsx
-import { NitroWebView, callback } from 'nitro-webview'
+import { NitroWebView } from 'nitro-webview'
 
 export default function Screen() {
   return (
     <NitroWebView
       style={{ flex: 1 }}
       source={{ uri: 'https://example.com' }}
-      onLoadEnd={callback(({ nativeEvent }) => {
+      onLoadEnd={({ nativeEvent }) => {
         console.log('Finished:', nativeEvent.url)
-      })}
-      onMessage={callback(({ nativeEvent }) => {
+      }}
+      onMessage={({ nativeEvent }) => {
         console.log('Page said:', nativeEvent.data)
-      })}
+      }}
     />
   )
 }
 ```
 
-A raw event function does not satisfy Nitro's callback contract. `onLoadEnd` includes failed loads; use `onLoad` for successful completion.
+`onLoadEnd` includes failed loads; use `onLoad` for successful completion.
 
 ## Send a page message
 
@@ -45,7 +45,7 @@ Imperative WebView methods live on `hybridRef`. The normal React `ref` is a host
 import { useRef } from 'react'
 import { Button, View } from 'react-native'
 import {
-  NitroWebView, callback,
+  NitroWebView,
   type NitroWebViewType,
 } from 'nitro-webview'
 
@@ -57,7 +57,7 @@ export default function Browser() {
       <NitroWebView
         style={{ flex: 1 }}
         source={{ uri: 'https://example.com' }}
-        hybridRef={callback((view) => { webview.current = view })}
+        hybridRef={(view) => { webview.current = view }}
       />
     </View>
   )

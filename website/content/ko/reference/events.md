@@ -1,6 +1,6 @@
 # Events
 
-핸들러를 `callback()`으로 감쌉니다. 대부분 `event.nativeEvent`를 사용하지만 `onNavigationStateChange`는 상태를 직접 받습니다.
+다음 릴리스부터 일반 함수와 기존 `callback(fn)`을 모두 받습니다. 0.2.1에서는 wrapper가 필요합니다. 대부분 `event.nativeEvent`를 사용하지만 `onNavigationStateChange`는 상태를 직접 받습니다.
 
 ## 로드 수명 {#load-lifecycle}
 

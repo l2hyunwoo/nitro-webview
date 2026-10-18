@@ -7,13 +7,17 @@
 | 기존 패턴 | Nitro WebView |
 | --- | --- |
 | `WebView` import | Named export인 `NitroWebView` |
-| 일반 이벤트 함수 | `callback(handler)`로 감싸기 |
-| React `ref`의 WebView 메서드 | `hybridRef={callback(...)}` |
+| 일반 이벤트 함수 | 다음 릴리스는 일반 함수, 0.2.1은 `callback(handler)` |
+| React `ref`의 WebView 메서드 | 다음 릴리스는 `hybridRef={handler}`, 0.2.1은 `hybridRef={callback(handler)}` |
 | `originWhitelist` prop | 탐색 콜백에 `createOriginWhitelistGuard` 적용 |
 | 동기 가로채기 가정 | 공개 `boolean \| Promise<boolean>`과 플랫폼별 대기 동작 |
 | 페이지의 `ReactNativeWebView.postMessage` | 같은 문자열 계약 |
 
 문서에 있는 prop만 구현합니다. react-native-webview의 모든 prop에 대응하는 기능이 있는 것은 아닙니다. [Props](../reference/props.md)와 [플랫폼 지원](../reference/platforms.md)을 확인하세요.
+
+## 일반 함수 콜백 (미출시) {#plain-callbacks-unreleased}
+
+이벤트 prop과 `hybridRef`에 일반 함수를 전달할 수 있습니다. 기존 `callback(fn)`과 비동기 탐색 핸들러도 계속 지원합니다. 핸들러를 제거하려면 `undefined`를 전달하세요. 컴포넌트가 네이티브 콜백 형식을 처리하며, 이벤트 payload와 탐색 대기 동작은 같습니다. 일반 React `ref`는 WebView 메서드가 아닌 host view를 제공합니다.
 
 ## 0.2.0에서 0.2.1로 전환 {#from-0-2-0-to-0-2-1}
 
@@ -85,7 +89,7 @@ Cookie URL 메서드에는 유효한 HTTP(S) URL이 필요합니다.
 
 ### 탐색 대기와 공개 콜백 {#navigation-timing-and-public-callbacks}
 
-공개 탐색 콜백은 `boolean | Promise<boolean>`을 받습니다. 컴포넌트 콜백은 계속 `callback(...)`으로 감싸세요.
+0.2.0과 0.2.1의 공개 탐색 콜백은 `boolean | Promise<boolean>`을 받으며, 컴포넌트 prop에서는 `callback(...)`으로 감싸야 합니다.
 컴포넌트가 내부 decision resolver로 결과를 전달하므로 네이티브 앱을 다시 빌드해야 합니다.
 콜백은 React props로 설정하세요. Hybrid ref에 직접 대입하면 bridge를 우회하므로 공개 타입에서 허용하지 않습니다.
 Android의 명목상 대기 예산은 250 ms이며 시간 초과·거부·중단 시 허용하는 fallback을 유지합니다.

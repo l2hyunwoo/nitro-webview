@@ -4,28 +4,28 @@
 
 ## 페이지 렌더링 {#render-a-page}
 
-WebView의 크기와 `source`를 지정합니다. 이벤트와 `hybridRef`의 콜백은 모두 `callback`으로 감쌉니다.
+WebView의 크기와 `source`를 지정합니다. 아래 예제는 다음 릴리스부터 지원하는 일반 함수를 사용합니다. 0.2.1에서는 이벤트와 `hybridRef` 콜백을 `callback`으로 감싸세요. 기존 wrapper도 계속 지원합니다.
 
 ```tsx
-import { NitroWebView, callback } from 'nitro-webview'
+import { NitroWebView } from 'nitro-webview'
 
 export default function Screen() {
   return (
     <NitroWebView
       style={{ flex: 1 }}
       source={{ uri: 'https://example.com' }}
-      onLoadEnd={callback(({ nativeEvent }) => {
+      onLoadEnd={({ nativeEvent }) => {
         console.log('Finished:', nativeEvent.url)
-      })}
-      onMessage={callback(({ nativeEvent }) => {
+      }}
+      onMessage={({ nativeEvent }) => {
         console.log('Page said:', nativeEvent.data)
-      })}
+      }}
     />
   )
 }
 ```
 
-일반 함수를 그대로 전달하면 Nitro 콜백 계약을 만족하지 않습니다. `onLoadEnd`는 실패한 로드에도 발생합니다. 성공 여부는 `onLoad`로 확인하세요.
+`onLoadEnd`는 실패한 로드에도 발생합니다. 성공 여부는 `onLoad`로 확인하세요.
 
 ## 페이지에서 메시지 보내기 {#send-a-page-message}
 
@@ -45,7 +45,7 @@ WebView의 명령형 메서드는 `hybridRef`에 있습니다. 일반 React `ref
 import { useRef } from 'react'
 import { Button, View } from 'react-native'
 import {
-  NitroWebView, callback,
+  NitroWebView,
   type NitroWebViewType,
 } from 'nitro-webview'
 
@@ -57,7 +57,7 @@ export default function Browser() {
       <NitroWebView
         style={{ flex: 1 }}
         source={{ uri: 'https://example.com' }}
-        hybridRef={callback((view) => { webview.current = view })}
+        hybridRef={(view) => { webview.current = view }}
       />
     </View>
   )
