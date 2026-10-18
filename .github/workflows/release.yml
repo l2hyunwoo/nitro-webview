@@ -3,10 +3,6 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Semver version to release (e.g. 0.1.0). Must match the version currently in package.json or a valid npm version keyword (patch, minor, major).'
-        required: true
-        type: string
       dry_run:
         description: 'When true, run the full pipeline without pushing the commit, creating a tag, or publishing to npm.'
         required: false
@@ -242,45 +238,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump package.json version and commit
+      - name: Apply changesets and commit release version
         id: bump
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
-          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
 
           CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "Current package.json version: ${CURRENT_VERSION}"
-          echo "Requested release version: ${INPUT_VERSION}"
-
-          # If the requested version already matches package.json, treat the bump
-          # step as a no-op but still surface the resolved version downstream.
-          if [ "${CURRENT_VERSION}" = "${INPUT_VERSION}" ]; then
-            echo "package.json already at ${INPUT_VERSION}; skipping version bump."
-            RESOLVED_VERSION="${CURRENT_VERSION}"
-          else
-            # `npm version` accepts an explicit semver or a keyword (patch/minor/major).
-            # --no-git-tag-version: tagging happens in a later job.
-            npm version "${INPUT_VERSION}" --no-git-tag-version --allow-same-version
-            RESOLVED_VERSION=$(node -p "require('./package.json').version")
-            echo "Bumped package.json to ${RESOLVED_VERSION}"
+          yarn version-packages
+          RESOLVED_VERSION=$(node -p "require('./package.json').version")
+          if [ "${CURRENT_VERSION}" = "${RESOLVED_VERSION}" ]; then
+            echo "No pending changesets update nitro-webview. Add a changeset before releasing."
+            exit 1
           fi
-
+          yarn install --immutable
+          git add package.json CHANGELOG.md .changeset
+          git commit -m "chore(release): v${RESOLVED_VERSION}"
           echo "version=${RESOLVED_VERSION}" >> "$GITHUB_OUTPUT"
-
-          # Stage and commit only if package.json actually changed.
-          if git diff --quiet -- package.json; then
-            echo "No package.json changes to commit."
-            COMMIT_SHA=$(git rev-parse HEAD)
-          else
-            git add package.json
-            git commit -m "chore(release): v${RESOLVED_VERSION}"
-            COMMIT_SHA=$(git rev-parse HEAD)
-            echo "Created release commit ${COMMIT_SHA}"
-          fi
-
-          echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Verify generated bindings at the version commit
         run: yarn check:codegen
@@ -452,7 +426,7 @@ jobs:
           SOURCE_SHA: ${{ needs.create-version-commit.outputs.commit_sha }}
         run: node scripts/release-candidate.mjs restore "$CANDIDATE_DIR" "$SOURCE_SHA"
 
-      - name: Verify package version matches release input
+      - name: Verify package version matches changeset version
         env:
           RESOLVED_VERSION: ${{ needs.create-version-commit.outputs.version }}
         run: |
@@ -558,14 +532,12 @@ jobs:
           {
             echo "## What's Changed"
             echo ""
-            if [ -n "${PREVIOUS_TAG}" ]; then
-              git log "${PREVIOUS_TAG}..HEAD" \
-                --pretty=format:"- %s" \
-                --no-merges \
-                --max-count=50 || echo "- (no commits found)"
-            else
-              git log HEAD --pretty=format:"- %s" --no-merges --max-count=50
-            fi
+            awk -v version="${RESOLVED_VERSION}" '
+              $0 == "## " version { found = 1; next }
+              found && /^## / { exit }
+              found { print }
+              END { if (!found) exit 1 }
+            ' CHANGELOG.md
             echo ""
             echo ""
             echo "## Installation"

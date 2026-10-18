@@ -85,6 +85,10 @@ Version 0.2.2 accepts plain functions for event props and `hybridRef` and wraps 
 
 See the [example app and native regression checks](example/README.md) and [documentation site workflow](website/README.md).
 
+## Contributing
+
+For changes that need a release, include a [changeset](.changeset/README.md) with your pull request.
+
 ## License
 
 [MIT](LICENSE).
